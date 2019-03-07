@@ -1,6 +1,4 @@
-﻿using Implem.DefinitionAccessor;
-using Implem.Libraries.DataSources.SqlServer;
-using Implem.Libraries.Utilities;
+﻿using Implem.Libraries.Utilities;
 namespace Implem.CodeDefiner.Functions.SqlServer
 {
     internal class Configurator
@@ -13,10 +11,6 @@ namespace Implem.CodeDefiner.Functions.SqlServer
                 LoginsConfigurator.Configure();
             }
             TablesConfigurator.Configure();
-            if (Parameters.Service.ImportData)
-            {
-                DataImporter.Import();
-            }
         }
     }
 }

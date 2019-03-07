@@ -113,7 +113,7 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp.Parts
             if (codeDefinition.PkHistory && columnDefinition.PkHistory == 0) return true;
             if (codeDefinition.GridColumn && columnDefinition.GridColumn == 0) return true;
             if (codeDefinition.FilterColumn && columnDefinition.FilterColumn == 0) return true;
-            if (codeDefinition.EditorColumn && !columnDefinition.EditorColumn) return true;
+            if (codeDefinition.EditorColumn && columnDefinition.EditorColumn == 0) return true;
             if (codeDefinition.TitleColumn && columnDefinition.TitleColumn == 0) return true;
             if (codeDefinition.UserColumn && !columnDefinition.UserColumn) return true;
             if (codeDefinition.NotUserColumn && columnDefinition.UserColumn) return true;
@@ -200,9 +200,6 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp.Parts
                     case "ColumnName":
                         code = code.Replace(
                             "#ColumnName#", columnDefinition.ColumnName.PublicVariableName());
-                        break;
-                    case "ColumnCaption":
-                        code = code.Replace("#ColumnCaption#", columnDefinition.ColumnLabel);
                         break;
                     case "Type":
                         code = code.Replace("#Type#", Strings.CoalesceEmpty(
@@ -313,7 +310,14 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp.Parts
                     {
                         case ".ToJson()":
                         case ".RecordingJson()":
-                            return "\"[]\"";
+                            switch (columnDefinition.TypeCs)
+                            {
+                                case "List<long>":
+                                case "Attachments":
+                                    return "\"[]\"";
+                                default:
+                                    return "\"{}\"";
+                            }
                         default:
                             return DefaultData(columnDefinition, "string.Empty", bracket: true);
                     }

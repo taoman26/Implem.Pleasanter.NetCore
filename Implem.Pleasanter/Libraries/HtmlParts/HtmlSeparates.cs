@@ -2,6 +2,7 @@
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Extensions;
 using Implem.Pleasanter.Libraries.Html;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Collections.Generic;
@@ -9,16 +10,17 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlSeparates
     {
-        public static HtmlBuilder SeparateSettingsDialog(this HtmlBuilder hb)
+        public static HtmlBuilder SeparateSettingsDialog(this HtmlBuilder hb, IContext context)
         {
             return hb.Div(attributes: new HtmlAttributes()
                 .Id("SeparateSettingsDialog")
                 .Class("dialog")
-                .Title(Displays.SeparateSettings()));
+                .Title(Displays.SeparateSettings(context: context)));
         }
 
         public static HtmlBuilder SeparateSettings(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             string title,
             decimal workValue,
@@ -26,13 +28,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         {
             var max = Parameters.General.SeparateMax;
             var min = Parameters.General.SeparateMin;
-            var column = ss.GetColumn("WorkValue");
+            var column = ss.GetColumn(context: context, columnName: "WorkValue");
             return hb.Div(id: "SeparateSettings", action: () => hb
                 .FieldSpinner(
                     controlId: "SeparateNumber",
                     fieldCss: "field-auto",
                     controlCss: " always-send",
-                    labelText: Displays.SeparateNumber(),
+                    labelText: Displays.SeparateNumber(context: context),
                     value: min,
                     min: min,
                     max: max,
@@ -41,26 +43,27 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     controlId: "SeparateCopyWithComments",
                     fieldCss: "field-auto-thin",
                     controlCss: " always-send",
-                    labelText: Displays.CopyWithComments(),
+                    labelText: Displays.CopyWithComments(context: context),
                     _checked: true)
                 .Div(css: "item both", action: () => hb
                     .FieldTextBox(
                         controlId: "SeparateTitle_1",
                         fieldCss: " w500",
                         controlCss: " always-send",
-                        labelText: Displays.Title() + "-1",
+                        labelText: Displays.Title(context: context) + "-1",
                         text: title + "-1")
                     .FieldText(
                         controlId: "SourceWorkValue",
                         fieldCss: "field-auto-thin",
                         controlCss: " w100",
-                        labelText: Displays.WorkValue() + "-1",
-                        text: workValue.ToControl(ss, column),
+                        labelText: Displays.WorkValue(context: context) + "-1",
+                        text: workValue.ToControl(context: context, ss: ss, column: column),
                         dataValue: workValue.ToString())
                     .Hidden(
                         controlId: "WorkValueUnit",
                         value: column.Unit))
                 .Items(
+                    context: context,
                     title: title,
                     workValue: workValue,
                     unit: column.Unit,
@@ -70,7 +73,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 .Div(css: "command-center", action: () => hb
                     .Button(
                         controlId: "Separate",
-                        text: Displays.Separate(),
+                        text: Displays.Separate(context: context),
                         controlCss: "button-icon",
                         onClick: "$p.send($(this));",
                         icon: "ui-icon-extlink",
@@ -78,7 +81,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         method: "put",
                         confirm: "ConfirmSeparate")
                     .Button(
-                        text: Displays.Cancel(),
+                        text: Displays.Cancel(context: context),
                         controlCss: "button-icon",
                         onClick: "$p.closeDialog($(this));",
                         icon: "ui-icon-cancel")));
@@ -86,6 +89,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Items(
             this HtmlBuilder hb,
+            IContext context,
             string title,
             decimal workValue,
             string unit,
@@ -95,6 +99,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             for (var number = min; number <= max; number++)
             {
                 hb.Item(
+                    context: context,
                     title: title,
                     workValue: workValue,
                     unit: unit,
@@ -106,6 +111,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Item(
             this HtmlBuilder hb,
+            IContext context,
             string title,
             decimal workValue,
             string unit,
@@ -121,13 +127,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         controlId: "SeparateTitle_" + number,
                         fieldCss: " both w500",
                         controlCss: " always-send",
-                        labelText: Displays.Title() + "-" + number,
+                        labelText: Displays.Title(context: context) + "-" + number,
                         text: title + "-" + number)
                     .FieldSpinner(
                         controlId: "SeparateWorkValue_" + number,
                         fieldCss: "field-auto-thin",
                         controlCss: " always-send",
-                        labelText: Displays.WorkValue() + "-" + number,
+                        labelText: Displays.WorkValue(context: context) + "-" + number,
                         value: 0,
                         min: 0,
                         max: workValue,

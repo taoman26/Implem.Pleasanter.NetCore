@@ -1,4 +1,5 @@
 ﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
@@ -40,6 +41,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public TimeSeries(
+            IContext context,
             SiteSettings ss,
             Column groupBy,
             string aggregationType,
@@ -50,13 +52,17 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             AggregationType = aggregationType;
             dataRows.ForEach(dataRow =>
                 Add(new TimeSeriesElement(
-                    groupBy?.UserColumn == true,
-                    dataRow["Id"].ToLong(),
-                    dataRow["Ver"].ToInt(),
-                    dataRow["UpdatedTime"].ToDateTime().ToLocal().Date,
-                    dataRow[groupBy.ColumnName].ToString(),
-                    dataRow[value.ColumnName].ToDecimal(),
-                    dataRow["IsHistory"].ToBool())));
+                    context: context,
+                    userColumn: groupBy?.UserColumn == true,
+                    id: dataRow["Id"].ToLong(),
+                    ver: dataRow["Ver"].ToInt(),
+                    updatedTime: dataRow["UpdatedTime"]
+                        .ToDateTime()
+                        .ToLocal(context: context)
+                        .Date,
+                    index: dataRow[groupBy.ColumnName].ToString(),
+                    value: dataRow[value.ColumnName].ToDecimal(),
+                    isHistory: dataRow["IsHistory"].ToBool())));
             if (this.Any())
             {
                 MinTime = this.Select(o => o.UpdatedTime).Min().AddDays(-1);
@@ -77,7 +83,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             }
         }
 
-        public string Json(Column groupBy, Column value)
+        public string Json(IContext context, Column groupBy, Column value)
         {
             var elements = new List<Element>();
             var choices = groupBy
@@ -88,12 +94,15 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                 .ToDictionary(o => o.Key, o => o.Value);
             var valueColumn = value;
             var choiceKeys = choices.Keys.ToList();
-            var indexes = choices.Select((o, i) => new Index
+            var indexes = choices.Select((index, id) => new Index
             {
-                Id = i,
-                Key = o.Key,
-                Text = IndexText(o, valueColumn),
-                Style = o.Value.Style
+                Id = id,
+                Key = index.Key,
+                Text = IndexText(
+                    context: context,
+                    index: index,
+                    valueColumn: valueColumn),
+                Style = index.Value.Style
             }).ToList();
             if (this.Any())
             {
@@ -113,7 +122,9 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                         elements.Add(new Element()
                         {
                             Index = choiceKeys.IndexOf(index),
-                            Day = currentTime.ToLocal(Displays.YmdFormat()),
+                            Day = currentTime.ToLocal(
+                                context: context,
+                                format: Displays.YmdFormat(context: context)),
                             Value = data,
                             Y = y
                         });
@@ -130,13 +141,17 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             }.ToJson();
         }
 
-        private string IndexText(KeyValuePair<string, ControlData> index, Column valueColumn)
+        private string IndexText(
+            IContext context, KeyValuePair<string, ControlData> index, Column valueColumn)
         {
             var data = GetData(Targets(MaxTime).Where(p => p.Index == index.Key));
             return "{0}: {1}".Params(
                 index.Value.Text,
                 AggregationType != "Count"
-                    ? valueColumn.Display(data, unit: true)
+                    ? valueColumn.Display(
+                        context: context,
+                        value: data,
+                        unit: true)
                     : data.ToString());
         }
 

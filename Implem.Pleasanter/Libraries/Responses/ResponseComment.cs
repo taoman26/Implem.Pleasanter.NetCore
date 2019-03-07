@@ -1,4 +1,5 @@
-﻿using Implem.Pleasanter.Libraries.DataTypes;
+﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.DataTypes;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
 using Implem.Pleasanter.Libraries.Models;
@@ -11,17 +12,19 @@ namespace Implem.Pleasanter.Libraries.Responses
     {
         public static ResponseCollection PrependComment(
             this ResponseCollection res,
+            IContext context,
             SiteSettings ss,
             Column column,
             Comments comments,
             Versions.VerTypes verType)
         {
-            return Forms.Data("Comments").Trim() != string.Empty
+            return context.Forms.Data("Comments").Trim() != string.Empty
                 ? res
                     .Val("#Comments", string.Empty)
                     .Focus("#Comments")
                     .Prepend("#CommentList", new HtmlBuilder()
                         .Comment(
+                            context: context,
                             ss: ss,
                             column: column,
                             comment: comments[0],
@@ -31,17 +34,19 @@ namespace Implem.Pleasanter.Libraries.Responses
 
         public static ResponseCollection Comment(
             this ResponseCollection res,
+            IContext context,
             SiteSettings ss,
             Column column,
             Comments comments,
             int deleteCommentId)
         {
             comments
-                .Where(o => Forms.Exists("Comment" + o.CommentId))
+                .Where(o => context.Forms.Exists("Comment" + o.CommentId))
                 .ForEach(comment =>
                     res.ReplaceAll(
                         Selector(comment.CommentId),
                         new HtmlBuilder().Comment(
+                            context: context,
                             ss: ss,
                             column: column,
                             comment: comment,

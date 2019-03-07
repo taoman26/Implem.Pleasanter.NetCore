@@ -38,42 +38,44 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public string SavedSubset = string.Empty;
         [NonSerialized] public string SavedSiteTitle = string.Empty;
 
-        public bool DestinationId_Updated(Column column = null)
+        public bool DestinationId_Updated(IContext context, Column column = null)
         {
             return DestinationId != SavedDestinationId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != DestinationId);
+                column.GetDefaultInput(context: context).ToLong() != DestinationId);
         }
 
-        public bool SourceId_Updated(Column column = null)
+        public bool SourceId_Updated(IContext context, Column column = null)
         {
             return SourceId != SavedSourceId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != SourceId);
+                column.GetDefaultInput(context: context).ToLong() != SourceId);
         }
 
-        public LinkModel(DataRow dataRow, string tableAlias = null)
+        public LinkModel(IContext context, DataRow dataRow, string tableAlias = null)
         {
-            OnConstructing();
-            Set(dataRow, tableAlias);
-            OnConstructed();
+            OnConstructing(context: context);
+            Context = context;
+            if (dataRow != null) Set(context, dataRow, tableAlias);
+            OnConstructed(context: context);
         }
 
-        private void OnConstructing()
-        {
-        }
-
-        private void OnConstructed()
+        private void OnConstructing(IContext context)
         {
         }
 
-        public void ClearSessions()
+        private void OnConstructed(IContext context)
+        {
+        }
+
+        public void ClearSessions(IContext context)
         {
         }
 
         public LinkModel Get(
+            IContext context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -83,33 +85,53 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0)
         {
-            Set(Rds.ExecuteTable(statements: Rds.SelectLinks(
-                tableType: tableType,
-                column: column ?? Rds.LinksDefaultColumns(),
-                join: join ??  Rds.LinksJoinDefault(),
-                where: where ?? Rds.LinksWhereDefault(this),
-                orderBy: orderBy,
-                param: param,
-                distinct: distinct,
-                top: top)));
+            Set(context, Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectLinks(
+                    tableType: tableType,
+                    column: column ?? Rds.LinksDefaultColumns(),
+                    join: join ??  Rds.LinksJoinDefault(),
+                    where: where ?? Rds.LinksWhereDefault(this),
+                    orderBy: orderBy,
+                    param: param,
+                    distinct: distinct,
+                    top: top)));
             return this;
         }
 
-        private void SetBySession()
+        public void SetByModel(LinkModel linkModel)
+        {
+            DestinationId = linkModel.DestinationId;
+            SourceId = linkModel.SourceId;
+            ReferenceType = linkModel.ReferenceType;
+            SiteId = linkModel.SiteId;
+            Title = linkModel.Title;
+            Subset = linkModel.Subset;
+            SiteTitle = linkModel.SiteTitle;
+            Comments = linkModel.Comments;
+            Creator = linkModel.Creator;
+            Updator = linkModel.Updator;
+            CreatedTime = linkModel.CreatedTime;
+            UpdatedTime = linkModel.UpdatedTime;
+            VerUp = linkModel.VerUp;
+            Comments = linkModel.Comments;
+        }
+
+        private void SetBySession(IContext context)
         {
         }
 
-        private void Set(DataTable dataTable)
+        private void Set(IContext context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
-                case 1: Set(dataTable.Rows[0]); break;
+                case 1: Set(context, dataTable.Rows[0]); break;
                 case 0: AccessStatus = Databases.AccessStatuses.NotFound; break;
                 default: AccessStatus = Databases.AccessStatuses.Overlap; break;
             }
         }
 
-        private void Set(DataRow dataRow, string tableAlias = null)
+        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -162,19 +184,19 @@ namespace Implem.Pleasanter.Models
                             SavedComments = Comments.ToJson();
                             break;
                         case "Creator":
-                            Creator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Creator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedCreator = Creator.Id;
                             break;
                         case "Updator":
-                            Updator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Updator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedUpdator = Updator.Id;
                             break;
                         case "CreatedTime":
-                            CreatedTime = new Time(dataRow, column.ColumnName);
+                            CreatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedCreatedTime = CreatedTime.Value;
                             break;
                         case "UpdatedTime":
-                            UpdatedTime = new Time(dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
+                            UpdatedTime = new Time(context, dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
                         case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
@@ -183,15 +205,15 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public bool Updated()
+        public bool Updated(IContext context)
         {
             return
-                DestinationId_Updated() ||
-                SourceId_Updated() ||
-                Ver_Updated() ||
-                Comments_Updated() ||
-                Creator_Updated() ||
-                Updator_Updated();
+                DestinationId_Updated(context: context) ||
+                SourceId_Updated(context: context) ||
+                Ver_Updated(context: context) ||
+                Comments_Updated(context: context) ||
+                Creator_Updated(context: context) ||
+                Updator_Updated(context: context);
         }
     }
 }

@@ -64,7 +64,12 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp
             var placeholder = Placeholder(code, "#BySession#");
             return columnDefinition.BySession != string.Empty
                 ? code.Replace(placeholder, columnDefinition.BySession)
-                : code.ConvertType("#BySession#", columnDefinition);
+                : columnDefinition.TypeCs.IsNullOrEmpty()
+                    ? code.Replace(placeholder, Variable(placeholder)
+                        + columnDefinition.TypeName.CastType())
+                    : code.Replace(placeholder, Variable(placeholder)
+                        + ".Deserialize<{0}>() ?? new {0}()"
+                            .Params(columnDefinition.TypeCs));
         }
 
         private static string TypeCs(
@@ -113,15 +118,19 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp
                         CreateObjectByDataRow(columnDefinition, "column.ColumnName"));
                 default:
                     return code.Replace(
-                        placeholder, AsPrefix(columnDefinition, codeVariable));
+                        placeholder,
+                        AsPrefix(columnDefinition, codeVariable));
             }
         }
 
         private static string CreateObjectByForm(
             ColumnDefinition columnDefinition, string additionalArguments = "")
         {
-            return "new {0}(Forms.Data(controlId){1}{2})".Params(
+            return "new {0}({1}context.Forms.Data(controlId){2}{3})".Params(
                 columnDefinition.TypeCs,
+                columnDefinition.TypeCs == "Time"
+                    ? "context, "
+                    : string.Empty,
                 columnDefinition.TypeName.CastType(),
                 additionalArguments);
         }
@@ -129,8 +138,11 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp
         private static string CreateObjectByApi(
             ColumnDefinition columnDefinition, string additionalArguments = "")
         {
-            return "new {0}(data.{1}{2}{3})".Params(
+            return "new {0}({1}data.{2}{3}{4})".Params(
                 columnDefinition.TypeCs,
+                columnDefinition.TypeCs == "Time"
+                    ? "context, "
+                    : string.Empty,
                 columnDefinition.ColumnName,
                 columnDefinition.TypeName.CastType(),
                 additionalArguments);
@@ -139,7 +151,12 @@ namespace Implem.CodeDefiner.Functions.AspNetMvc.CSharp
         private static string CreateObjectByDataRow(
             ColumnDefinition columnDefinition, string param)
         {
-            return "new {0}(dataRow, {1})".Params(columnDefinition.TypeCs, param);
+            return "new {0}({1}dataRow, {2})".Params(
+                columnDefinition.TypeCs,
+                columnDefinition.TypeCs == "Time"
+                    ? "context, "
+                    : string.Empty,
+                param);
         }
 
         internal static string CastType(this string type)

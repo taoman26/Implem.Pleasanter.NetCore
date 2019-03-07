@@ -1,31 +1,24 @@
 ﻿using Implem.DefinitionAccessor;
-using Implem.Pleasanter.Filters;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class ReminderSchedulesController : Controller
+    public class ReminderSchedulesController
     {
-        [AllowAnonymous]
-        [HttpGet]
-        public string Remind()
+        public string Remind(IContext context)
         {
             if (Parameters.Reminder.Enabled)
             {
-                if (QueryStrings.Bool("NoLog"))
+                if (context.QueryStrings.Bool("NoLog"))
                 {
-                    return ReminderScheduleUtilities.Remind();
+                    return ReminderScheduleUtilities.Remind(context: context);
                 }
                 else
                 {
-                    var log = new SysLogModel();
-                    var json = ReminderScheduleUtilities.Remind();
-                    log.Finish(json.Length);
+                    var log = new SysLogModel(context: context);
+                    var json = ReminderScheduleUtilities.Remind(context: context);
+                    log.Finish(context: context, responseSize: json.Length);
                     return json;
                 }
             }

@@ -1,5 +1,7 @@
-﻿using Implem.Pleasanter.Libraries.Html;
+﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Models;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Security;
 using Implem.Pleasanter.Libraries.Settings;
@@ -11,17 +13,18 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Notes(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             Versions.VerTypes verType)
         {
             var notes = new Dictionary<string, string>();
-            if (!ss.CanUpdate())
+            if (!context.Publish && !context.CanUpdate(ss: ss))
             {
-                notes.Add("readonly", Displays.CanNotUpdate());
+                notes.Add("readonly", Displays.CanNotUpdate(context: context));
             }
-            if (verType == Versions.VerTypes.History)
+            if (!context.Publish && verType == Versions.VerTypes.History)
             {
-                notes.Add("history", Displays.ReadOnlyBecausePreviousVer());
+                notes.Add("history", Displays.ReadOnlyBecausePreviousVer(context: context));
             }
             if (notes.Any())
             {

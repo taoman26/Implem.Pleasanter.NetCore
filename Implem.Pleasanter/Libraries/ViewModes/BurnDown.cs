@@ -1,6 +1,7 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.DataTypes;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
@@ -25,7 +26,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             public decimal? Earned;
         }
 
-        public BurnDown(SiteSettings ss, IEnumerable<DataRow> dataRows)
+        public BurnDown(IContext context, SiteSettings ss, IEnumerable<DataRow> dataRows)
         {
             dataRows.ForEach(dataRow =>
             {
@@ -34,21 +35,25 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                 var target = this.Where(o => o.Id == id && o.Ver < ver).LastOrDefault();
                 var workValue = dataRow.Decimal("WorkValue");
                 var progressRate = dataRow.Decimal("ProgressRate");
-                var progressRateAddtions = ProgressRateAddtions(target, progressRate);
+                var progressRateAdditions = ProgressRateAdditions(target, progressRate);
                 Add(new BurnDownElement(
-                    id,
-                    ver,
-                    new Title(ss, dataRow).DisplayValue,
-                    workValue,
-                    dataRow.DateTime("StartTime"),
-                    dataRow.DateTime("CompletionTime"),
-                    progressRate,
-                    progressRateAddtions,
-                    dataRow.Int("Status"),
-                    dataRow.Int("Updator"),
-                    EarnedValueAddtions(workValue, progressRateAddtions),
-                    dataRow.DateTime("CreatedTime"),
-                    dataRow.DateTime("UpdatedTime")));
+                    context: context,
+                    id: id,
+                    ver: ver,
+                    title: new Title(
+                        context: context,
+                        ss: ss,
+                        dataRow: dataRow).DisplayValue,
+                    workValue: workValue,
+                    startTime: dataRow.DateTime("StartTime"),
+                    completionTime: dataRow.DateTime("CompletionTime"),
+                    progressRate: progressRate,
+                    progressRateAdditions: progressRateAdditions,
+                    status: dataRow.Int("Status"),
+                    updatorId: dataRow.Int("Updator"),
+                    earnedValueAddtions: EarnedValueAddtions(workValue, progressRateAdditions),
+                    createdTime: dataRow.DateTime("CreatedTime"),
+                    updatedTime: dataRow.DateTime("UpdatedTime")));
             });
             if (this.Any())
             {
@@ -60,7 +65,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             }
         }
 
-        private decimal ProgressRateAddtions(BurnDownElement target, decimal progressRate)
+        private decimal ProgressRateAdditions(BurnDownElement target, decimal progressRate)
         {
             return target != null
                 ? progressRate - target.ProgressRate
@@ -72,12 +77,12 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return workValue * progressRateAddtions / 100;
         }
 
-        public string Json()
+        public string Json(IContext context)
         {
             var elements = new List<Element>();
             if (this.Any())
             {
-                var now = DateTime.Now.ToLocal().Date;
+                var now = DateTime.Now.ToLocal(context: context).Date;
                 for (var d = 0; d <= Days; d++)
                 {
                     var currentTime = MinTime.AddDays(d);
@@ -85,7 +90,9 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                     var totalValue = targets.Select(o => o.WorkValue).Sum();
                     elements.Add(new Element()
                     {
-                        Day = currentTime.ToLocal(Displays.YmdFormat()),
+                        Day = currentTime.ToLocal(
+                            context: context,
+                            format: Displays.YmdFormat(context: context)),
                         Total = TotalValueSummary(currentTime, now, totalValue),
                         Planned = PlannedValueSummary(currentTime, targets, totalValue),
                         Earned = EarnedValueSummary(currentTime, now, targets, totalValue)

@@ -1,33 +1,95 @@
-﻿using AspNetCoreCurrentRequestContext;
-using Implem.Pleasanter.Libraries.Server;
+﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Settings;
-using System.Web;
+using Implem.Pleasanter.Models;
+using System.Linq;
 namespace Implem.Pleasanter.Libraries.Requests
 {
     public static class Views
     {
-        public static View GetBySession(SiteSettings ss)
+        public static View GetBySession(IContext context, SiteSettings ss, bool setSession = true)
         {
-            var key = "View" + (ss.SiteId == 0
-                ? Pages.Key()
-                : ss.SiteId.ToString());
-            if (Forms.ControlId() == "ViewSelector")
+            var view = !context.Ajax
+                ? context.QueryStrings.Data("View")?.Deserialize<View>()
+                : null;
+            if (view != null)
             {
-                var view = ss.Views?.Get(Forms.Int("ViewSelector")) ?? new View(ss);
-                Sessions.Set(key, view);
+                SetSession(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    setSession: setSession);
                 return view;
             }
-            else if (Sessions.Get<View>(key) != null)
+            if (context.Forms.ControlId() == "ViewSelector")
             {
-                var view = Sessions.Get<View>(key);
-                view.SetByForm(ss);
+                view = ss.Views?.Get(context.Forms.Int("ViewSelector"))
+                    ?? new View(context: context, ss: ss);
+                SetSession(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    setSession: setSession);
                 return view;
             }
-            else
+            view = context.SessionData.Get("View")?.Deserialize<View>()
+                ?? ss.Views?.Get(ss.GridView)
+                ?? new View();
+            view.SetByForm(
+                context: context,
+                ss: ss);
+            SetSession(
+                context: context,
+                ss: ss,
+                view: view,
+                setSession: setSession);
+            return view;
+        }
+
+        public static View GetBySession(
+            IContext context,
+            SiteSettings ss,
+            string dataTableName,
+            bool setSession = false)
+        {
+            var key = "View_" + dataTableName;
+            var view = context.SessionData.Get(key)?.Deserialize<View>();
+            if (view == null)
             {
-                var view = ss.Views?.Get(ss.GridView) ?? new View(ss);
-                Sessions.Set(key, view);
-                return view;
+                view = ss.Views.Get(ss.LinkTableView);
+                if (view != null && view.GridColumns?.Any() != true)
+                {
+                    view.GridColumns = ss.GridColumns;
+                }
+            }
+            if (view == null)
+            {
+                view = new View();
+            }
+            if (setSession)
+            {
+                view.SetByForm(
+                    context: context,
+                    ss: ss);
+                SetSession(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    setSession: true,
+                    key: key);
+            }
+            return view;
+        }
+
+        private static void SetSession(
+            IContext context, SiteSettings ss, View view, bool setSession, string key = "View")
+        {
+            if (setSession)
+            {
+                SessionUtilities.Set(
+                    context: context,
+                    ss: ss,
+                    key: key,
+                    view: view);
             }
         }
     }

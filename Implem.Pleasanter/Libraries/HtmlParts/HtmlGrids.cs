@@ -1,20 +1,23 @@
 ﻿using Implem.Libraries.DataSources.SqlServer;
+using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Html;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Collections.Generic;
-using System.Linq;
 namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlGrids
     {
         public static HtmlBuilder GridHeader(
             this HtmlBuilder hb,
+            IContext context,
             IEnumerable<Column> columns,
             View view = null,
             bool sort = true,
             bool checkAll = false,
-            bool checkRow = true)
+            bool checkRow = true,
+            string action = "GridRows")
         {
             return hb.Tr(
                 css: "ui-widget-header",
@@ -34,14 +37,16 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             hb.Th(css: "sortable", action: () => hb
                                 .Div(
                                     attributes: new HtmlAttributes()
-                                        .Id("ViewSorters__" + column.ColumnName)
+                                        .DataId("ViewSorters__" + column.ColumnName)
                                         .Add("data-order-type", OrderBy(
                                             view, column.ColumnName))
-                                        .DataAction("GridRows")
+                                        .DataAction(action)
                                         .DataMethod("post"),
                                     action: () => hb
                                         .Span(action: () => hb
-                                            .Text(text: Displays.Get(column.GridLabelText)))
+                                            .Text(text: Displays.Get(
+                                                context: context,
+                                                id: column.GridLabelText)))
                                         .SortIcon(
                                             view: view,
                                             key: column.ColumnName)));
@@ -49,7 +54,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         else
                         {
                             hb.Th(action: () => hb
-                                .Text(text: Displays.Get(column.GridLabelText)));
+                                .Text(text: Displays.Get(
+                                    context: context,
+                                    id: column.GridLabelText)));
                         }
                     });
                 });

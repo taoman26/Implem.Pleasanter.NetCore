@@ -2,59 +2,90 @@
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
-using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
+using Implem.Pleasanter.Models;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
 namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlViewFilters
     {
-        public static HtmlBuilder ViewFilters(this HtmlBuilder hb, SiteSettings ss, View view)
+        public static HtmlBuilder ViewFilters(
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
-            return !Reduced(ss.SiteId)
-                ? hb.Div(
-                    id: "ViewFilters",
-                    action: () => hb
-                        .DisplayControl(
-                            id: "ReduceViewFilters",
-                            icon: "ui-icon-close")
-                        .Reset()
-                        .Incomplete(ss: ss, view: view)
-                        .Own(ss: ss, view: view)
-                        .NearCompletionTime(ss: ss, view: view)
-                        .Delay(ss: ss, view: view)
-                        .Limit(ss: ss, view: view)
-                        .Columns(ss: ss, view: view)
-                        .Search(view: view))
-                : hb.Div(
-                    id: "ViewFilters",
-                    css: "reduced",
-                    action: () => hb
-                        .DisplayControl(
-                            id: "ExpandViewFilters",
-                            icon: "ui-icon-folder-open"));
+            return ss.ReferenceType != "Sites"
+                ? !Reduced(context: context, siteId: ss.SiteId)
+                    ? hb.Div(
+                        id: "ViewFilters",
+                        action: () => hb
+                            .DisplayControl(
+                                context: context,
+                                id: "ReduceViewFilters",
+                                icon: "ui-icon-close")
+                            .Reset(context: context)
+                            .Incomplete(
+                                context: context,
+                                ss: ss, 
+                                view: view)
+                            .Own(
+                                context: context,
+                                ss: ss,
+                                view: view)
+                            .NearCompletionTime(
+                                context: context,
+                                ss: ss,
+                                view: view)
+                            .Delay(
+                                context: context,
+                                ss: ss,
+                                view: view)
+                            .Limit(
+                                context: context,
+                                ss: ss,
+                                view: view)
+                            .Columns(
+                                context: context,
+                                ss: ss,
+                                view: view)
+                            .Search(
+                                context: context,
+                                view: view))
+                    : hb.Div(
+                        id: "ViewFilters",
+                        css: "reduced",
+                        action: () => hb
+                            .DisplayControl(
+                                context: context,
+                                id: "ExpandViewFilters",
+                                icon: "ui-icon-folder-open"))
+                : hb;
         }
 
-        private static bool Reduced(long? siteId)
+        private static bool Reduced(IContext context, long? siteId)
         {
-            return false;
-            //var key = "ReduceViewFilters_" + (siteId != null
-            //    ? Pages.Key()
-            //    : siteId.ToString());
-            //if (Forms.ControlId() == "ReduceViewFilters")
-            //{
-            //    HttpContext.Current.Session[key] = true;
-            //}
-            //else if (Forms.ControlId() == "ExpandViewFilters")
-            //{
-            //    HttpContext.Current.Session.Remove(key);
-            //}
-            //return HttpContext.Current.Session[key].ToBool();
+            var key = "ReduceViewFilters";
+            if (context.Forms.ControlId() == key)
+            {
+                SessionUtilities.Set(
+                    context: context,
+                    key: key,
+                    value: "1",
+                    page: true);
+            }
+            else if (context.Forms.ControlId() == "ExpandViewFilters")
+            {
+                SessionUtilities.Remove(
+                    context: context,
+                    key: key,
+                    page: true);
+            }
+            return SessionUtilities.Bool(
+                context: context,
+                key: key);
         }
 
-        private static HtmlBuilder DisplayControl(this HtmlBuilder hb, string id, string icon)
+        private static HtmlBuilder DisplayControl(
+            this HtmlBuilder hb, IContext context, string id, string icon)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -64,84 +95,92 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .DataMethod("post"),
                 action: () => hb
                     .Span(css: "ui-icon " + icon)
-                    .Text(text: Displays.Filters() + ":"));
+                    .Text(text: Displays.Filters(context: context) + ":"));
         }
 
-        private static HtmlBuilder Reset(this HtmlBuilder hb)
+        private static HtmlBuilder Reset(this HtmlBuilder hb, IContext context)
         {
             return hb.Button(
                 controlId: "ViewFilters_Reset",
-                text: Displays.Reset(),
+                text: Displays.Reset(context: context),
                 controlCss: "button-icon",
                 icon: "ui-icon-close",
                 method: "post");
         }
 
-        private static HtmlBuilder Incomplete(this HtmlBuilder hb, SiteSettings ss, View view)
+        private static HtmlBuilder Incomplete(
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
             return hb.FieldCheckBox(
                 controlId: "ViewFilters_Incomplete",
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback",
-                labelText: Displays.Incomplete(),
+                labelText: Displays.Incomplete(context: context),
                 _checked: view.Incomplete == true,
                 method: "post",
                 labelPositionIsRight: true,
-                _using: Visible(ss, "Status"));
+                _using: view.HasIncompleteColumns(context: context, ss: ss)
+                    && Visible(ss, "Status"));
         }
 
-        private static HtmlBuilder Own(this HtmlBuilder hb, SiteSettings ss, View view)
+        private static HtmlBuilder Own(
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
             return hb.FieldCheckBox(
                 controlId: "ViewFilters_Own",
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback",
-                labelText: Displays.Own(),
+                labelText: Displays.Own(context: context),
                 _checked: view.Own == true,
                 method: "post",
                 labelPositionIsRight: true,
-                _using: Visible(ss, "Manager") || Visible(ss, "Owner"));
+                _using: view.HasOwnColumns(context: context, ss: ss)
+                    && (Visible(ss, "Manager") || Visible(ss, "Owner")));
         }
 
         private static HtmlBuilder NearCompletionTime(
-            this HtmlBuilder hb, SiteSettings ss, View view)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
             return hb.FieldCheckBox(
                 controlId: "ViewFilters_NearCompletionTime",
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback",
-                labelText: Displays.NearCompletionTime(),
+                labelText: Displays.NearCompletionTime(context: context),
                 _checked: view.NearCompletionTime == true,
                 method: "post",
                 labelPositionIsRight: true,
-                _using: Visible(ss, "CompletionTime"));
+                _using: view.HasNearCompletionTimeColumns(context: context, ss: ss)
+                    && Visible(ss, "CompletionTime"));
         }
 
         private static HtmlBuilder Delay(
-            this HtmlBuilder hb, SiteSettings ss, View view)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
             return hb.FieldCheckBox(
                 controlId: "ViewFilters_Delay",
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback",
-                labelText: Displays.Delay(),
+                labelText: Displays.Delay(context: context),
                 _checked: view.Delay == true,
                 method: "post",
                 labelPositionIsRight: true,
-                _using: Visible(ss, "ProgressRate"));
+                _using: view.HasDelayColumns(context: context, ss: ss)
+                    && Visible(ss, "ProgressRate"));
         }
 
-        private static HtmlBuilder Limit(this HtmlBuilder hb, SiteSettings ss, View view)
+        private static HtmlBuilder Limit(
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
             return hb.FieldCheckBox(
                 controlId: "ViewFilters_Overdue",
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback",
-                labelText: Displays.Overdue(),
+                labelText: Displays.Overdue(context: context),
                 _checked: view.Overdue == true,
                 method: "post",
                 labelPositionIsRight: true,
-                _using: Visible(ss, "CompletionTime"));
+                _using: view.HasOverdueColumns(context: context, ss: ss)
+                    && Visible(ss, "CompletionTime"));
         }
 
         private static bool Visible(Column column)
@@ -156,33 +195,39 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 ss.EditorColumns.Contains(columnName);
         }
 
-        private static HtmlBuilder Columns(this HtmlBuilder hb, SiteSettings ss, View view)
+        private static HtmlBuilder Columns(
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
-            ss.GetFilterColumns(checkPermission: true).ForEach(column =>
+            ss.GetFilterColumns(context: context, checkPermission: true).ForEach(column =>
             {
                 switch (column.TypeName.CsTypeSummary())
                 {
                     case Types.CsBool:
                         hb.CheckBox(
+                            context: context,
                             ss: ss,
                             column: column,
                             view: view);
                         break;
                     case Types.CsNumeric:
                         hb.DropDown(
+                            context: context,
                             ss: ss,
                             column: column,
                             view: view,
                             optionCollection: column.HasChoices()
-                                ? column.EditChoices(addNotSet: true)
-                                : column.NumFilterOptions());
+                                ? column.EditChoices(
+                                    context: context,
+                                    addNotSet: true)
+                                : column.NumFilterOptions(context: context));
                         break;
                     case Types.CsDateTime:
                         hb.DropDown(
+                            context: context,
                             ss: ss,
                             column: column,
                             view: view,
-                            optionCollection: column.DateFilterOptions());
+                            optionCollection: column.DateFilterOptions(context: context));
                         break;
                     case Types.CsString:
                         if (column.HasChoices())
@@ -194,15 +239,19 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                     o.ColumnName == column.ColumnName) == true)
                             {
                                 currentSs.SetChoiceHash(
+                                    context: context,
                                     columnName: column?.ColumnName,
                                     selectedValues: view.ColumnFilter(column.ColumnName)
                                         .Deserialize<List<string>>());
                             }
                             hb.DropDown(
+                                context: context,
                                 ss: ss,
                                 column: column,
                                 view: view,
-                                optionCollection: column.EditChoices(addNotSet: true));
+                                optionCollection: column.EditChoices(
+                                    context: context,
+                                    addNotSet: true));
                         }
                         else if (Visible(column))
                         {
@@ -210,7 +259,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                 controlId: "ViewFilters__" + column.ColumnName,
                                 fieldCss: "field-auto-thin",
                                 controlCss: " auto-postback",
-                                labelText: Displays.Get(column.GridLabelText),
+                                labelText: Displays.Get(
+                                    context: context,
+                                    id: column.GridLabelText),
                                 labelTitle: ss.LabelTitle(column),
                                 text: view.ColumnFilter(column.ColumnName),
                                 method: "post");
@@ -224,7 +275,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder CheckBox(
-            this HtmlBuilder hb, SiteSettings ss, Column column, View view)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, Column column, View view)
         {
             var currentSs = column.SiteSettings;
             if (currentSs.GridColumns.Contains(column.ColumnName) ||
@@ -237,18 +288,24 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             controlId: "ViewFilters__" + column.ColumnName,
                             fieldCss: "field-auto-thin",
                             controlCss: " auto-postback",
-                            labelText: Displays.Get(column.GridLabelText),
+                            labelText: Displays.Get(
+                                context: context,
+                                id: column.GridLabelText),
                             labelTitle: ss.LabelTitle(column),
                             _checked: view.ColumnFilter(column.ColumnName).ToBool(),
                             method: "post");
                     case ColumnUtilities.CheckFilterControlTypes.OnAndOff:
                         return hb.FieldDropDown(
+                            context: context,
                             controlId: "ViewFilters__" + column.ColumnName,
                             fieldCss: "field-auto-thin",
                             controlCss: " auto-postback",
-                            labelText: Displays.Get(column.GridLabelText),
+                            labelText: Displays.Get(
+                                context: context,
+                                id: column.GridLabelText),
                             labelTitle: ss.LabelTitle(column),
-                            optionCollection: ColumnUtilities.CheckFilterTypeOptions(),
+                            optionCollection: ColumnUtilities
+                                .CheckFilterTypeOptions(context: context),
                             selectedValue: view.ColumnFilter(column.ColumnName),
                             addSelectedValue: false,
                             insertBlank: true,
@@ -260,18 +317,22 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder DropDown(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             Column column,
             View view,
             Dictionary<string, ControlData> optionCollection)
         {
             return hb.FieldDropDown(
+                context: context,
                 controlId: "ViewFilters__" + column.ColumnName,
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback" + (column.UseSearch == true
                     ? " search"
                     : string.Empty),
-                labelText: Displays.Get(column.GridLabelText),
+                labelText: Displays.Get(
+                    context: context,
+                    id: column.GridLabelText),
                 labelTitle: ss.LabelTitle(column),
                 optionCollection: optionCollection,
                 selectedValue: view.ColumnFilter(column.ColumnName),
@@ -281,16 +342,17 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 _using: Visible(column) || column.RecordedTime);
         }
 
-        private static HtmlBuilder Search(this HtmlBuilder hb, View view)
+        private static HtmlBuilder Search(this HtmlBuilder hb, IContext context, View view)
         {
             return hb.FieldTextBox(
                 controlId: "ViewFilters_Search",
                 fieldCss: "field-auto-thin",
                 controlCss: " auto-postback",
-                labelText: Displays.Search(),
+                labelText: Displays.Search(context: context),
                 text: view.Search,
                 method: "post",
-                _using: Routes.Controller() == "items");
+                _using: context.Controller == "items"
+                    || context.Controller == "publishes");
         }
     }
 }

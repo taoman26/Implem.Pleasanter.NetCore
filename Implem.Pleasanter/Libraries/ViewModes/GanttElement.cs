@@ -1,6 +1,7 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Extensions;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
@@ -21,6 +22,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         public bool? GroupSummary;
 
         public GanttElement(
+            IContext context,
             string groupBy,
             object sortBy,
             long id,
@@ -44,17 +46,27 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             GroupBy = groupBy;
             SortBy = sortBy;
             Id = id;
-            var userNameText = SiteInfo.UserName(owner, notSet: false);
+            var userNameText = SiteInfo.UserName(
+                context: context,
+                userId: owner,
+                notSet: false);
             var statusText = statusColumn.Choice(status.ToString()).Text;
             Title = showProgressRate
                 ? "{0} ({1}{2} * {3}{4}){5}{6}".Params(
                     title,
-                    workValueColumn.Display(workValue),
+                    workValueColumn.Display(
+                        context: context,
+                        value: workValue),
                     workValueColumn.Unit,
-                    progressRateColumn.Display(progressRate),
+                    progressRateColumn.Display(
+                        context: context,
+                        value: progressRate),
                     progressRateColumn.Unit,
                     !userNameText.IsNullOrEmpty()
-                        ? " " + SiteInfo.UserName(owner, notSet: false)
+                        ? " " + SiteInfo.UserName(
+                            context: context,
+                            userId: owner,
+                            notSet: false)
                         : string.Empty,
                     !statusText.IsNullOrEmpty()
                         ? " : " + statusColumn.Choice(status.ToString()).Text
@@ -62,18 +74,29 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                 : "{0}{1}{2}".Params(
                     title,
                     !userNameText.IsNullOrEmpty()
-                        ? " (" + SiteInfo.UserName(owner, notSet: false) + ")"
+                        ? " (" + SiteInfo.UserName(
+                            context: context,
+                            userId: owner,
+                            notSet: false) + ")"
                         : string.Empty,
                     !statusText.IsNullOrEmpty()
                         ? " : " + statusColumn.Choice(status.ToString()).Text
                         : string.Empty);
             StartTime = startTime.InRange()
-                ? startTime.ToLocal(Displays.YmdFormat())
-                : createdTime.ToLocal(Displays.YmdFormat());
-            CompletionTime = completionTime.ToLocal(Displays.YmdFormat());
+                ? startTime.ToLocal(
+                    context: context,
+                    format: Displays.YmdFormat(context: context))
+                : createdTime.ToLocal(
+                    context: context,
+                    format: Displays.YmdFormat(context: context));
+            CompletionTime = completionTime.ToLocal(
+                context: context,
+                format: Displays.YmdFormat(context: context));
             DisplayCompletionTime = completionTime
                 .AddDifferenceOfDates(completionTimeColumn.EditorFormat, minus: true)
-                .ToLocal(Displays.YmdFormat());
+                .ToLocal(
+                    context: context,
+                    format: Displays.YmdFormat(context: context));
             ProgressRate = progressRate;
             Completed = status >= Parameters.General.CompletionCode;
             GroupSummary = summary;

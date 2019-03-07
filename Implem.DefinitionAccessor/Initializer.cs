@@ -69,27 +69,26 @@ namespace Implem.DefinitionAccessor
         public static void SetParameters()
         {
             Parameters.Api = Read<ParameterAccessor.Parts.Api>();
-            Parameters.Asset = Read<ParameterAccessor.Parts.Asset>();
             Parameters.Authentication = Read<ParameterAccessor.Parts.Authentication>();
             Parameters.BackgroundTask = Read<ParameterAccessor.Parts.BackgroundTask>();
             Parameters.BinaryStorage = Read<ParameterAccessor.Parts.BinaryStorage>();
-            Parameters.ExcludeColumns = Read<ParameterAccessor.Parts.ExcludeColumns>();
+            Parameters.CustomDefinitions = CustomDefinitionsHash();
+            Parameters.Deleted = Read<ParameterAccessor.Parts.Deleted>();
             Parameters.ExtendedColumnsSet = ExtendedColumnsSet();
             Parameters.ExtendedSqls = ExtendedSqls();
             Parameters.ExtendedStyles = ExtendedStyles();
             Parameters.ExtendedScripts = ExtendedScripts();
-            Parameters.Formats = Read<ParameterAccessor.Parts.Formats>();
             Parameters.General = Read<ParameterAccessor.Parts.General>();
-            Parameters.Health = Read<ParameterAccessor.Parts.Health>();
+            Parameters.History = Read<ParameterAccessor.Parts.History>();
             Parameters.Mail = Read<ParameterAccessor.Parts.Mail>();
             Parameters.Notification = Read<ParameterAccessor.Parts.Notification>();
-            Parameters.Path = Read<ParameterAccessor.Parts.Path>();
             Parameters.Permissions = Read< ParameterAccessor.Parts.Permissions>();
             Parameters.Rds = Read<ParameterAccessor.Parts.Rds>();
             Parameters.Reminder = Read<ParameterAccessor.Parts.Reminder>();
             Parameters.Search = Read<ParameterAccessor.Parts.Search>();
             Parameters.Security = Read<ParameterAccessor.Parts.Security>();
             Parameters.Service = Read<ParameterAccessor.Parts.Service>();
+            Parameters.Session = Read<ParameterAccessor.Parts.Session>();
             Parameters.SysLog = Read<ParameterAccessor.Parts.SysLog>();
         }
 
@@ -102,6 +101,40 @@ namespace Implem.DefinitionAccessor
                 Parameters.SyntaxErrors.Add(name + ".json");
             }
             return data;
+        }
+
+        private static Dictionary<string, Dictionary<string, Dictionary<string, string>>> CustomDefinitionsHash(
+            string path = null,
+            Dictionary<string, Dictionary<string, Dictionary<string, string>>> hash = null)
+        {
+            hash = hash ?? new Dictionary<string, Dictionary<string, Dictionary<string, string>>>();
+            path = path ?? Path.Combine(
+                Environments.CurrentDirectoryPath,
+                "App_Data",
+                "Parameters",
+                "CustomDefinitions");
+            var dir = new DirectoryInfo(path);
+            if (dir.Exists)
+            {
+                foreach (var file in dir.GetFiles("*.json"))
+                {
+                    var customDefinitions = Files.Read(file.FullName)
+                        .Deserialize<Dictionary<string, Dictionary<string, string>>>();
+                    if (customDefinitions != null)
+                    {
+                        hash.Add(Path.ChangeExtension(file.Name, null), customDefinitions);
+                    }
+                    else
+                    {
+                        Parameters.SyntaxErrors.Add(file.Name);
+                    }
+                }
+                foreach (var sub in dir.GetDirectories())
+                {
+                    hash = CustomDefinitionsHash(sub.FullName, hash);
+                }
+            }
+            return hash;
         }
 
         private static List<ParameterAccessor.Parts.ExtendedColumns> ExtendedColumnsSet(
@@ -232,7 +265,7 @@ namespace Implem.DefinitionAccessor
             var parts = new DirectoryInfo(
                 Assembly.GetEntryAssembly().Location).FullName.Split(Path.DirectorySeparatorChar);
             return new DirectoryInfo(Path.Combine(
-                parts.Take(Array.IndexOf(parts, "Implem.CodeDefiner")).Join(Path.DirectorySeparatorChar.ToString()),
+                parts.TakeWhile(part => !part.StartsWith("Implem.CodeDefiner.")).Join(Path.DirectorySeparatorChar.ToString()),
                 "Implem.Pleasanter"))
                     .FullName;
         }
@@ -246,11 +279,11 @@ namespace Implem.DefinitionAccessor
             Def.SetViewModeDefinition();
             Def.SetDemoDefinition();
             Def.SetSqlDefinition();
-            SetDisplayAccessor();
             if (Parameters.Enterprise)
             {
                 SetExtendedColumnDefinitions();
             }
+            SetDisplayAccessor();
         }
 
         private static void SetExtendedColumnDefinitions()
@@ -280,11 +313,15 @@ namespace Implem.DefinitionAccessor
                         def.TableName = extendedColumns.TableName;
                         def.Label = extendedColumns.Label ?? def.Label;
                         def.ColumnName = columnName;
-                        def.ColumnLabel = def.ColumnLabel
-                            .Substring(0, def.ColumnLabel.Length -1) + id;
+                        def.LabelText = def.LabelText.Substring(
+                            0, def.LabelText.Length - 1) + id;
                         Def.ColumnDefinitionCollection.Add(def);
                     }
                 });
+                Def.ColumnDefinitionCollection.RemoveAll(def =>
+                    extendedColumns.DisabledColumns?
+                        .Select(columnName => $"{extendedColumns.TableName}_{columnName}")
+                        .Contains(def.Id) == true);
             });
         }
 
@@ -316,9 +353,6 @@ namespace Implem.DefinitionAccessor
             {
                 case "Azure":
                     Environments.RdsProvider = "Azure";
-                    Azures.SetRetryManager(
-                        Parameters.Rds.SqlAzureRetryCount,
-                        Parameters.Rds.SqlAzureRetryInterval);
                     break;
                 default:
                     Environments.RdsProvider = "Local";
@@ -385,19 +419,37 @@ namespace Implem.DefinitionAccessor
             Displays.DisplayHash = DisplayHash();
             Def.ColumnDefinitionCollection
                 .Where(o => !o.Base)
-                .Select(o => new { Id = o.Id, Body = o.ColumnLabel })
+                .Select(o => new
+                {
+                    o.Id,
+                    En = o.ColumnName,
+                    Ja = o.LabelText
+                })
                 .Union(Def.ColumnDefinitionCollection
                     .Where(o => !o.Base)
-                    .Select(o => new { Id = o.TableName, Body = o.Label })
+                    .Select(o => new
+                    {
+                        Id = o.TableName,
+                        En = o.TableName,
+                        Ja = o.Label
+                    })
                     .Distinct())
                 .Where(o => !Displays.DisplayHash.ContainsKey(o.Id))
-                .ForEach(o => Displays.DisplayHash.Add(
+                .ForEach(o => Displays.DisplayHash.UpdateOrAdd(
                     o.Id, new Display
                     {
                         Id = o.Id,
                         Languages = new List<DisplayElement>
                         {
-                            new DisplayElement { Body = o.Body }
+                            new DisplayElement
+                            {
+                                Body = o.En
+                            },
+                            new DisplayElement
+                            {
+                                Language = "ja",
+                                Body = o.Ja
+                            }
                         }
                     }));
         }
@@ -416,6 +468,7 @@ namespace Implem.DefinitionAccessor
         private static void SetSqls()
         {
             Sqls.LogsPath = Directories.Logs();
+            Sqls.SelectIdentity = Def.Sql.SelectIdentity;
             Sqls.BeginTransaction = Def.Sql.BeginTransaction;
             Sqls.CommitTransaction = Def.Sql.CommitTransaction;
         }

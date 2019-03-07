@@ -1,6 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
-using Microsoft.AspNetCore.Http;
+using Implem.Pleasanter.Libraries.Requests;
 using System.IO;
 using System.Web;
 namespace Implem.Pleasanter.Libraries.DataSources
@@ -15,14 +15,14 @@ namespace Implem.Pleasanter.Libraries.DataSources
             }
         }
 
-        public static string Extension(this IFormFile file)
+        public static string Extension(this IHttpPostedFile file)
         {
             return Path.GetExtension(file.FileName);
         }
 
-        public static byte[] Byte(this IFormFile file)
+        public static byte[] Byte(this IHttpPostedFile file)
         {
-            using (var inputStream = file.OpenReadStream())
+            using (var inputStream = file.InputStream())
             {
                 using (var memoryStream = new MemoryStream())
                 {
@@ -32,7 +32,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             }
         }
 
-        public static string WriteToTemp(this IFormFile file)
+        public static string WriteToTemp(this IHttpPostedFile file)
         {
             var guid = Strings.NewGuid();
             var folderPath = Path.Combine(Path.Combine(Directories.Temp(), guid));
@@ -40,11 +40,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             var filePath = Path.Combine(
                 folderPath,
                 Path.GetFileName(file.FileName));
-            using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                file.CopyTo(fileStream);
-                fileStream.Flush();
-            }
+            file.SaveAs(filePath);
             return guid;
         }
     }

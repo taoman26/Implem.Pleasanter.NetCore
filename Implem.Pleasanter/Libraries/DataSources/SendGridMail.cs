@@ -1,9 +1,14 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Mails;
+using Implem.Pleasanter.Libraries.Requests;
+using Implem.Pleasanter.Models;
+using System;
 using System.Linq;
 using System.Net.Mail;
 using System.Threading.Tasks;
+using SendGrid;
+using SendGrid.Helpers.Mail;
 namespace Implem.Pleasanter.Libraries.DataSources
 {
     public class SendGridMail
@@ -15,8 +20,10 @@ namespace Implem.Pleasanter.Libraries.DataSources
         public string Bcc;
         public string Subject;
         public string Body;
+        public IContext Context;
 
         public SendGridMail(
+            IContext context,
             string host,
             MailAddress from,
             string to,
@@ -25,6 +32,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             string subject,
             string body)
         {
+            Context = context;
             Host = host;
             From = from;
             To = Strings.CoalesceEmpty(to, Parameters.Mail.FixedFrom, Parameters.Mail.SupportFrom);
@@ -34,22 +42,36 @@ namespace Implem.Pleasanter.Libraries.DataSources
             Body = body;
         }
 
-        public void Send()
+        public void Send(IContext context)
         {
-           Task.Run(() =>
-           {
-               var sendGridMessage = new SendGrid.SendGridMessage();
-               sendGridMessage.From = Addresses.From(From);
-               Addresses.GetEnumerable(To).ForEach(to => sendGridMessage.AddTo(to));
-               Addresses.GetEnumerable(Cc).ForEach(cc => sendGridMessage.AddCc(cc));
-               Addresses.GetEnumerable(Bcc).ForEach(bcc => sendGridMessage.AddBcc(bcc));
-               sendGridMessage.Subject = Subject;
-               sendGridMessage.Text = Body;
-               new SendGrid.Web(new System.Net.NetworkCredential(
-                   Parameters.Mail.SmtpUserName,
-                   Parameters.Mail.SmtpPassword))
-                       .DeliverAsync(sendGridMessage);
-           });
+            Task.Run(() =>
+            {
+                try
+                {
+                    var sendGridMessage = new SendGridMessage();
+                    sendGridMessage.From = new EmailAddress(Addresses.From(From).Address, Addresses.From(From).DisplayName);
+                    Addresses.GetEnumerable(
+                        context: context,
+                        addresses: To)
+                            .ForEach(to => sendGridMessage.AddTo(to));
+                    Addresses.GetEnumerable(
+                        context: context,
+                        addresses: Cc)
+                            .ForEach(cc => sendGridMessage.AddCc(cc));
+                    Addresses.GetEnumerable(
+                        context: context,
+                        addresses: Bcc)
+                            .ForEach(bcc => sendGridMessage.AddBcc(bcc));
+                    sendGridMessage.Subject = Subject;
+                    sendGridMessage.PlainTextContent = Body;
+                    var client = new SendGridClient(Parameters.Mail.ApiKey);
+                    var response = client.SendEmailAsync(sendGridMessage);
+                }
+                catch (Exception e)
+                {
+                    new SysLogModel(Context, e);
+                }
+            });
         }
     }
 }

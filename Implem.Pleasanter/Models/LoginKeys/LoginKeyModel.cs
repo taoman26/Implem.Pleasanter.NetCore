@@ -34,66 +34,69 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public int SavedTenantId = 0;
         [NonSerialized] public int SavedUserId = 0;
 
-        public bool LoginId_Updated(Column column = null)
+        public bool LoginId_Updated(IContext context, Column column = null)
         {
             return LoginId != SavedLoginId && LoginId != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != LoginId);
+                column.GetDefaultInput(context: context).ToString() != LoginId);
         }
 
-        public bool Key_Updated(Column column = null)
+        public bool Key_Updated(IContext context, Column column = null)
         {
             return Key != SavedKey && Key != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Key);
+                column.GetDefaultInput(context: context).ToString() != Key);
         }
 
-        public bool TenantNames_Updated(Column column = null)
+        public bool TenantNames_Updated(IContext context, Column column = null)
         {
             return TenantNames != SavedTenantNames && TenantNames != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != TenantNames);
+                column.GetDefaultInput(context: context).ToString() != TenantNames);
         }
 
-        public bool TenantId_Updated(Column column = null)
+        public bool TenantId_Updated(IContext context, Column column = null)
         {
             return TenantId != SavedTenantId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != TenantId);
+                column.GetDefaultInput(context: context).ToInt() != TenantId);
         }
 
-        public bool UserId_Updated(Column column = null)
+        public bool UserId_Updated(IContext context, Column column = null)
         {
             return UserId != SavedUserId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != UserId);
+                column.GetDefaultInput(context: context).ToInt() != UserId);
         }
 
-        public LoginKeyModel(DataRow dataRow, string tableAlias = null)
+        public LoginKeyModel(IContext context, DataRow dataRow, string tableAlias = null)
         {
-            OnConstructing();
-            Set(dataRow, tableAlias);
-            OnConstructed();
+            OnConstructing(context: context);
+            Context = context;
+            TenantId = context.TenantId;
+            if (dataRow != null) Set(context, dataRow, tableAlias);
+            OnConstructed(context: context);
         }
 
-        private void OnConstructing()
-        {
-        }
-
-        private void OnConstructed()
+        private void OnConstructing(IContext context)
         {
         }
 
-        public void ClearSessions()
+        private void OnConstructed(IContext context)
+        {
+        }
+
+        public void ClearSessions(IContext context)
         {
         }
 
         public LoginKeyModel Get(
+            IContext context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -103,33 +106,51 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0)
         {
-            Set(Rds.ExecuteTable(statements: Rds.SelectLoginKeys(
-                tableType: tableType,
-                column: column ?? Rds.LoginKeysDefaultColumns(),
-                join: join ??  Rds.LoginKeysJoinDefault(),
-                where: where ?? Rds.LoginKeysWhereDefault(this),
-                orderBy: orderBy,
-                param: param,
-                distinct: distinct,
-                top: top)));
+            Set(context, Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectLoginKeys(
+                    tableType: tableType,
+                    column: column ?? Rds.LoginKeysDefaultColumns(),
+                    join: join ??  Rds.LoginKeysJoinDefault(),
+                    where: where ?? Rds.LoginKeysWhereDefault(this),
+                    orderBy: orderBy,
+                    param: param,
+                    distinct: distinct,
+                    top: top)));
             return this;
         }
 
-        private void SetBySession()
+        public void SetByModel(LoginKeyModel loginKeyModel)
+        {
+            LoginId = loginKeyModel.LoginId;
+            Key = loginKeyModel.Key;
+            TenantNames = loginKeyModel.TenantNames;
+            TenantId = loginKeyModel.TenantId;
+            UserId = loginKeyModel.UserId;
+            Comments = loginKeyModel.Comments;
+            Creator = loginKeyModel.Creator;
+            Updator = loginKeyModel.Updator;
+            CreatedTime = loginKeyModel.CreatedTime;
+            UpdatedTime = loginKeyModel.UpdatedTime;
+            VerUp = loginKeyModel.VerUp;
+            Comments = loginKeyModel.Comments;
+        }
+
+        private void SetBySession(IContext context)
         {
         }
 
-        private void Set(DataTable dataTable)
+        private void Set(IContext context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
-                case 1: Set(dataTable.Rows[0]); break;
+                case 1: Set(context, dataTable.Rows[0]); break;
                 case 0: AccessStatus = Databases.AccessStatuses.NotFound; break;
                 default: AccessStatus = Databases.AccessStatuses.Overlap; break;
             }
         }
 
-        private void Set(DataRow dataRow, string tableAlias = null)
+        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -174,19 +195,19 @@ namespace Implem.Pleasanter.Models
                             SavedComments = Comments.ToJson();
                             break;
                         case "Creator":
-                            Creator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Creator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedCreator = Creator.Id;
                             break;
                         case "Updator":
-                            Updator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Updator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedUpdator = Updator.Id;
                             break;
                         case "CreatedTime":
-                            CreatedTime = new Time(dataRow, column.ColumnName);
+                            CreatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedCreatedTime = CreatedTime.Value;
                             break;
                         case "UpdatedTime":
-                            UpdatedTime = new Time(dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
+                            UpdatedTime = new Time(context, dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
                         case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
@@ -195,18 +216,18 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public bool Updated()
+        public bool Updated(IContext context)
         {
             return
-                LoginId_Updated() ||
-                Key_Updated() ||
-                Ver_Updated() ||
-                TenantNames_Updated() ||
-                TenantId_Updated() ||
-                UserId_Updated() ||
-                Comments_Updated() ||
-                Creator_Updated() ||
-                Updator_Updated();
+                LoginId_Updated(context: context) ||
+                Key_Updated(context: context) ||
+                Ver_Updated(context: context) ||
+                TenantNames_Updated(context: context) ||
+                TenantId_Updated(context: context) ||
+                UserId_Updated(context: context) ||
+                Comments_Updated(context: context) ||
+                Creator_Updated(context: context) ||
+                Updator_Updated(context: context);
         }
     }
 }

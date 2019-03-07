@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using Implem.Libraries.DataSources.SqlServer;
 namespace Implem.Pleasanter.Libraries.DataTypes
 {
     [Serializable]
@@ -33,7 +34,8 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             DisplayValue = Value;
         }
 
-        public Title(SiteSettings ss, DataRow dataRow, ColumnNameInfo column = null)
+        public Title(
+            IContext context, SiteSettings ss, DataRow dataRow, ColumnNameInfo column = null)
         {
             Id = dataRow.Long((column?.Joined == true
                 ? column.TableAlias + ","
@@ -43,49 +45,68 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             var itemTitlePath = Rds.DataColumnName(column, "ItemTitle");
             var displayValue = dataRow.Table.Columns.Contains(itemTitlePath)
                 ? dataRow.String(itemTitlePath)
-                : ss.GetTitleColumns()
+                : ss.GetTitleColumns(context: context)
                     .Select(o => GetDisplayValue(
-                        ss, o, dataRow, Rds.DataColumnName(column, o.ColumnName)))
+                        context: context,
+                        ss: ss,
+                        column: o,
+                        dataRow: dataRow,
+                        path: Rds.DataColumnName(column, o.ColumnName)))
                     .Where(o => !o.IsNullOrEmpty())
                     .Join(ss.TitleSeparator);
             DisplayValue = displayValue != string.Empty
                 ? displayValue
-                : Displays.NoTitle();
+                : Displays.NoTitle(context: context);
         }
 
-        public Title(SiteSettings ss, long id, Dictionary<string, string> data)
+        public Title(IContext context, SiteSettings ss, long id, Dictionary<string, string> data)
         {
             Id = id;
             Value = data.Get("Title");
-            var displayValue = ss.GetTitleColumns()
-                .Select(column => GetDisplayValue(ss, column, data))
+            var displayValue = ss.GetTitleColumns(context: context)?
+                .Select(column => GetDisplayValue(
+                    context: context,
+                    ss: ss,
+                    column: column,
+                    data: data))
                 .Where(o => !o.IsNullOrEmpty())
                 .Join(ss.TitleSeparator);
             DisplayValue = displayValue != string.Empty
                 ? displayValue
-                : Displays.NoTitle();
+                : Displays.NoTitle(context: context);
         }
 
         private string GetDisplayValue(
-            SiteSettings ss, Column column, DataRow dataRow, string path)
+            IContext context, SiteSettings ss, Column column, DataRow dataRow, string path)
         {
             switch (column.TypeName.CsTypeSummary())
             {
                 case Types.CsNumeric:
                     return column.HasChoices()
                         ? column.UserColumn
-                            ? SiteInfo.UserName(dataRow.Int(path))
+                            ? SiteInfo.UserName(
+                                context: context,
+                                userId: dataRow.Int(path))
                             : column.Choice(dataRow.Long(path).ToString()).Text
-                        : column.Display(dataRow.Decimal(path), unit: true);
+                        : column.Display(
+                            context: context,
+                            value: dataRow.Decimal(path),
+                            unit: true);
                 case Types.CsDateTime:
                     switch (path)
                     {
                         case "CompletionTime":
-                            return column.DisplayControl(new CompletionTime(
-                                ss, dataRow, new ColumnNameInfo(path)).DisplayValue);
+                            return column.DisplayControl(
+                                context: context,
+                                value: new CompletionTime(
+                                    context: context,
+                                    ss: ss,
+                                    dataRow: dataRow,
+                                    column: new ColumnNameInfo(path)).DisplayValue);
                         default:
                             return column.DisplayControl(
-                                dataRow.DateTime(path).ToLocal());
+                                context: context,
+                                value: dataRow.DateTime(path).ToLocal(context: context));
                     }
                 case Types.CsString:
                     return column.HasChoices()
@@ -97,25 +118,37 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         private string GetDisplayValue(
-            SiteSettings ss, Column column, Dictionary<string, string> data)
+            IContext context, SiteSettings ss, Column column, Dictionary<string, string> data)
         {
             switch (column.TypeName.CsTypeSummary())
             {
                 case Types.CsNumeric:
                     return column.HasChoices()
                         ? column.UserColumn
-                            ? SiteInfo.UserName(data.Get(column.ColumnName).ToInt())
+                            ? SiteInfo.UserName(
+                                context: context,
+                                userId: data.Get(column.ColumnName).ToInt())
                             : column.Choice(data.Get(column.ColumnName)).Text
-                        : column.Display(data.Get(column.ColumnName).ToDecimal(), unit: true);
+                        : column.Display(
+                            context: context,
+                            value: data.Get(column.ColumnName).ToDecimal(),
+                            unit: true);
                 case Types.CsDateTime:
                     switch (column.ColumnName)
                     {
                         case "CompletionTime":
-                            return column.DisplayControl(new CompletionTime(
-                                ss, data.Get(column.ColumnName).ToDateTime()).DisplayValue);
+                            return column.DisplayControl(
+                                context: context,
+                                value: new CompletionTime(
+                                    context: context,
+                                    ss: ss,
+                                    value: data.Get(column.ColumnName).ToDateTime()).DisplayValue);
                         default:
                             return column.DisplayControl(
-                                data.Get(column.ColumnName).ToDateTime().ToLocal());
+                                context: context,
+                                value: data.Get(column.ColumnName)
+                                    .ToDateTime()
+                                    .ToLocal(context: context));
                     }
                 case Types.CsString:
                     return column.HasChoices()
@@ -137,12 +170,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             Value = value;
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
             return Value;
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
             return Value;
         }
@@ -152,38 +185,40 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Value;
         }
 
-        public virtual HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public virtual HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
             return hb.Td(action: () => hb
-                .P(action: () => TdTitle(hb, column)));
+                .P(action: () => TdTitle(hb: hb, context: context, column: column)));
         }
 
-        protected void TdTitle(HtmlBuilder hb, Column column)
+        protected void TdTitle(HtmlBuilder hb, IContext context, Column column)
         {
-            switch (Url.RouteData("action").ToLower())
+            switch (column.SiteSettings.TableType)
             {
-                case "histories":
-                    hb.Text(text: DisplayValue);
+                case Sqls.TableTypes.Normal:
+                    hb.A(
+                        href: Locations.ItemEdit(
+                            context: context,
+                            id: Id)
+                                + (column.Joined
+                                    || column.SiteSettings.Linked
+                                    || column.SiteSettings?.IntegratedSites?.Any() == true
+                                        ? "?back=1"
+                                        : string.Empty),
+                        text: DisplayValue);
                     break;
                 default:
-                    hb.A(
-                        href: Locations.ItemEdit(Id) +
-                            (column.Joined ||
-                            column.SiteSettings.Linked ||
-                            column.SiteSettings?.IntegratedSites?.Any() == true
-                                ? "?back=1"
-                                : string.Empty),
-                        text: DisplayValue);
+                    hb.Text(text: DisplayValue);
                     break;
             }
         }
 
-        public virtual string GridText(Column column)
+        public virtual string GridText(IContext context, Column column)
         {
             return DisplayValue;
         }
 
-        public virtual string ToExport(Column column, ExportColumn exportColumn = null)
+        public virtual string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
         {
             switch (exportColumn.Type)
             {
@@ -195,19 +230,21 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public string ToNotice(
+            IContext context,
             string saved,
             Column column,
             bool updated,
             bool update)
         {
             return Value.ToNoticeLine(
-                saved,
-                column,
-                updated,
-                update);
+                context: context,
+                saved: saved,
+                column: column,
+                updated: updated,
+                update: update);
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return Value.IsNullOrEmpty();
         }

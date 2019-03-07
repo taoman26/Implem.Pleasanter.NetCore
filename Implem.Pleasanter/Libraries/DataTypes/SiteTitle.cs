@@ -3,6 +3,7 @@ using Implem.Pleasanter.Interfaces;
 using Implem.Pleasanter.Libraries.Extensions;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
@@ -18,44 +19,44 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             SiteId = siteId;
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string Title(IContext context)
         {
-            return ToString();
+            return SiteInfo.TenantCaches
+                .Get(context.TenantId)?
+                .SiteMenu
+                .Get(SiteId)?
+                .Title ?? string.Empty;
         }
 
-        public string ToResponse()
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
-            return ToString();
+            return Title(context: context);
         }
 
-        public override string ToString()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
-            return SiteInfo.TenantCaches.Get(Sessions.TenantId())?
-                .SiteMenu.Get(SiteId)?.Title ?? string.Empty;
+            return Title(context: context);
         }
 
-        public virtual HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public virtual HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
             return hb.Td(action: () => hb
-                .P(action: () => TdTitle(hb, column)));
+                .P(action: () => hb
+                    .Text(Title(context: context))));
         }
 
-        protected void TdTitle(HtmlBuilder hb, Column column)
+        public virtual string GridText(IContext context, Column column)
         {
-            hb.Text(text: ToString());
+            return Title(context: context);
         }
 
-        public virtual string GridText(Column column)
+        public virtual string ToExport(
+            IContext context, Column column, ExportColumn exportColumn = null)
         {
-            return ToString();
+            return Title(context: context);
         }
 
-        public virtual string ToExport(Column column, ExportColumn exportColumn = null)
-        {
-            return ToString();
-        }
-
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return SiteId == 0;
         }

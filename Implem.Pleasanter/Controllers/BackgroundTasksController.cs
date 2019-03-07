@@ -1,32 +1,25 @@
 ﻿using Implem.DefinitionAccessor;
-using Implem.Pleasanter.Filters;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Models;
 using Implem.Pleasanter.Tools;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class BackgroundTasksController : Controller
+    public class BackgroundTasksController
     {
-        [AllowAnonymous]
-        [HttpGet]
-        public string Do()
+        public string Do(IContext context, IBackgroundTasks backgroundTasks)
         {
             if (Parameters.BackgroundTask.Enabled)
             {
-                if (QueryStrings.Bool("NoLog"))
+                if (context.QueryStrings.Bool("NoLog"))
                 {
-                    return BackgroundTasks.Do();
+                    return backgroundTasks.Do();
                 }
                 else
                 {
-                    var log = new SysLogModel();
-                    var html = BackgroundTasks.Do();
-                    log.Finish(html.Length);
+                    var log = new SysLogModel(context: context);
+                    var html = backgroundTasks.Do();
+                    log.Finish(context: context, responseSize: html.Length);
                     return html;
                 }
             }

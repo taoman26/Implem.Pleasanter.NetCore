@@ -1,95 +1,112 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
-using Implem.Pleasanter.Filters;
 using Implem.Pleasanter.Libraries.General;
 using Implem.Pleasanter.Libraries.HtmlParts;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using Implem.Pleasanter.Libraries.Requests;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class ErrorsController : Controller
+    public class ErrorsController
     {
-        [AllowAnonymous]
-        public ActionResult Index()
+        public string Index(IContext context)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                ViewBag.HtmlBody = HtmlTemplates.Error(Error.Types.ApplicationError);
-                return View();
+                var html = HtmlTemplates.Error(
+                    context: context,
+                    errorType: Error.Types.ApplicationError);
+                return html;
             }
             else
             {
-                return Content(Error.Types.ApplicationError.MessageJson());
+                return Error.Types.ApplicationError.MessageJson(context: context);
             }
         }
 
-        [AllowAnonymous]
-        public ActionResult BadRequest()
+        public string InvalidIpAddress(IContext context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorType: Error.Types.InvalidIpAddress);
+            return html;
+        }
+
+        public string BadRequest(IContext context)
         {
             // Response.StatusCode = (int)HttpStatusCode.BadRequest;
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                ViewBag.HtmlBody = HtmlTemplates.Error(Error.Types.BadRequest);
-                return View();
+                var html = HtmlTemplates.Error(
+                    context: context,
+                    errorType: Error.Types.BadRequest);
+                return html;
             }
             else
             {
-                return Content(Error.Types.NotFound.MessageJson());
+                return Error.Types.NotFound.MessageJson(context: context);
             }
         }
 
-        [AllowAnonymous]
-        public ActionResult NotFound()
+        public string NotFound(IContext context)
         {
             // Response.StatusCode = (int)HttpStatusCode.NotFound;
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                ViewBag.HtmlBody = HtmlTemplates.Error(Error.Types.NotFound);
-                return View();
+                var html = HtmlTemplates.Error(
+                    context: context,
+                    errorType: Error.Types.NotFound);
+                return html;
             }
             else
             {
-                return Content(Error.Types.NotFound.MessageJson());
+                return Error.Types.NotFound.MessageJson(context: context);
             }
         }
 
-        [AllowAnonymous]
-        public ActionResult ParameterSyntaxError()
+        public string ParameterSyntaxError(IContext context)
         {
             var messageData = new string[]
             {
                 Parameters.SyntaxErrors?.Join(",")
             };
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                ViewBag.HtmlBody = HtmlTemplates.Error(
-                    Error.Types.ParameterSyntaxError,
-                    messageData);
-                return View();
+                var html = HtmlTemplates.Error(
+                    context: context,
+                    errorType: Error.Types.ParameterSyntaxError,
+                    messageData: messageData);
+                return html;
             }
             else
             {
-                return Content(Error.Types.ParameterSyntaxError
-                    .MessageJson(messageData));
+                return Error.Types.ParameterSyntaxError.MessageJson(
+                    context: context,
+                    data: messageData);
             }
         }
 
-        [AllowAnonymous]
-        public ActionResult InternalServerError()
+        public string InternalServerError(IContext context)
         {
             // Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                ViewBag.HtmlBody = HtmlTemplates.Error(Error.Types.InternalServerError);
-                return View();
+                var html = HtmlTemplates.Error(
+                    context: context,
+                    errorType: Error.Types.InternalServerError);
+                return html;
             }
             else
             {
-                return Content(Error.Types.InternalServerError.MessageJson());
+                return Error.Types.InternalServerError.MessageJson(context: context);
             }
+        }
+
+        public string LoginIdAlreadyUse(IContext context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorType: Error.Types.LoginIdAlreadyUse);
+            return html;
         }
     }
 }

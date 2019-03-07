@@ -1,5 +1,4 @@
-﻿using AspNetCoreCurrentRequestContext;
-using Implem.Libraries.Utilities;
+﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataTypes;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Models;
@@ -8,49 +7,65 @@ using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Security;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
+using Implem.Pleasanter.Models;
 using System.Linq;
-using System.Web;
 namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlAggregations
     {
         public static HtmlBuilder Aggregations(
-            this HtmlBuilder hb, SiteSettings ss, Aggregations aggregations)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
         {
-            return !Reduced(ss.SiteId)
+            return !Reduced(context: context, siteId: ss.SiteId)
                 ? hb.Div(
                     id: "Aggregations",
                     action: () => hb
                         .DisplayControl(
+                            context: context,
                             id: "ReduceAggregations",
                             icon: "ui-icon-close")
-                        .Contents(ss, aggregations))
+                        .Contents(
+                            context: context,
+                            ss: ss,
+                            aggregations: new Aggregations(
+                                context: context,
+                                ss: ss,
+                                view: view)))
                 : hb.Div(
                     id: "Aggregations",
                     css: "reduced",
                     action: () => hb
                         .DisplayControl(
+                            context: context,
                             id: "ExpandAggregations",
                             icon: "ui-icon-folder-open"));
         }
 
-        private static bool Reduced(long siteId)
+        private static bool Reduced(IContext context, long siteId)
         {
-            var key = "ReduceAggregations_" + (siteId == 0
-                ? Pages.Key()
-                : siteId.ToString());
-            if (Forms.ControlId() == "ReduceAggregations")
+            var key = "ReduceAggregations";
+            if (context.Forms.ControlId() == key)
             {
-                Sessions.Set(key, true);
+                SessionUtilities.Set(
+                    context: context,
+                    key: key,
+                    value: "1",
+                    page: true);
             }
-            else if (Forms.ControlId() == "ExpandAggregations")
+            else if (context.Forms.ControlId() == "ExpandAggregations")
             {
-                AspNetCoreHttpContext.Current.Session.Remove(key);
+                SessionUtilities.Remove(
+                    context: context,
+                    key: key,
+                    page: true);
             }
-            return Sessions.Get<bool>(key);
+            return SessionUtilities.Bool(
+                context: context,
+                key: key);
         }
 
-        private static HtmlBuilder DisplayControl(this HtmlBuilder hb, string id, string icon)
+        private static HtmlBuilder DisplayControl(
+            this HtmlBuilder hb, IContext context, string id, string icon)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -60,43 +75,52 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .DataMethod("post"),
                 action: () => hb
                     .Span(css: "ui-icon " + icon)
-                    .Text(text: Displays.Aggregations() + ":"));
+                    .Text(text: Displays.Aggregations(context: context) + ":"));
         }
 
         private static HtmlBuilder Contents(
-            this HtmlBuilder hb, SiteSettings ss, Aggregations aggregations)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, Aggregations aggregations)
         {
             return aggregations.TotalCount != 0
                 ? hb
-                    .Total(aggregations)
-                    .Overdue(aggregations)
-                    .Parts(ss, aggregations)
+                    .Total(
+                        context: context,
+                        aggregations: aggregations)
+                    .Overdue(
+                        context: context,
+                        aggregations: aggregations)
+                    .Parts(
+                        context: context,
+                        ss: ss,
+                        aggregations: aggregations)
                 : hb.Span(css: "label", action: () => hb
-                    .Text(text: Displays.NoData()));
+                    .Text(text: Displays.NoData(context: context)));
         }
 
-        private static HtmlBuilder Total(this HtmlBuilder hb, Aggregations aggregations)
+        private static HtmlBuilder Total(
+            this HtmlBuilder hb, IContext context, Aggregations aggregations)
         {
             return hb
                 .Span(css: "label", action: () => hb
-                    .Text(text: Displays.Quantity()))
+                    .Text(text: Displays.Quantity(context: context)))
                 .Span(css: "data", action: () => hb
                     .Text(text: aggregations.TotalCount.ToString()));
         }
 
-        private static HtmlBuilder Overdue(this HtmlBuilder hb, Aggregations aggregations)
+        private static HtmlBuilder Overdue(
+            this HtmlBuilder hb, IContext context, Aggregations aggregations)
         {
             return aggregations.OverdueCount > 0
                 ? hb
                     .Span(css: "label overdue", action: () => hb
-                        .Text(text: Displays.Overdue()))
+                        .Text(text: Displays.Overdue(context: context)))
                     .Span(css: "data overdue", action: () => hb
                         .Text(text: aggregations.OverdueCount.ToString()))
                 : hb;
         }
 
         private static HtmlBuilder Parts(
-            this HtmlBuilder hb, SiteSettings ss, Aggregations aggregations)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, Aggregations aggregations)
         {
             var allowedColumns = Permissions.AllowedColumns(ss);
             aggregations.AggregationCollection
@@ -106,10 +130,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 .ForEach(aggregation =>
                 {
                     var html = string.Empty;
-                    var groupBy = ss.GetColumn(aggregation.GroupBy);
-                    var targetColumn = ss.GetColumn(aggregation.Target);
+                    var groupBy = ss.GetColumn(
+                        context: context, columnName: aggregation.GroupBy);
+                    var targetColumn = ss.GetColumn(
+                        context: context, columnName: aggregation.Target);
                     if (aggregation.Data.Count > 0)
                         hb.GroupBy(
+                            context: context,
                             groupBy: groupBy,
                             targetColumn: targetColumn,
                             aggregation: aggregation);
@@ -117,11 +144,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         hb.LabelValue(
                             label: groupBy != null
                                 ? Label(
+                                    context: context,
                                     groupBy: groupBy,
                                     selectedValue: data.Key)
                                 : string.Empty,
                             value: (targetColumn != null
-                                ? targetColumn.Display(data.Value)
+                                ? targetColumn.Display(
+                                    context: context,
+                                    value: data.Value)
                                 : data.Value.ToString()) +
                                     (aggregation.Type != Aggregation.Types.Count
                                         ? targetColumn?.Unit
@@ -135,6 +165,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder GroupBy(
             this HtmlBuilder hb,
+            IContext context,
             Column groupBy,
             Column targetColumn,
             Aggregation aggregation)
@@ -145,31 +176,37 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             switch (aggregation.Type)
             {
                 case Aggregation.Types.Count:
-                    text += Displays.Get(aggregation.Type.ToString());
+                    text += Displays.Get(
+                        context: context,
+                        id: aggregation.Type.ToString());
                     break;
                 default:
                     text += targetColumn.GridLabelText + " " +
-                        Displays.Get(aggregation.Type.ToString());
+                        Displays.Get(
+                            context: context,
+                            id: aggregation.Type.ToString());
                     break;
             }
             return hb.Span(css: "label", action: () => hb
                 .Text(text: text));
         }
 
-        private static string Label(Column groupBy, string selectedValue)
+        private static string Label(IContext context, Column groupBy, string selectedValue)
         {
             if (groupBy.UserColumn)
             {
-                return SiteInfo.UserName(selectedValue.ToInt());
+                return SiteInfo.UserName(
+                    context: context,
+                    userId: selectedValue.ToInt());
             }
             else if (groupBy.HasChoices())
             {
                 var label = groupBy.Choice(selectedValue).TextMini;
                 return label.IsNullOrEmpty()
                     ? NumericZero(groupBy, selectedValue)
-                        ? Displays.NotSet()
+                        ? Displays.NotSet(context: context)
                         : StringEmpty(groupBy, selectedValue)
-                            ? Displays.NotSet()
+                            ? Displays.NotSet(context: context)
                             : "? " + selectedValue
                     : label;
             }

@@ -1,4 +1,5 @@
-﻿using Implem.Libraries.Utilities;
+﻿using Implem.DefinitionAccessor;
+using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.General;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Security;
@@ -12,9 +13,9 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static Error.Types OnEditing(SiteSettings ss)
+        public static Error.Types OnEditing(IContext context, SiteSettings ss)
         {
-            if (!ss.CanSendMail())
+            if (!context.CanSendMail(ss: ss))
             {
                 return Error.Types.HasNotPermission;
             }
@@ -25,10 +26,10 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static Error.Types OnSending(
-            SiteSettings ss, OutgoingMailModel outgoingMailModel, out string data)
+            IContext context, SiteSettings ss, OutgoingMailModel outgoingMailModel, out string data)
         {
             data = null;
-            if (!ss.CanSendMail())
+            if (!context.CanSendMail(ss: ss))
             {
                 return Error.Types.HasNotPermission;
             }
@@ -44,22 +45,34 @@ namespace Implem.Pleasanter.Models
                 return Error.Types.RequireMailAddresses;
             }
             var badTo = MailAddressValidators.BadMailAddress(
-                outgoingMailModel.To, out data);
+                context: context,
+                addresses: outgoingMailModel.To,
+                data: out data);
             if (badTo != Error.Types.None) return badTo;
             var badCc = MailAddressValidators.BadMailAddress(
-                outgoingMailModel.Cc, out data);
+                context: context,
+                addresses: outgoingMailModel.Cc,
+                data: out data);
             if (badCc != Error.Types.None) return badCc;
             var badBcc = MailAddressValidators.BadMailAddress(
-                outgoingMailModel.Bcc, out data);
+                context: context,
+                addresses: outgoingMailModel.Bcc,
+                data: out data);
             if (badBcc != Error.Types.None) return badBcc;
             var externalTo = MailAddressValidators.ExternalMailAddress(
-                outgoingMailModel.To, out data);
+                context: context,
+                addresses: outgoingMailModel.To,
+                data: out data);
             if (externalTo != Error.Types.None) return externalTo;
             var externalCc = MailAddressValidators.ExternalMailAddress(
-                outgoingMailModel.Cc, out data);
+                context: context,
+                addresses: outgoingMailModel.Cc,
+                data: out data);
             if (externalCc != Error.Types.None) return externalCc;
             var externalBcc = MailAddressValidators.ExternalMailAddress(
-                outgoingMailModel.Bcc, out data);
+                context: context,
+                addresses: outgoingMailModel.Bcc,
+                data: out data);
             if (externalBcc != Error.Types.None) return externalBcc;
             return Error.Types.None;
         }

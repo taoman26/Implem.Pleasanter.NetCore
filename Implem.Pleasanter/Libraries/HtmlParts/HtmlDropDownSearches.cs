@@ -1,11 +1,12 @@
 ﻿using Implem.Pleasanter.Libraries.Html;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlDropDownSearches
     {
         public static HtmlBuilder DropDownSearchDialog(
-            this HtmlBuilder hb, string controller, long id)
+            this HtmlBuilder hb, IContext context, long id)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -15,7 +16,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .Form(
                         attributes: new HtmlAttributes()
                             .Id("DropDownSearchDialogForm")
-                            .Action(Locations.Action(controller, id)),
+                            .Action(Locations.ItemAction(
+                                context: context,
+                                id: id)),
                         action: () => hb
                             .FieldSelectable(
                                 controlId: "DropDownSearchResults",
@@ -31,7 +34,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                             action: "SearchDropDown",
                                             method: "post")
                                         .Button(
-                                            text: Displays.Search(),
+                                            text: Displays.Search(context: context),
                                             controlCss: "button-icon",
                                             onClick: "$p.send($('#DropDownSearchText'));",
                                             icon: "ui-icon-search")))
@@ -48,17 +51,25 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                 controlId: "DropDownSearchResultsOffset",
                                 value: "0",
                                 css: "always-send")
+                            .Hidden(
+                                controlId: "DropDownSearchParentClass",
+                                value: "",
+                                css: "always-send")
+                            .Hidden(
+                                controlId: "DropDownSearchParentDataId",
+                                value: "0",
+                                css: "always-send")
                             .P(css: "message-dialog")
                             .Div(css: "command-center", action: () => hb
                                 .Button(
-                                    text: Displays.Select(),
+                                    text: Displays.Select(context: context),
                                     controlCss: "button-icon",
                                     onClick: "$p.send($(this));",
                                     icon: "ui-icon-disk",
                                     action: "SelectSearchDropDown",
                                     method: "post")
                                 .Button(
-                                    text: Displays.Cancel(),
+                                    text: Displays.Cancel(context: context),
                                     controlCss: "button-icon",
                                     onClick: "$p.closeDialog($(this));",
                                     icon: "ui-icon-cancel"))));

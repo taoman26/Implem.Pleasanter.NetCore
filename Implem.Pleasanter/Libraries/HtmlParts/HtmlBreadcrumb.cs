@@ -1,4 +1,5 @@
-﻿using Implem.Pleasanter.Libraries.Html;
+﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Security;
@@ -6,83 +7,217 @@ using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Collections.Generic;
 using System.Linq;
+using System.Web;
 namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlBreadcrumb
     {
         public static HtmlBuilder Breadcrumb(
-            this HtmlBuilder hb, SiteSettings ss, long siteId, bool _using)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, View view, bool _using)
         {
-            if (!Sessions.LoggedIn() || !_using)
+            if ((!context.Authenticated && !context.Publish) || !_using)
             {
                 return hb;
             }
-            var controller = Routes.Controller();
-            switch (controller)
+            switch (context.Controller)
             {
                 case "admins":
-                    return Breadcrumb(hb, controller);
+                    return Breadcrumb(
+                        hb: hb,
+                        context: context,
+                        ss: ss,
+                        controller: context.Controller);
                 case "depts":
-                    return Breadcrumb(hb, controller, Displays.Depts());
+                    return Breadcrumb(
+                        hb: hb,
+                        context: context,
+                        ss: ss,
+                        controller: context.Controller,
+                        display: Displays.Depts(context: context));
+                case "tenants":
+                    return Permissions.CanManageTenant(context: context)
+                        ? Breadcrumb(
+                            hb: hb,
+                            context: context,
+                            ss: ss,
+                            controller: context.Controller,
+                            display: Displays.Tenants(context: context),
+                            action: "Edit")
+                        : (context.UserSettings?.EnableManageTenant == true)
+                            ? BreadcrumbWithoutAdmins(
+                                hb: hb,
+                                context: context,
+                                ss: ss,
+                                controller: context.Controller,
+                                display: Displays.Tenants(context: context),
+                                action: "Edit") 
+                            : Breadcrumb(
+                                hb: hb,
+                                context: context,
+                                ss: ss);
                 case "groups":
-                    return Permissions.CanManageTenant()
-                        ? Breadcrumb(hb, controller, Displays.Groups())
-                        : Breadcrumb(hb);
+                    return Permissions.CanManageTenant(context: context)
+                        ? Breadcrumb(
+                            hb: hb,
+                            context: context,
+                            ss: ss,
+                            controller: context.Controller,
+                            display: Displays.Groups(context: context))
+                        : Breadcrumb(
+                            hb: hb,
+                            context: context,
+                            ss: ss);
                 case "users":
-                    switch (Routes.Action())
+                    switch (context.Action)
                     {
                         case "editapi":
-                            return hb.Breadcrumb(new Dictionary<string, string>
-                            {
-                                { Locations.Get("Users", "EditApi"), Displays.ApiSettings() }
-                            });
+                            return hb.Breadcrumb(
+                                context: context,
+                                ss: ss,
+                                data: new Dictionary<string, string>
+                                {
+                                    {
+                                        Locations.Get(
+                                            context: context,
+                                            parts: new string[]
+                                            {
+                                                "Users",
+                                                "EditApi"
+                                            }),
+                                        Displays.ApiSettings(context: context)
+                                    }
+                                });
                         default:
-                            return Permissions.CanManageTenant()
-                                ? Breadcrumb(hb, controller, Displays.Users())
-                                : Breadcrumb(hb);
+                            return Permissions.CanManageTenant(context: context)
+                                ? Breadcrumb(
+                                    hb: hb,
+                                    context: context,
+                                    ss: ss,
+                                    controller: context.Controller,
+                                    display: Displays.Users(context: context))
+                                : Breadcrumb(
+                                    hb: hb,
+                                    context: context,
+                                    ss: ss);
                     }
+                case "publishes":
                 case "items":
+                    return hb
+                        .CopyDirectUrlToClipboard(
+                            context: context,
+                            view: view)
+                        .Breadcrumb(
+                            context: context,
+                            ss: ss);
                 case "permissions":
-                    return hb.Breadcrumb(siteId);
+                    return hb.Breadcrumb(context: context, ss: ss);    
                 default:
                     return hb;
             }
         }
 
         private static HtmlBuilder Breadcrumb(
-            HtmlBuilder hb, string controller, string display = null)
+            HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            string controller,
+            string display = null,
+            string action = null)
         {
             return display != null
-                ? hb.Breadcrumb(new Dictionary<string, string>
+                ? hb.Breadcrumb(context: context, ss: ss, data: new Dictionary<string, string>
                 {
-                    { Locations.Index("Admins"), Displays.Admin() },
-                    { Locations.Index(controller), display }
+                    {
+                        Locations.Admins(context: context),
+                        Displays.Admin(context: context)
+                    },
+                    {
+                        (action == "Edit")
+                            ? Locations.Edit(
+                                context: context,
+                                controller: controller)
+                            : Locations.Index(
+                                context: context,
+                                controller: controller),
+                        display
+                    }
                 })
-                : hb.Breadcrumb(new Dictionary<string, string>
+                : hb.Breadcrumb(context: context, ss: ss, data: new Dictionary<string, string>
                 {
-                    { Locations.Index("Admins"), Displays.Admin() }
+                    {
+                        Locations.Admins(context: context),
+                        Displays.Admin(context: context)
+                    }
                 });
         }
 
-        public static HtmlBuilder Breadcrumb(this HtmlBuilder hb, long siteId)
+        private static HtmlBuilder BreadcrumbWithoutAdmins(
+            HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            string controller,
+            string display = null,
+            string action = null)
         {
-            return hb.Breadcrumb(data: SiteInfo.TenantCaches[Sessions.TenantId()]
-                .SiteMenu.Breadcrumb(siteId)
+            return display != null
+                ? hb.Breadcrumb(context: context, ss: ss, data: new Dictionary<string, string>
+                {
+                    {
+                        (action == "Edit")
+                            ? Locations.Edit(
+                                context: context,
+                                controller: controller)
+                            : Locations.Index(
+                                context: context,
+                                controller: controller),
+                        display
+                    }
+                })
+                : hb.Breadcrumb(context: context, ss: ss);
+        }
+
+        public static HtmlBuilder Breadcrumb(this HtmlBuilder hb, IContext context, SiteSettings ss)
+        {
+            return hb.Breadcrumb(
+                context: context,
+                ss: ss,
+                data: SiteInfo.TenantCaches.Get(context.TenantId)?
+                    .SiteMenu
+                    .Breadcrumb(
+                        context: context,
+                        siteId: ss.SiteId)
                     .ToDictionary(
                         o => !o.HasOnlyOneChild()
-                            ? Locations.ItemIndex(o.SiteId)
-                            : Locations.ItemEdit(o.OnlyOneChildId),
+                            ? Locations.ItemIndex(
+                                context: context,
+                                id: o.SiteId)
+                            : Locations.ItemEdit(
+                                context: context,
+                                id: o.OnlyOneChildId),
                         o => o.Title));
         }
 
         private static HtmlBuilder Breadcrumb(
-            this HtmlBuilder hb, Dictionary<string, string> data = null)
+            this HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            Dictionary<string, string> data = null)
         {
             return hb.Ul(id: "Breadcrumb", action: () =>
             {
-                hb.Li(Locations.Top(), Displays.Top());
+                if (!context.Publish)
+                {
+                    hb.Li(
+                        href: Locations.Top(context: context),
+                        text: Displays.Top(context: context));
+                }
                 data?.ForEach(item => hb
-                    .Li(href: item.Key, text: item.Value));
+                    .Li(
+                        href: item.Key,
+                        text: item.Value));
+                hb.TrashBox(
+                    context: context,
+                    ss: ss);
             });
         }
 
@@ -92,6 +227,53 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 .A(href: href, text: text)
                 .Span(css: "separator", action: () => hb
                     .Text(text: ">")));
+        }
+
+        public static HtmlBuilder TrashBox(this HtmlBuilder hb, IContext context, SiteSettings ss)
+        {
+            switch (context.Action)
+            {
+                case "trashbox":
+                    return hb.Li(
+                        css: "item trashbox",
+                        action: () => hb
+                            .Span(action: () => hb
+                                .Text(text: Displays.TrashBox(context: context))));
+                default:
+                    return hb;
+            }
+        }
+
+        public static HtmlBuilder CopyDirectUrlToClipboard(
+            this HtmlBuilder hb, IContext context, View view)
+        {
+            return view != null
+                ? hb.Div(
+                    attributes: new HtmlAttributes()
+                        .Id("CopyToClipboards"),
+                    action: () => hb
+                        .Div(
+                    attributes: new HtmlAttributes()
+                        .Id("CopyDirectUrlToClipboard")
+                        .Class("display-control")
+                        .OnClick($"$p.copyDirectUrlToClipboard('{DirectUrl(context: context, view: view)}');"),
+                    action: () => hb
+                        .Span(css: "ui-icon ui-icon-link")
+                        .Text(text: string.Empty)))
+                : hb;
+        }
+
+        private static string DirectUrl(IContext context, View view)
+        {
+            var queryString = HttpUtility.ParseQueryString(context.Query);
+            if (view != null)
+            {
+                queryString["View"] = view.ToJson();
+            }
+            return new System.UriBuilder(context.AbsoluteUri)
+            {
+                Query = queryString.ToString()
+            }.ToString();
         }
     }
 }

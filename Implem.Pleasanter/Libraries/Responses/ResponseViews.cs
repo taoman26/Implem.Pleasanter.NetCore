@@ -7,23 +7,23 @@ namespace Implem.Pleasanter.Libraries.Responses
     public static class ResponseViews
     {
         public static ResponseCollection View(
-            this ResponseCollection res, SiteSettings ss, View view)
+            this ResponseCollection res, IContext context, SiteSettings ss, View view)
         {
             return res
-                .ViewFilters(ss, view)
+                .ViewFilters(context: context, ss: ss, view: view)
                 .ClearFormData("View", "startsWith");
         }
 
         private static ResponseCollection ViewFilters(
-            this ResponseCollection res, SiteSettings ss, View view)
+            this ResponseCollection res, IContext context, SiteSettings ss, View view)
         {
-            var controlId = Forms.ControlId();
-            switch (Forms.ControlId())
+            switch (context.Forms.ControlId())
             {
                 case "ViewSelector":
                 case "ReduceViewFilters":
                 case "ExpandViewFilters":
-                    return res.ReplaceAll("#ViewFilters", new HtmlBuilder().ViewFilters(ss, view));
+                    return res.ReplaceAll("#ViewFilters", new HtmlBuilder()
+                        .ViewFilters(context: context, ss: ss, view: view));
                 default:
                     return res;
             }

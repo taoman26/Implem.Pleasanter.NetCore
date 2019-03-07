@@ -3,7 +3,9 @@ using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.DataTypes;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
+using Implem.Pleasanter.Libraries.Security;
 using Implem.Pleasanter.Models;
 using System;
 using System.Collections.Generic;
@@ -15,53 +17,49 @@ namespace Implem.Pleasanter.Libraries.Server
     {
         public static Dictionary<int, TenantCache> TenantCaches = new Dictionary<int, TenantCache>();
 
-        public static void Reflesh(bool force = false)
+        public static void Reflesh(IContext context, bool force = false)
         {
-            var tenantId = Sessions.TenantId();
-            if (!TenantCaches.ContainsKey(tenantId))
+            if (context.TenantId == 0)
             {
-                try
-                {
-                    TenantCaches.Add(tenantId, new TenantCache(tenantId));
-                }
-                catch (Exception)
-                {
-                }
+                return;
             }
-            var tenantCache = TenantCaches.Get(tenantId);
-            var monitor = tenantCache.GetUpdateMonitor();
+            var tenantCache = TenantCaches.Get(context.TenantId);
+            var monitor = tenantCache.GetUpdateMonitor(context: context);
             if (monitor.DeptsUpdated || monitor.UsersUpdated || force)
             {
-                var dataSet = Rds.ExecuteDataSet(statements: new SqlStatement[]
-                {
-                    Rds.SelectDepts(
-                        dataTableName: "Depts",
-                        column: Rds.DeptsColumn()
-                            .TenantId()
-                            .DeptId()
-                            .DeptName(),
-                        where: Rds.DeptsWhere().TenantId(tenantId),
-                        _using: monitor.DeptsUpdated || force),
-                    Rds.SelectUsers(
-                        dataTableName: "Users",
-                        column: Rds.UsersColumn()
-                            .TenantId()
-                            .UserId()
-                            .DeptId()
-                            .LoginId()
-                            .Name()
-                            .TenantManager()
-                            .ServiceManager()
-                            .Disabled(),
-                        where: Rds.UsersWhere().TenantId(tenantId),
-                        _using: monitor.UsersUpdated || force)
-                });
+                var dataSet = Rds.ExecuteDataSet(
+                    context: context,
+                    statements: new SqlStatement[]
+                    {
+                        Rds.SelectDepts(
+                            dataTableName: "Depts",
+                            column: Rds.DeptsColumn()
+                                .TenantId()
+                                .DeptId()
+                                .DeptCode()
+                                .DeptName(),
+                            where: Rds.DeptsWhere().TenantId(context.TenantId),
+                            _using: monitor.DeptsUpdated || force),
+                        Rds.SelectUsers(
+                            dataTableName: "Users",
+                            column: Rds.UsersColumn()
+                                .TenantId()
+                                .UserId()
+                                .DeptId()
+                                .LoginId()
+                                .Name()
+                                .TenantManager()
+                                .ServiceManager()
+                                .Disabled(),
+                            where: Rds.UsersWhere().TenantId(context.TenantId),
+                            _using: monitor.UsersUpdated || force)
+                    });
                 if (monitor.DeptsUpdated || force)
                 {
                     tenantCache.DeptHash = dataSet.Tables["Depts"]
                         .AsEnumerable()
                         .ToDictionary(
-                            dataRow => dataRow["DeptId"].ToInt(),
+                            dataRow => dataRow.Int("DeptId"),
                             dataRow => new Dept(dataRow));
                 }
                 if (monitor.UsersUpdated || force)
@@ -69,17 +67,21 @@ namespace Implem.Pleasanter.Libraries.Server
                     tenantCache.UserHash = dataSet.Tables["Users"]
                         .AsEnumerable()
                         .ToDictionary(
-                            dataRow => dataRow["UserId"].ToInt(),
-                            dataRow => new User(dataRow));
+                            dataRow => dataRow.Int("UserId"),
+                            dataRow => new User(
+                                context: context,
+                                dataRow: dataRow));
                 }
             }
             if (monitor.PermissionsUpdated || monitor.GroupsUpdated || monitor.UsersUpdated || force)
             {
+                tenantCache.SiteDeptHash = new Dictionary<long, List<int>>();
                 tenantCache.SiteUserHash = new Dictionary<long, List<int>>();
+                tenantCache.SiteGroupHash = new Dictionary<long, List<int>>();
             }
             if (monitor.SitesUpdated || force)
             {
-                tenantCache.SiteMenu = new SiteMenu(tenantId);
+                tenantCache.SiteMenu = new SiteMenu(context: context);
             }
             if (monitor.Updated || force)
             {
@@ -87,24 +89,71 @@ namespace Implem.Pleasanter.Libraries.Server
             }
         }
 
-        public static IEnumerable<int> SiteUsers(int tenantId, long siteId)
+        public static IEnumerable<int> SiteUsers(IContext context, long siteId)
         {
-            var tenantCache = TenantCaches.Get(tenantId);
+            if (context.TenantId == 0)
+            {
+                return new List<int>();
+            }
+            var tenantCache = TenantCaches.Get(context.TenantId);
             if (!tenantCache.SiteUserHash.ContainsKey(siteId))
             {
-                SetSiteUserHash(tenantId, siteId, reload: true);
+                SetSiteUserHash(
+                    context: context,
+                    siteId: siteId,
+                    reload: true);
             }
-            return tenantCache.SiteUserHash[siteId];
+            return tenantCache.SiteUserHash.Get(siteId);
         }
 
-        public static void SetSiteUserHash(int tenantId, long siteId, bool reload = false)
+        public static IEnumerable<int> SiteGroups(IContext context, long siteId)
         {
-            var tenantCache = TenantCaches.Get(tenantId);
+            if (context.TenantId == 0)
+            {
+                return new List<int>();
+            }
+            var tenantCache = TenantCaches.Get(context.TenantId);
+            if (!tenantCache.SiteGroupHash.ContainsKey(siteId))
+            {
+                SetSiteGroupHash(
+                    context: context,
+                    siteId: siteId,
+                    reload: true);
+            }
+            return tenantCache.SiteGroupHash.Get(siteId);
+        }
+
+        public static IEnumerable<int> SiteDepts(IContext context, long siteId)
+        {
+            if (context.TenantId == 0)
+            {
+                return new List<int>();
+            }
+            var tenantCache = TenantCaches.Get(context.TenantId);
+            if (!tenantCache.SiteDeptHash.ContainsKey(siteId))
+            {
+                SetSiteDeptHash(
+                    context: context,
+                    siteId: siteId,
+                    reload: true);
+            }
+            return tenantCache.SiteDeptHash.Get(siteId);
+        }
+
+        public static void SetSiteUserHash(IContext context, long siteId, bool reload = false)
+        {
+            if (context.TenantId == 0)
+            {
+                return;
+            }
+            var tenantCache = TenantCaches.Get(context.TenantId);
             if (!tenantCache.SiteUserHash.ContainsKey(siteId))
             {
                 try
                 {
-                    tenantCache.SiteUserHash.Add(siteId, GetSiteUserHash(tenantId, siteId));
+                    tenantCache.SiteUserHash.Add(siteId, GetSiteUserHash(
+                        context: context,
+                        siteId: siteId));
                 }
                 catch (Exception)
                 {
@@ -112,80 +161,200 @@ namespace Implem.Pleasanter.Libraries.Server
             }
             else if (reload)
             {
-                tenantCache.SiteUserHash[siteId] = GetSiteUserHash(tenantId, siteId);
+                tenantCache.SiteUserHash[siteId] = GetSiteUserHash(
+                    context: context,
+                    siteId: siteId);
             }
         }
 
-        private static List<int> GetSiteUserHash(int tenantId, long siteId)
+        public static void SetSiteGroupHash(IContext context, long siteId, bool reload = false)
+        {
+            if (context.TenantId == 0)
+            {
+                return;
+            }
+            var tenantCache = TenantCaches.Get(context.TenantId);
+            if (!tenantCache.SiteGroupHash.ContainsKey(siteId))
+            {
+                try
+                {
+                    tenantCache.SiteGroupHash.Add(siteId, GetSiteGroupHash(
+                        context: context,
+                        siteId: siteId));
+                }
+                catch (Exception)
+                {
+                }
+            }
+            else if (reload)
+            {
+                tenantCache.SiteGroupHash[siteId] = GetSiteGroupHash(
+                    context: context,
+                    siteId: siteId);
+            }
+        }
+
+        public static void SetSiteDeptHash(IContext context, long siteId, bool reload = false)
+        {
+            if (context.TenantId == 0)
+            {
+                return;
+            }
+            var tenantCache = TenantCaches.Get(context.TenantId);
+            if (!tenantCache.SiteDeptHash.ContainsKey(siteId))
+            {
+                try
+                {
+                    tenantCache.SiteDeptHash.Add(siteId, GetSiteDeptHash(
+                        context: context,
+                        siteId: siteId));
+                }
+                catch (Exception)
+                {
+                }
+            }
+            else if (reload)
+            {
+                tenantCache.SiteDeptHash[siteId] = GetSiteDeptHash(
+                    context: context,
+                    siteId: siteId);
+            }
+        }
+
+        private static List<int> GetSiteUserHash(IContext context, long siteId)
         {
             var siteUserCollection = new List<int>();
-            foreach (DataRow dataRow in SiteUserDataTable(tenantId, siteId).Rows)
+            foreach (DataRow dataRow in SiteUserDataTable(
+                context: context,
+                siteId: siteId).Rows)
             {
                 siteUserCollection.Add(dataRow["UserId"].ToInt());
             }
             return siteUserCollection;
         }
 
-        private static DataTable SiteUserDataTable(int tenantId, long siteId)
+        private static List<int> GetSiteGroupHash(IContext context, long siteId)
         {
-            var deptRaw = "[Users].[DeptId] and [Users].[DeptId]>0";
-            var userRaw = "[Users].[UserId] and [Users].[UserId]>0";
-            return Rds.ExecuteTable(statements: Rds.SelectUsers(
-                distinct: true,
-                column: Rds.UsersColumn().UserId(),
-                where: Rds.UsersWhere()
-                    .TenantId(tenantId)
-                    .Add(
-                        subLeft: Rds.SelectPermissions(
-                            column: Rds.PermissionsColumn()
-                                .PermissionType(function: Sqls.Functions.Max),
-                            where: Rds.PermissionsWhere()
-                                .ReferenceId(siteId)
-                                .Or(Rds.PermissionsWhere()
-                                    .DeptId(raw: deptRaw)
-                                    .Add(
-                                        subLeft: Rds.SelectGroupMembers(
-                                            column: Rds.GroupMembersColumn()
-                                                .GroupMembersCount(),
-                                            where: Rds.GroupMembersWhere()
-                                                .GroupId(raw: "[Permissions].[GroupId]")
-                                                .Or(Rds.GroupMembersWhere()
-                                                    .DeptId(raw: deptRaw)
-                                                    .UserId(raw: userRaw))
-                                                .Add(raw: "[Permissions].[GroupId]>0")),
-                                        _operator: ">0")
-                                    .UserId(raw: userRaw))),
-                        _operator: ">0")));
+            var siteGroupCollection = new List<int>();
+            foreach (DataRow dataRow in SiteGroupDataTable(
+                context: context,
+                siteId: siteId).Rows)
+            {
+                siteGroupCollection.Add(dataRow["GroupId"].ToInt());
+            }
+            return siteGroupCollection;
         }
 
-        public static Dept Dept(int deptId)
+        private static List<int> GetSiteDeptHash(IContext context, long siteId)
         {
-            return TenantCaches.Get(Sessions.TenantId())?.DeptHash?
+            var siteDeptCollection = new List<int>();
+            foreach (DataRow dataRow in SiteDeptDataTable(
+                context: context,
+                siteId: siteId).Rows)
+            {
+                siteDeptCollection.Add(dataRow["DeptId"].ToInt());
+            }
+            return siteDeptCollection;
+        }
+
+        private static DataTable SiteUserDataTable(IContext context, long siteId)
+        {
+            return Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectUsers(
+                    distinct: true,
+                    column: Rds.UsersColumn().UserId(),
+                    where: Rds.UsersWhere()
+                        .TenantId(context.TenantId)
+                        .SiteUserWhere(siteId: siteId)));
+        }
+
+        private static DataTable SiteGroupDataTable(IContext context, long siteId)
+        {
+            var groupRaw = "[Groups].[GroupId] and [Groups].[GroupId]>0";
+            return Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectGroups(
+                    distinct: true,
+                    column: Rds.GroupsColumn().GroupId(),
+                    where: Rds.GroupsWhere()
+                        .TenantId(context.TenantId)
+                        .Add(
+                            subLeft: Rds.SelectPermissions(
+                                column: Rds.PermissionsColumn()
+                                    .PermissionType(function: Sqls.Functions.Max),
+                                where: Rds.PermissionsWhere()
+                                    .ReferenceId(siteId)
+                                    .GroupId(raw: groupRaw)),
+                            _operator: ">0")));
+        }
+
+        private static DataTable SiteDeptDataTable(IContext context, long siteId)
+        {
+            var deptRaw = "[Depts].[DeptId] and [Depts].[DeptId]>0";
+            return Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectDepts(
+                    distinct: true,
+                    column: Rds.DeptsColumn().DeptId(),
+                    where: Rds.DeptsWhere()
+                        .TenantId(context.TenantId)
+                        .Add(
+                            subLeft: Rds.SelectPermissions(
+                                column: Rds.PermissionsColumn()
+                                    .PermissionType(function: Sqls.Functions.Max),
+                                where: Rds.PermissionsWhere()
+                                    .ReferenceId(siteId)
+                                    .DeptId(raw: deptRaw)),
+                            _operator: ">0")));
+        }
+
+        public static Dept Dept(int tenantId, int deptId)
+        {
+            if (tenantId == 0 || deptId == 0)
+            {
+                return new Dept();
+            }
+            return TenantCaches.Get(tenantId)?.DeptHash?
                 .Where(o => o.Key == deptId)
                 .Select(o => o.Value)
                 .FirstOrDefault();
         }
 
-        public static User User(int userId)
+        public static User User(IContext context, int userId)
         {
-            return TenantCaches.Get(Sessions.TenantId())?.UserHash?
+            if (context.TenantId == 0)
+            {
+                return new User();
+            }
+            return TenantCaches.Get(context.TenantId)?.UserHash?
                 .Where(o => o.Key == userId)
                 .Select(o => o.Value)
-                .FirstOrDefault() ?? Anonymouse();
+                .FirstOrDefault() ?? Anonymous(context: context);
         }
 
-        private static User Anonymouse()
+        private static User Anonymous(IContext context)
         {
-            return new User(DataTypes.User.UserTypes.Anonymous.ToInt());
+            return new User(
+                context: context,
+                userId: DataTypes.User.UserTypes.Anonymous.ToInt());
         }
 
-        public static string UserName(int userId, bool notSet = true)
+        public static string UserName(
+            IContext context, int userId, bool notSet = true, bool showDeptName = false)
         {
-            var name = User(userId).Name;
+            var user = User(
+                context: context,
+                userId: userId);
+            var name = user?.Name != null
+                ? showDeptName
+                    ? user.Dept.Name + ")" + user.Name
+                    : user.Name
+                : null;
             return name != null
                 ? name
                 : notSet
-                    ? Displays.NotSet()
+                    ? Displays.NotSet(context: context)
                     : string.Empty;
         }
     }

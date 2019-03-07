@@ -23,7 +23,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             AddRange(new List<Comment>(source));
         }
 
-        public Comments Prepend(string body)
+        public Comments Prepend(IContext context, SiteSettings ss, string body)
         {
             if (body.Trim() != string.Empty)
             {
@@ -31,7 +31,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 {
                     CommentId = CommentId(),
                     CreatedTime = DateTime.Now,
-                    Creator = Sessions.UserId(),
+                    Creator = context.UserId,
                     Body = body,
                     Created = true
                 });
@@ -39,9 +39,10 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return this;
         }
 
-        public void Update(int commentId, string body)
+        public void Update(IContext context, SiteSettings ss, int commentId, string body)
         {
-            this.FirstOrDefault(o => o.CommentId == commentId)?.Update(body);
+            this.FirstOrDefault(o => o.CommentId == commentId)?
+                .Update(context: context, ss: ss, body: body);
         }
 
         public new string ToString()
@@ -66,60 +67,65 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public Comments ToLocal()
+        public Comments ToLocal(IContext context)
         {
             var comments = new Comments();
-            ForEach(o => comments.Add(o.ToLocal()));
+            ForEach(o => comments.Add(o.ToLocal(context: context)));
             return comments;
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
             return string.Empty;
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
             return string.Empty;
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
-            var css = GridCss();
+            var css = GridCss(context: context);
             return hb.Td(action: () => this?
-                .Take(DisplayCount())
+                .Take(DisplayCount(context: context))
                 .ForEach(comment => comment
                     .Html(
                         hb: hb,
+                        context: context,
+                        ss: column.SiteSettings,
                         allowEditing: column.SiteSettings.AllowEditingComments == true,
                         allowImage: column.AllowImage == true,
-                        mobile: column.SiteSettings.Mobile,
+                        mobile: context.Mobile,
                         css: css,
                         readOnly: true)));
         }
 
-        public string GridText(Column column)
+        public string GridText(IContext context, Column column)
         {
-            return this?.Take(DisplayCount()).Select(comment =>
+            return this?.Take(DisplayCount(context: context)).Select(comment =>
                 "{0} {1}  \n{2}".Params(
-                    comment.CreatedTimeDisplayValue(),
-                    SiteInfo.UserName(comment.Creator),
+                    comment.CreatedTimeDisplayValue(context: context),
+                    SiteInfo.UserName(
+                        context: context,
+                        userId: comment.Creator),
                     comment.Body))
                         .Join("\n\n");
         }
 
-        private int DisplayCount()
+        private int DisplayCount(IContext context)
         {
-            switch (Routes.Action())
+            switch (context.Action)
             {
                 case "histories": return 1;
+                case "deletehistory": return 1;
                 default: return 3;
             }
         }
 
-        private string GridCss()
+        private string GridCss(IContext context)
         {
-            if (DisplayCount() == 3)
+            if (DisplayCount(context: context) == 3)
             {
                 switch (this.Count())
                 {
@@ -130,38 +136,47 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return null;
         }
 
-        public string ToExport(Column column, ExportColumn exportColumn = null)
+        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
         {
             return this.Select(o =>
-                o.CreatedTime.ToLocal().ToViewText() + " " +
-                SiteInfo.UserName(o.Creator) + "\n" +
+                o.CreatedTime.ToLocal(context: context).ToViewText(context: context) + " " +
+                SiteInfo.UserName(
+                    context: context,
+                    userId: o.Creator) + "\n" +
                 o.Body).Join("\n\n");
         }
 
-        public string ToNotice(string saved, Column column, bool updated, bool update)
+        public string ToNotice(
+            IContext context, 
+            string saved,
+            Column column,
+            bool updated,
+            bool update)
         {
             var body = string.Empty;
-            if (Routes.Action() == "deletecomment")
+            if (context.Action == "deletecomment")
             {
-                body = Displays.CommentDeleted() + "\n";
+                body = Displays.CommentDeleted(context: context) + "\n";
             }
             if (this.Any())
             {
                 body += this.FirstOrDefault(o => o.Created)?
                     .Body
                         .ToNoticeLine(
-                            string.Empty,
-                            column,
-                            updated,
-                            update);
+                            context: context,
+                            saved: string.Empty,
+                            column: column,
+                            updated: updated,
+                            update: update);
                 this.Where(o => o.Updated).ForEach(comment =>
                     body += comment.Body
                         .ToNoticeLine(
-                            string.Empty,
-                            column,
-                            updated,
-                            update,
-                            Displays.CommentUpdated()));
+                            context: context,
+                            saved: string.Empty,
+                            column: column,
+                            updated: updated,
+                            update: update,
+                            suffix: Displays.CommentUpdated(context: context)));
                 return body;
             }
             else
@@ -170,7 +185,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return this?.Any() != true;
         }

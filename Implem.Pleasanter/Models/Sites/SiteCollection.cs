@@ -26,6 +26,7 @@ namespace Implem.Pleasanter.Models
         public int TotalCount;
 
         public SiteCollection(
+            IContext context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -41,7 +42,8 @@ namespace Implem.Pleasanter.Models
         {
             if (get)
             {
-                Set(Get(
+                Set(context, Get(
+                    context: context,
                     column: column,
                     join: join,
                     where: where,
@@ -56,18 +58,18 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public SiteCollection(IEnumerable<DataRow> dataRows)
+        public SiteCollection(IContext context, IEnumerable<DataRow> dataRows)
         {
-            Set(dataRows);
+            Set(context, dataRows);
         }
 
-        private SiteCollection Set(IEnumerable<DataRow> dataRows)
+        private SiteCollection Set(IContext context, IEnumerable<DataRow> dataRows)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new SiteModel(dataRow));
+                    Add(new SiteModel(context, dataRow));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -79,6 +81,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private IEnumerable<DataRow> Get(
+            IContext context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -109,6 +112,7 @@ namespace Implem.Pleasanter.Models
                     countRecord: countRecord)
             };
             var dataSet = Rds.ExecuteDataSet(
+                context: context,
                 transactional: false,
                 statements: statements.ToArray());
             TotalCount = Rds.Count(dataSet);

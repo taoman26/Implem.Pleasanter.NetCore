@@ -1,6 +1,7 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Models;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Security;
 using Implem.Pleasanter.Libraries.Settings;
@@ -11,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlImageLib
     {
         public static HtmlBuilder ImageLib(
-            this HtmlBuilder hb, SiteSettings ss, ImageLibData imageLibData)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, ImageLibData imageLibData)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -29,27 +30,31 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                 imageLibData.TotalCount)
                                     .ToString())
                         .ImageLibBody(
+                            context: context,
                             ss: ss,
                             imageLibData: imageLibData));
         }
 
         public static HtmlBuilder ImageLibBody(
-            this HtmlBuilder hb, SiteSettings ss, ImageLibData imageLibData)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, ImageLibData imageLibData)
         {
             return hb.Div(
                 attributes: new HtmlAttributes().Id("ImageLibBody"),
                 action: () => imageLibData.DataRows
                     .ForEach(dataRow => hb
                         .ImageLibItem(
+                            context: context,
                             ss: ss,
                             dataRow: dataRow)));
         }
 
         public static HtmlBuilder ImageLibItem(
-            this HtmlBuilder hb, SiteSettings ss, DataRow dataRow)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, DataRow dataRow)
         {
             var guid = dataRow.String("Guid");
-            var href = Locations.ShowFile(guid);
+            var href = Locations.ShowFile(
+                context: context,
+                guid: guid);
             return hb.Div(
                 attributes: new HtmlAttributes()
                     .Class("item")
@@ -59,7 +64,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         css: "title",
                         action: () => hb
                             .A(
-                                href: Locations.ItemEdit(dataRow.Long("Id")),
+                                href: Locations.ItemEdit(
+                                    context: context,
+                                    id: dataRow.Long("Id")),
                                 action: () => hb
                                     .Text(text: dataRow.String("ItemTitle"))))
                     .Div(
@@ -74,10 +81,12 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         onClick: $"$p.deleteImage($(this));",
                         dataId: guid,
                         icon: "ui-icon-trash",
-                        action: Locations.DeleteImage(guid),
+                        action: Locations.DeleteImage(
+                            context: context,
+                            guid: guid),
                         method: "delete",
                         confirm: "ConfirmDelete",
-                        _using: ss.CanUpdate()));
+                        _using: context.CanUpdate(ss: ss)));
         }
     }
 }

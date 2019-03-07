@@ -26,28 +26,37 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Remind()
+        public static string Remind(IContext context)
         {
             var now = DateTime.Now;
             while ((DateTime.Now - now).Seconds <= Parameters.Reminder.Span)
             {
-                var targets = Rds.ExecuteTable(statements: Rds.SelectReminderSchedules(
-                    column: Rds.ReminderSchedulesColumn()
-                        .SiteId()
-                        .Id()
-                        .Updator()
-                        .Sites_TenantId(),
-                    join: Rds.ReminderSchedulesJoin()
-                        .Add(
-                            tableName: "Sites",
-                            joinType: SqlJoin.JoinTypes.Inner,
-                            joinExpression: "[Sites].[SiteId]=[ReminderSchedules].[SiteId]"),
-                    where: Rds.ReminderSchedulesWhere()
-                        .ScheduledTime(
-                            DateTime.Now.ToLocal(),
-                            _operator: "<=")))
-                                .AsEnumerable();
-                targets.ForEach(dataRow => Remind(dataRow));
+                var targets = Rds.ExecuteTable(
+                    context: context,
+                    statements: Rds.SelectReminderSchedules(
+                        column: Rds.ReminderSchedulesColumn()
+                            .SiteId()
+                            .Id()
+                            .Sites_Updator()
+                            .Sites_TenantId()
+                            .Users_DeptId(),
+                        join: Rds.ReminderSchedulesJoin()
+                            .Add(
+                                tableName: "Sites",
+                                joinType: SqlJoin.JoinTypes.Inner,
+                                joinExpression: "[Sites].[SiteId]=[ReminderSchedules].[SiteId]")
+                            .Add(
+                                tableName: "Users",
+                                joinType: SqlJoin.JoinTypes.LeftOuter,
+                                joinExpression: "[Users].[UserId]=[Sites].[Updator]"),
+                        where: Rds.ReminderSchedulesWhere()
+                            .ScheduledTime(
+                                DateTime.Now.ToLocal(context: context),
+                                _operator: "<=")))
+                                    .AsEnumerable();
+                targets.ForEach(dataRow => Remind(
+                    context: context,
+                    dataRow: dataRow));
                 System.Threading.Thread.Sleep(Parameters.Reminder.Interval);
             }
             return string.Empty;
@@ -56,13 +65,19 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static void Remind(DataRow dataRow)
+        private static void Remind(IContext context, DataRow dataRow)
         {
-            Sessions.Set(dataRow.Int("TenantId"), dataRow.Int("Updator"));
-            SiteSettingsUtilities.Get(dataRow.Long("SiteId"), setSiteIntegration: true)?
-                .Remind(new List<int> { dataRow.Int("Id") });
-            Sessions.Clear("TenantId");
-            Sessions.Clear("RdsUser");
+            context = context.CreateContext(
+                tenantId: dataRow.Int("TenantId"),
+                userId: dataRow.Int("Updator"),
+                deptId: dataRow.Int("DeptId"));
+            SiteSettingsUtilities.Get(
+                context: context,
+                siteId: dataRow.Long("SiteId"),
+                setSiteIntegration: true)?
+                    .Remind(
+                        context: context,
+                        idList: dataRow.Int("Id").ToSingleList());
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
@@ -64,62 +65,117 @@ namespace Implem.Pleasanter.Libraries.Security
             return Name + "," + Id + "," + Type.ToInt().ToString();
         }
 
-        public ControlData ControlData(SiteSettings ss, bool withType = true)
+        public bool Exists(IContext context)
+        {
+            if (Id == 0)
+            {
+                return false;
+            }
+            switch (Name)
+            {
+                case "Dept":
+                    return SiteInfo.Dept(
+                        tenantId: context.TenantId,
+                        deptId: Id) != null;
+                case "Group":
+                    return new GroupModel(
+                        context: context,
+                        ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
+                        groupId: Id).AccessStatus == Databases.AccessStatuses.Selected;
+                case "User":
+                    return !SiteInfo.User(
+                        context: context,
+                        userId: Id).Anonymous();
+                default:
+                    return false;
+            }
+        }
+
+        public ControlData ControlData(IContext context, SiteSettings ss, bool withType = true)
         {
             switch (Name)
             {
                 case "Dept":
+                    var dept = SiteInfo.Dept(
+                        tenantId: context.TenantId,
+                        deptId: Id);
                     return DisplayText(
-                        Displays.Depts(),
-                        Id != 0
-                            ? SiteInfo.Dept(Id)?.Name
+                        context: context,
+                        text: Displays.Depts(context: context),
+                        name: Id != 0
+                            ? dept?.Name
                             : null,
-                        withType);
+                        title: dept?.Code,
+                        withType: withType);
                 case "Group":
                     var groupModel = Id != 0
-                        ? new GroupModel(SiteSettingsUtilities.GroupsSiteSettings(), Id)
+                        ? new GroupModel(
+                            context: context,
+                            ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
+                            groupId: Id)
                         : null;
                     return DisplayText(
-                        Displays.Groups(),
-                        groupModel?.AccessStatus == Databases.AccessStatuses.Selected
+                        context: context,
+                        text: Displays.Groups(context: context),
+                        name: groupModel?.AccessStatus == Databases.AccessStatuses.Selected
                             ? groupModel.GroupName
                             : null,
-                        withType);
+                        title: null,
+                        withType: withType);
                 case "User":
+                    var user = SiteInfo.User(
+                        context: context,
+                        userId: Id);
                     return DisplayText(
-                        Displays.Users(),
-                        Id != 0
-                            ? SiteInfo.User(Id)?.Name
+                        context: context,
+                        text: Displays.Users(context: context),
+                        name: Id != 0
+                            ? user?.Name
                             : null,
-                        withType);
+                        title: Id != 0
+                            ? user?.LoginId
+                            : null,
+                        withType: withType);
                 default:
-                    var column = ss?.GetColumn(Name);
-                    return DisplayText(Displays.Column(), column?.LabelText, withType);
+                    var column = ss?.GetColumn(
+                        context: context,
+                        columnName: Name);
+                    return DisplayText(
+                        context: context,
+                        text: Displays.Column(context: context),
+                        name: column?.LabelText,
+                        title: column?.LabelTextDefault,
+                        withType: withType);
             }
         }
 
-        private ControlData DisplayText(string title, string name, bool withType)
+        private ControlData DisplayText(
+            IContext context, string text, string name, string title, bool withType)
         {
-            return new ControlData("[" + title +
-                (Id != 0
-                    ? " " + Id
-                    : string.Empty) +
-                "]" +
-                (name != null
-                    ? " " + name
-                    : string.Empty) +
-                (withType
-                    ? " - [" + DisplayTypeName() + "]"
-                    : string.Empty));
+            return new ControlData(
+                text: "[" + text +
+                    (Id != 0
+                        ? " " + Id
+                        : string.Empty) +
+                    "]" +
+                    (name != null
+                        ? " " + name
+                        : string.Empty) +
+                    (withType
+                        ? " - [" + DisplayTypeName(context: context) + "]"
+                        : string.Empty),
+                title: title);
         }
 
-        private string DisplayTypeName()
+        private string DisplayTypeName(IContext context)
         {
             var permissionType = Type.ToLong();
             return Parameters.Permissions.Pattern.ContainsValue(permissionType)
-                ? Displays.Get(Parameters.Permissions.Pattern.First(o =>
-                    o.Value == permissionType).Key)
-                : Displays.Special();
+                ? Displays.Get(
+                    context: context,
+                    id: Parameters.Permissions.Pattern.First(o =>
+                        o.Value == permissionType).Key)
+                : Displays.Special(context: context);
         }
     }
 }

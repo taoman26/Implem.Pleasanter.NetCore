@@ -1,9 +1,10 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
-using Implem.Pleasanter.Libraries.Extensions;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.DataTypes;
+using Implem.Pleasanter.Libraries.Extensions;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using System;
@@ -40,6 +41,8 @@ namespace Implem.Pleasanter.Libraries.Settings
         public decimal? Min;
         public decimal? Max;
         public decimal? Step;
+        public bool? NoDuplication;
+        public bool? CopyByDefault;
         public bool? EditorReadOnly;
         public bool? AllowImage;
         public string FieldCss;
@@ -55,9 +58,9 @@ namespace Implem.Pleasanter.Libraries.Settings
         public bool? DateFilterHalf;
         public bool? DateFilterQuarter;
         public bool? DateFilterMonth;
-        public int? LimitQuantity;
-        public int? LimitSize;
-        public int? TotalLimitSize;
+        public decimal? LimitQuantity;
+        public decimal? LimitSize;
+        public decimal? TotalLimitSize;
         [NonSerialized]
         public int? No;
         [NonSerialized]
@@ -96,6 +99,8 @@ namespace Implem.Pleasanter.Libraries.Settings
         public string TypeName;
         [NonSerialized]
         public string TypeCs;
+        [NonSerialized]
+        public string JoinTableName;
         [NonSerialized]
         public bool UserColumn;
         [NonSerialized]
@@ -142,6 +147,8 @@ namespace Implem.Pleasanter.Libraries.Settings
         public bool Joined;
         [NonSerialized]
         public bool Linking;
+        [NonSerialized]
+        public bool LinkedChoiceHashCreated;
         // compatibility
         public bool? GridVisible;
         public bool? FilterVisible;
@@ -169,24 +176,35 @@ namespace Implem.Pleasanter.Libraries.Settings
             ColumnName = columnName;
         }
 
+        public void SetChoiceHash(IContext context, bool searchColumnOnly = false)
+        {
+            SetChoiceHash(
+                context: context,
+                siteId: SiteSettings.SiteId,
+                linkHash: SiteSettings.LinkHash(
+                    context: context,
+                    columnName: Name,
+                    searchColumnOnly: searchColumnOnly));
+        }
+
         public void SetChoiceHash(
+            IContext context,
             long siteId,
             Dictionary<string, List<string>> linkHash = null,
             IEnumerable<string> searchIndexes = null)
         {
-            var tenantId = Sessions.TenantId();
             ChoiceHash = new Dictionary<string, Choice>();
             ChoicesText.SplitReturn()
                 .Where(o => o.Trim() != string.Empty)
                 .Select((o, i) => new { Line = o.Trim(), Index = i })
                 .ForEach(data =>
                     SetChoiceHash(
-                        tenantId,
-                        siteId,
-                        linkHash,
-                        searchIndexes,
-                        data.Index,
-                        data.Line));
+                        context: context,
+                        siteId: siteId,
+                        linkHash: linkHash,
+                        searchIndexes: searchIndexes,
+                        index: data.Index,
+                        line: data.Line));
             if (searchIndexes?.Any() == true)
             {
                 ChoiceHash = ChoiceHash.Take(Parameters.General.DropDownSearchPageSize)
@@ -195,7 +213,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private void SetChoiceHash(
-            int tenantId,
+            IContext context,
             long siteId,
             Dictionary<string, List<string>> linkHash,
             IEnumerable<string> searchIndexes,
@@ -205,37 +223,18 @@ namespace Implem.Pleasanter.Libraries.Settings
             switch (line)
             {
                 case "[[Depts]]":
-                    SiteInfo.TenantCaches.Get(tenantId)?
+                    SiteInfo.TenantCaches.Get(context.TenantId)?
                         .DeptHash
-                        .Where(o => o.Value.TenantId == tenantId)
+                        .Where(o => o.Value.TenantId == context.TenantId)
                         .Where(o => searchIndexes?.Any() != true ||
                             searchIndexes.All(p =>
                                 o.Key == p.ToInt() ||
-                                o.Value.Name.Contains(p)))
+                                o.Value.Name.RegexLike(p).Any()))
                         .ForEach(o => AddToChoiceHash(
                             o.Key.ToString(),
-                            SiteInfo.Dept(o.Key).Name));
-                    break;
-                case "[[Users]]":
-                    SiteInfo.SiteUsers(tenantId, siteId)?
-                        .Where(o => !SiteInfo.User(o).Disabled)
-                        .ToDictionary(o => o.ToString(), o => SiteInfo.UserName(o))
-                        .Where(o => searchIndexes?.Any() != true ||
-                            searchIndexes.All(p =>
-                                o.Key.Contains(p) ||
-                                o.Value.Contains(p)))
-                        .ForEach(o => AddToChoiceHash(o.Key, o.Value));
-                    break;
-                case "[[Users*]]":
-                    SiteInfo.TenantCaches.Get(tenantId)?
-                        .UserHash
-                        .Where(o => o.Value.TenantId == tenantId)
-                        .ToDictionary(o => o.Key.ToString(), o => o.Value.Name)
-                        .Where(o => searchIndexes?.Any() != true ||
-                            searchIndexes.All(p =>
-                                o.Key.Contains(p) ||
-                                o.Value.Contains(p)))
-                        .ForEach(o => AddToChoiceHash(o.Key, o.Value));
+                            SiteInfo.Dept(
+                                tenantId: context.TenantId,
+                                deptId: o.Key).Name));
                     break;
                 case "[[TimeZones]]":
                     TimeZoneInfo.GetSystemTimeZones()
@@ -244,18 +243,34 @@ namespace Implem.Pleasanter.Libraries.Settings
                             o.StandardName));
                     break;
                 default:
-                    if (Linked())
+                    if (line.RegexExists(@"^\[\[Users.*\]\]$"))
                     {
-                        if (linkHash != null && linkHash.ContainsKey(line))
+                        AddUsersToChoiceHash(
+                            context: context,
+                            siteId: siteId,
+                            settings: line,
+                            searchIndexes: searchIndexes);
+                    }
+                    else if (Linked())
+                    {
+                        var key = "[[" + new Link(
+                            columnName: ColumnName,
+                            settings: line).SiteId + "]]";
+                        if (linkHash != null && linkHash.ContainsKey(key))
                         {
-                            linkHash[line].ForEach(value =>
-                                AddToChoiceHash(value));
+                            linkHash.Get(key)?
+                                .ToDictionary(
+                                    o => o.Split_1st(),
+                                    o => Strings.CoalesceEmpty(o.Split_2nd(), o.Split_1st()))
+                                .ForEach(o =>
+                                    AddToChoiceHash(o.Key, o.Value));
+                            LinkedChoiceHashCreated = true;
                         }
                     }
                     else if (TypeName != "bit")
                     {
                         if (searchIndexes == null ||
-                            searchIndexes.All(o => line.Contains(o)))
+                            searchIndexes.All(o => line.RegexLike(o).Any()))
                         {
                             AddToChoiceHash(line);
                         }
@@ -266,6 +281,56 @@ namespace Implem.Pleasanter.Libraries.Settings
                     }
                     break;
             }
+        }
+
+        public void AddUsersToChoiceHash(
+            IContext context, long siteId, string settings, IEnumerable<string> searchIndexes)
+        {
+            IEnumerable<int> users = null;
+            var showDeptName = false;
+            settings?
+                .RegexFirst(@"(?<=\[\[).+(?=\]\])")?
+                .Split(',')
+                .Select((o, i) => new { Index = i, Setting = o })
+                .ForEach(data =>
+                {
+                    if (data.Index == 0)
+                    {
+                        users = data.Setting == "Users*"
+                            ? SiteInfo.TenantCaches.Get(context.TenantId)?
+                                .UserHash
+                                .Where(o => o.Value.TenantId == context.TenantId)
+                                .Select(o => o.Value.Id)
+                            : SiteInfo.SiteUsers(context: context, siteId: siteId);
+                    }
+                    else
+                    {
+                        switch (data.Setting)
+                        {
+                            case "ShowDeptName":
+                                showDeptName = true;
+                                break;
+                        }
+                    }
+                });
+            users
+                .Select(userId => SiteInfo.User(
+                    context: context,
+                    userId: userId))
+                .Where(user => !user.Disabled)
+                .Where(user => searchIndexes?.Any() != true
+                    || searchIndexes.All(p => " ".JoinParam(
+                        user.UserCode,
+                        user.Name,
+                        user.LoginId,
+                        user.Dept.Code,
+                        user.Dept.Name).RegexLike(p).Any()))
+                .ForEach(user => AddToChoiceHash(
+                    user.Id.ToString(),
+                    SiteInfo.UserName(
+                        context: context,
+                        userId: user.Id,
+                        showDeptName: showDeptName)));
         }
 
         public bool Linked(SiteSettings ss, long fromSiteId)
@@ -294,27 +359,41 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public Dictionary<string, ControlData> EditChoices(
-            bool insertBlank = false, bool shorten = false, bool addNotSet = false)
+            IContext context,
+            bool insertBlank = false,
+            bool shorten = false,
+            bool addNotSet = false,
+            View view = null)
         {
-            var tenantId = Sessions.TenantId();
             var hash = new Dictionary<string, ControlData>();
+            var blank = UserColumn
+                ? User.UserTypes.Anonymous.ToInt().ToString()
+                : TypeName == "int"
+                    ? "0"
+                    : string.Empty;
             if (!HasChoices()) return hash;
+            if (Linked() && !LinkedChoiceHashCreated)
+            {
+                SetChoiceHash(context: context);
+            }
             if (addNotSet && !Required)
             {
-                hash.Add("\t", new ControlData(Displays.NotSet()));
+                hash.Add("\t", new ControlData(Displays.NotSet(context: context)));
             }
             if (insertBlank && CanEmpty())
             {
-                hash.Add(
-                    UserColumn
-                        ? User.UserTypes.Anonymous.ToInt().ToString()
-                        : string.Empty,
-                    new ControlData(string.Empty));
+                hash.Add(blank, new ControlData(string.Empty));
             }
+            var selected = view?
+                .ColumnFilter(ColumnName)?
+                .Deserialize<List<string>>()?
+                .Select(o => o == "\t" ? blank : o)
+                .ToList();
             ChoiceHash?.Values
                 .Where(o => !hash.ContainsKey(o.Value))
                 .GroupBy(o => o.Value)
                 .Select(o => o.FirstOrDefault())
+                .Where(o => selected?.Any() != true || selected.Contains(o.Value))
                 .ForEach(choice =>
                     hash.Add(
                         choice.Value,
@@ -337,9 +416,14 @@ namespace Implem.Pleasanter.Libraries.Settings
                 : new Choice(nullCase);
         }
 
-        public string ChoicePart(string selectedValue, ExportColumn.Types? type)
+        public string ChoicePart(IContext context, string selectedValue, ExportColumn.Types? type)
         {
-            if (UserColumn) AddNotIncludedUser(selectedValue);
+            if (UserColumn)
+            {
+                AddNotIncludedUser(
+                    context: context,
+                    selectedValue: selectedValue);
+            }
             var choice = Choice(selectedValue, nullCase: selectedValue);
             switch (type)
             {
@@ -350,11 +434,13 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private void AddNotIncludedUser(string selectedValue)
+        private void AddNotIncludedUser(IContext context, string selectedValue)
         {
             if (ChoiceHash?.ContainsKey(selectedValue) == false)
             {
-                var user = SiteInfo.User(selectedValue.ToInt());
+                var user = SiteInfo.User(
+                    context: context,
+                    userId: selectedValue.ToInt());
                 if (!user.Anonymous())
                 {
                     ChoiceHash.Add(selectedValue, new Choice(user.Name));
@@ -362,31 +448,19 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        public string RecordingData(string value, long siteId)
+        public string RecordingData(IContext context, string value, long siteId)
         {
-            var tenantId = Sessions.TenantId();
-            var userHash = SiteInfo.TenantCaches[tenantId].UserHash;
+            var userHash = SiteInfo.TenantCaches.Get(context.TenantId)?.UserHash;
             var recordingData = value;
-            if (UserColumn)
+            if (TypeCs == "Comments")
             {
-                if (SiteUserHash == null)
-                {
-                    SiteUserHash = SiteInfo.SiteUsers(tenantId, siteId)
-                        .Where(o => userHash.ContainsKey(o))
-                        .ToDictionary(o => userHash[o].Name, o => o);
-                }
-                var userId = SiteUserHash.Get(value);
-                recordingData = userId != 0
-                    ? userId.ToString()
-                    : User.UserTypes.Anonymous.ToInt().ToString();
-            }
-            else if (TypeCs == "Comments")
-            {
-                return new Comments().Prepend(value).ToJson();
+                return new Comments().Prepend(
+                    context: context, ss: SiteSettings, body: value).ToJson();
             }
             else if (TypeName == "datetime")
             {
-                return value?.ToDateTime().ToUniversal().ToString() ?? string.Empty;
+                return value?.ToDateTime().ToUniversal(context: context).ToString()
+                    ?? string.Empty;
             }
             else if (HasChoices())
             {
@@ -397,19 +471,36 @@ namespace Implem.Pleasanter.Libraries.Settings
                         .Select(o => o.First())
                         .ToDictionary(o => o.Value.Text, o => o.Key);
                 }
-                recordingData = ChoiceValueHash.Get(value) ?? value;
+                recordingData = ChoiceValueHash.Get(value);
+                if (UserColumn && recordingData == null)
+                {
+                    if (SiteUserHash == null)
+                    {
+                        SiteUserHash = SiteInfo.SiteUsers(context: context, siteId: siteId)
+                            .Where(id => userHash.ContainsKey(id))
+                            .GroupBy(id => userHash.Get(id)?.Name)
+                            .Select(id => id.First())
+                            .ToDictionary(id => userHash.Get(id)?.Name, o => o);
+                    }
+                    var userId = SiteUserHash.Get(value);
+                    recordingData = userId != 0
+                        ? userId.ToString()
+                        : User.UserTypes.Anonymous.ToInt().ToString();
+                }
+                recordingData = recordingData ?? value;
             }
             return recordingData ?? string.Empty;
         }
 
-        public string Display(decimal value, bool unit = false, bool format = true)
+        public string Display(
+            IContext context, decimal value, bool unit = false, bool format = true)
         {
             return (!Format.IsNullOrEmpty() && format
                 ? value.ToString(
                     Format + (Format == "C" && DecimalPlaces.ToInt() == 0
                         ? string.Empty
                         : DecimalPlaces.ToString()),
-                    Sessions.CultureInfo())
+                    context.CultureInfo())
                 : DecimalPlaces.ToInt() == 0
                     ? value.ToString("0", "0")
                     : DisplayValue(value))
@@ -423,21 +514,29 @@ namespace Implem.Pleasanter.Libraries.Settings
                 .TrimEndZero();
         }
 
-        public string Display(SiteSettings ss, decimal value, bool format = true)
+        public string Display(IContext context, SiteSettings ss, decimal value, bool format = true)
         {
-            return Display(value, format: format) + (EditorReadOnly == true || !CanUpdate
-                ? Unit
-                : string.Empty);
+            return Display(
+                context: context,
+                value: value,
+                format: format)
+                    + (EditorReadOnly == true || !CanUpdate
+                        ? Unit
+                        : string.Empty);
         }
 
-        public string DisplayGrid(DateTime value)
+        public string DisplayGrid(IContext context, DateTime value)
         {
-            return value.Display(GridFormat);
+            return value.Display(
+                context: context,
+                format: GridFormat);
         }
 
-        public string DisplayControl(DateTime value)
+        public string DisplayControl(IContext context, DateTime value)
         {
-            return value.Display(EditorFormat);
+            return value.Display(
+                context: context,
+                format: EditorFormat);
         }
 
         public decimal Round(decimal value)
@@ -445,15 +544,15 @@ namespace Implem.Pleasanter.Libraries.Settings
              return Math.Round(value, DecimalPlaces.ToInt(), MidpointRounding.AwayFromZero);
         }
 
-        public string DateTimeFormat()
+        public string DateTimeFormat(IContext context)
         {
             switch (EditorFormat)
             {
                 case "Ymdhm":
                 case "Ymdhms":
-                    return Displays.YmdhmDatePickerFormat();
+                    return Displays.YmdhmDatePickerFormat(context: context);
                 default:
-                    return Displays.YmdDatePickerFormat();
+                    return Displays.YmdDatePickerFormat(context: context);
             }
         }
 
@@ -487,16 +586,36 @@ namespace Implem.Pleasanter.Libraries.Settings
             return DateTime.Now.AddDays(DefaultInput.ToInt());
         }
 
+        public string GetDefaultInput(IContext context)
+        {
+            switch (DefaultInput)
+            {
+                case "[[Self]]":
+                    switch (ChoicesText.SplitReturn().FirstOrDefault())
+                    {
+                        case "[[Depts]]":
+                            return context.DeptId.ToString();
+                        case "[[Users]]":
+                        case "[[Users*]]":
+                            return context.UserId.ToString();
+                    }
+                    break;
+            }
+            return DefaultInput;
+        }
+
         public SqlColumnCollection SqlColumnCollection(SiteSettings ss)
         {
             var sql = new SqlColumnCollection();
+            var tableName = Strings.CoalesceEmpty(JoinTableName, SiteSettings.ReferenceType);
             SelectColumns(
                 sql: sql,
-                tableName: SiteSettings.ReferenceType,
+                tableName: tableName,
+                tableType: ss.TableType,
                 columnName: Name,
                 path: Joined
                     ? TableAlias
-                    : SiteSettings.ReferenceType,
+                    : tableName,
                 _as: Joined
                     ? ColumnName
                     : null);
@@ -526,7 +645,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return sql;
         }
 
-        public SqlJoinCollection SqlJoinCollection(SiteSettings ss)
+        public SqlJoinCollection SqlJoinCollection(IContext context, SiteSettings ss)
         {
             var sql = new SqlJoinCollection();
             if (!TableAlias.IsNullOrEmpty())
@@ -538,7 +657,9 @@ namespace Implem.Pleasanter.Libraries.Settings
                     var siteId = part.Split_2nd('~').ToLong();
                     var currentSs = ss.JoinedSsHash?.Get(siteId);
                     var tableName = currentSs?.ReferenceType;
-                    var name = currentSs?.GetColumn(part.Split_1st('~'))?.Name;
+                    var name = currentSs?.GetColumn(
+                        context: context,
+                        columnName: part.Split_1st('~'))?.Name;
                     path.Add(part);
                     var alias = path.Join("-");
                     if (tableName != null && name != null)
@@ -573,9 +694,22 @@ namespace Implem.Pleasanter.Libraries.Settings
                 .Params(left, name, alias, Rds.IdColumn(tableName), siteId);
         }
 
+        public SqlStatement IfDuplicatedStatement(
+            SqlParamCollection param, long siteId, long referenceId)
+        {
+            return new SqlStatement(
+                Def.Sql.IfDuplicated.Params(
+                    SiteSettings.ReferenceType,
+                    siteId,
+                    Rds.IdColumn(SiteSettings.ReferenceType),
+                    referenceId,
+                    ColumnName),
+                param);
+        }
+
         public string TableName()
         {
-            return TableAlias ?? SiteSettings.ReferenceType;
+            return Strings.CoalesceEmpty(TableAlias, JoinTableName, SiteSettings.ReferenceType);
         }
 
         public string ParamName()
@@ -602,12 +736,63 @@ namespace Implem.Pleasanter.Libraries.Settings
         private void SelectColumns(
             SqlColumnCollection sql,
             string tableName,
+            Sqls.TableTypes tableType,
             string columnName,
             string path,
             string _as)
         {
             switch (tableName)
             {
+                case "Tenants":
+                    switch (columnName)
+                    {
+                        case "TenantId":
+                            sql.Tenants_TenantId(tableName: path, _as: _as);
+                            break;
+                        case "Ver":
+                            sql.Tenants_Ver(tableName: path, _as: _as);
+                            break;
+                        case "TenantName":
+                            sql.Tenants_TenantName(tableName: path, _as: _as);
+                            break;
+                        case "Body":
+                            sql.Tenants_Body(tableName: path, _as: _as);
+                            break;
+                        case "ContractSettings":
+                            sql.Tenants_ContractSettings(tableName: path, _as: _as);
+                            break;
+                        case "ContractDeadline":
+                            sql.Tenants_ContractDeadline(tableName: path, _as: _as);
+                            break;
+                        case "LogoType":
+                            sql.Tenants_LogoType(tableName: path, _as: _as);
+                            break;
+                        case "HtmlTitleTop":
+                            sql.Tenants_HtmlTitleTop(tableName: path, _as: _as);
+                            break;
+                        case "HtmlTitleSite":
+                            sql.Tenants_HtmlTitleSite(tableName: path, _as: _as);
+                            break;
+                        case "HtmlTitleRecord":
+                            sql.Tenants_HtmlTitleRecord(tableName: path, _as: _as);
+                            break;
+                        case "Comments":
+                            sql.Tenants_Comments(tableName: path, _as: _as);
+                            break;
+                        case "Creator":
+                            sql.Tenants_Creator(tableName: path, _as: _as);
+                            break;
+                        case "Updator":
+                            sql.Tenants_Updator(tableName: path, _as: _as);
+                            break;
+                        case "CreatedTime":
+                            sql.Tenants_CreatedTime(tableName: path, _as: _as);
+                            break;
+                        case "UpdatedTime":
+                            sql.Tenants_UpdatedTime(tableName: path, _as: _as);
+                            break;
+                    }
+                    break;
                 case "Depts":
                     switch (columnName)
                     {
@@ -729,6 +914,9 @@ namespace Implem.Pleasanter.Libraries.Settings
                         case "TimeZone":
                             sql.Users_TimeZone(tableName: path, _as: _as);
                             break;
+                        case "DeptCode":
+                            sql.Users_DeptCode(tableName: path, _as: _as);
+                            break;
                         case "DeptId":
                             sql.Users_DeptId(tableName: path, _as: _as);
                             break;
@@ -765,6 +953,12 @@ namespace Implem.Pleasanter.Libraries.Settings
                         case "Disabled":
                             sql.Users_Disabled(tableName: path, _as: _as);
                             break;
+                        case "Lockout":
+                            sql.Users_Lockout(tableName: path, _as: _as);
+                            break;
+                        case "LockoutCounter":
+                            sql.Users_LockoutCounter(tableName: path, _as: _as);
+                            break;
                         case "Developer":
                             sql.Users_Developer(tableName: path, _as: _as);
                             break;
@@ -773,6 +967,402 @@ namespace Implem.Pleasanter.Libraries.Settings
                             break;
                         case "ApiKey":
                             sql.Users_ApiKey(tableName: path, _as: _as);
+                            break;
+                        case "ClassA":
+                            sql.Users_ClassA(tableName: path, _as: _as);
+                            break;
+                        case "ClassB":
+                            sql.Users_ClassB(tableName: path, _as: _as);
+                            break;
+                        case "ClassC":
+                            sql.Users_ClassC(tableName: path, _as: _as);
+                            break;
+                        case "ClassD":
+                            sql.Users_ClassD(tableName: path, _as: _as);
+                            break;
+                        case "ClassE":
+                            sql.Users_ClassE(tableName: path, _as: _as);
+                            break;
+                        case "ClassF":
+                            sql.Users_ClassF(tableName: path, _as: _as);
+                            break;
+                        case "ClassG":
+                            sql.Users_ClassG(tableName: path, _as: _as);
+                            break;
+                        case "ClassH":
+                            sql.Users_ClassH(tableName: path, _as: _as);
+                            break;
+                        case "ClassI":
+                            sql.Users_ClassI(tableName: path, _as: _as);
+                            break;
+                        case "ClassJ":
+                            sql.Users_ClassJ(tableName: path, _as: _as);
+                            break;
+                        case "ClassK":
+                            sql.Users_ClassK(tableName: path, _as: _as);
+                            break;
+                        case "ClassL":
+                            sql.Users_ClassL(tableName: path, _as: _as);
+                            break;
+                        case "ClassM":
+                            sql.Users_ClassM(tableName: path, _as: _as);
+                            break;
+                        case "ClassN":
+                            sql.Users_ClassN(tableName: path, _as: _as);
+                            break;
+                        case "ClassO":
+                            sql.Users_ClassO(tableName: path, _as: _as);
+                            break;
+                        case "ClassP":
+                            sql.Users_ClassP(tableName: path, _as: _as);
+                            break;
+                        case "ClassQ":
+                            sql.Users_ClassQ(tableName: path, _as: _as);
+                            break;
+                        case "ClassR":
+                            sql.Users_ClassR(tableName: path, _as: _as);
+                            break;
+                        case "ClassS":
+                            sql.Users_ClassS(tableName: path, _as: _as);
+                            break;
+                        case "ClassT":
+                            sql.Users_ClassT(tableName: path, _as: _as);
+                            break;
+                        case "ClassU":
+                            sql.Users_ClassU(tableName: path, _as: _as);
+                            break;
+                        case "ClassV":
+                            sql.Users_ClassV(tableName: path, _as: _as);
+                            break;
+                        case "ClassW":
+                            sql.Users_ClassW(tableName: path, _as: _as);
+                            break;
+                        case "ClassX":
+                            sql.Users_ClassX(tableName: path, _as: _as);
+                            break;
+                        case "ClassY":
+                            sql.Users_ClassY(tableName: path, _as: _as);
+                            break;
+                        case "ClassZ":
+                            sql.Users_ClassZ(tableName: path, _as: _as);
+                            break;
+                        case "NumA":
+                            sql.Users_NumA(tableName: path, _as: _as);
+                            break;
+                        case "NumB":
+                            sql.Users_NumB(tableName: path, _as: _as);
+                            break;
+                        case "NumC":
+                            sql.Users_NumC(tableName: path, _as: _as);
+                            break;
+                        case "NumD":
+                            sql.Users_NumD(tableName: path, _as: _as);
+                            break;
+                        case "NumE":
+                            sql.Users_NumE(tableName: path, _as: _as);
+                            break;
+                        case "NumF":
+                            sql.Users_NumF(tableName: path, _as: _as);
+                            break;
+                        case "NumG":
+                            sql.Users_NumG(tableName: path, _as: _as);
+                            break;
+                        case "NumH":
+                            sql.Users_NumH(tableName: path, _as: _as);
+                            break;
+                        case "NumI":
+                            sql.Users_NumI(tableName: path, _as: _as);
+                            break;
+                        case "NumJ":
+                            sql.Users_NumJ(tableName: path, _as: _as);
+                            break;
+                        case "NumK":
+                            sql.Users_NumK(tableName: path, _as: _as);
+                            break;
+                        case "NumL":
+                            sql.Users_NumL(tableName: path, _as: _as);
+                            break;
+                        case "NumM":
+                            sql.Users_NumM(tableName: path, _as: _as);
+                            break;
+                        case "NumN":
+                            sql.Users_NumN(tableName: path, _as: _as);
+                            break;
+                        case "NumO":
+                            sql.Users_NumO(tableName: path, _as: _as);
+                            break;
+                        case "NumP":
+                            sql.Users_NumP(tableName: path, _as: _as);
+                            break;
+                        case "NumQ":
+                            sql.Users_NumQ(tableName: path, _as: _as);
+                            break;
+                        case "NumR":
+                            sql.Users_NumR(tableName: path, _as: _as);
+                            break;
+                        case "NumS":
+                            sql.Users_NumS(tableName: path, _as: _as);
+                            break;
+                        case "NumT":
+                            sql.Users_NumT(tableName: path, _as: _as);
+                            break;
+                        case "NumU":
+                            sql.Users_NumU(tableName: path, _as: _as);
+                            break;
+                        case "NumV":
+                            sql.Users_NumV(tableName: path, _as: _as);
+                            break;
+                        case "NumW":
+                            sql.Users_NumW(tableName: path, _as: _as);
+                            break;
+                        case "NumX":
+                            sql.Users_NumX(tableName: path, _as: _as);
+                            break;
+                        case "NumY":
+                            sql.Users_NumY(tableName: path, _as: _as);
+                            break;
+                        case "NumZ":
+                            sql.Users_NumZ(tableName: path, _as: _as);
+                            break;
+                        case "DateA":
+                            sql.Users_DateA(tableName: path, _as: _as);
+                            break;
+                        case "DateB":
+                            sql.Users_DateB(tableName: path, _as: _as);
+                            break;
+                        case "DateC":
+                            sql.Users_DateC(tableName: path, _as: _as);
+                            break;
+                        case "DateD":
+                            sql.Users_DateD(tableName: path, _as: _as);
+                            break;
+                        case "DateE":
+                            sql.Users_DateE(tableName: path, _as: _as);
+                            break;
+                        case "DateF":
+                            sql.Users_DateF(tableName: path, _as: _as);
+                            break;
+                        case "DateG":
+                            sql.Users_DateG(tableName: path, _as: _as);
+                            break;
+                        case "DateH":
+                            sql.Users_DateH(tableName: path, _as: _as);
+                            break;
+                        case "DateI":
+                            sql.Users_DateI(tableName: path, _as: _as);
+                            break;
+                        case "DateJ":
+                            sql.Users_DateJ(tableName: path, _as: _as);
+                            break;
+                        case "DateK":
+                            sql.Users_DateK(tableName: path, _as: _as);
+                            break;
+                        case "DateL":
+                            sql.Users_DateL(tableName: path, _as: _as);
+                            break;
+                        case "DateM":
+                            sql.Users_DateM(tableName: path, _as: _as);
+                            break;
+                        case "DateN":
+                            sql.Users_DateN(tableName: path, _as: _as);
+                            break;
+                        case "DateO":
+                            sql.Users_DateO(tableName: path, _as: _as);
+                            break;
+                        case "DateP":
+                            sql.Users_DateP(tableName: path, _as: _as);
+                            break;
+                        case "DateQ":
+                            sql.Users_DateQ(tableName: path, _as: _as);
+                            break;
+                        case "DateR":
+                            sql.Users_DateR(tableName: path, _as: _as);
+                            break;
+                        case "DateS":
+                            sql.Users_DateS(tableName: path, _as: _as);
+                            break;
+                        case "DateT":
+                            sql.Users_DateT(tableName: path, _as: _as);
+                            break;
+                        case "DateU":
+                            sql.Users_DateU(tableName: path, _as: _as);
+                            break;
+                        case "DateV":
+                            sql.Users_DateV(tableName: path, _as: _as);
+                            break;
+                        case "DateW":
+                            sql.Users_DateW(tableName: path, _as: _as);
+                            break;
+                        case "DateX":
+                            sql.Users_DateX(tableName: path, _as: _as);
+                            break;
+                        case "DateY":
+                            sql.Users_DateY(tableName: path, _as: _as);
+                            break;
+                        case "DateZ":
+                            sql.Users_DateZ(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionA":
+                            sql.Users_DescriptionA(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionB":
+                            sql.Users_DescriptionB(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionC":
+                            sql.Users_DescriptionC(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionD":
+                            sql.Users_DescriptionD(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionE":
+                            sql.Users_DescriptionE(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionF":
+                            sql.Users_DescriptionF(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionG":
+                            sql.Users_DescriptionG(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionH":
+                            sql.Users_DescriptionH(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionI":
+                            sql.Users_DescriptionI(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionJ":
+                            sql.Users_DescriptionJ(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionK":
+                            sql.Users_DescriptionK(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionL":
+                            sql.Users_DescriptionL(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionM":
+                            sql.Users_DescriptionM(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionN":
+                            sql.Users_DescriptionN(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionO":
+                            sql.Users_DescriptionO(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionP":
+                            sql.Users_DescriptionP(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionQ":
+                            sql.Users_DescriptionQ(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionR":
+                            sql.Users_DescriptionR(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionS":
+                            sql.Users_DescriptionS(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionT":
+                            sql.Users_DescriptionT(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionU":
+                            sql.Users_DescriptionU(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionV":
+                            sql.Users_DescriptionV(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionW":
+                            sql.Users_DescriptionW(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionX":
+                            sql.Users_DescriptionX(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionY":
+                            sql.Users_DescriptionY(tableName: path, _as: _as);
+                            break;
+                        case "DescriptionZ":
+                            sql.Users_DescriptionZ(tableName: path, _as: _as);
+                            break;
+                        case "CheckA":
+                            sql.Users_CheckA(tableName: path, _as: _as);
+                            break;
+                        case "CheckB":
+                            sql.Users_CheckB(tableName: path, _as: _as);
+                            break;
+                        case "CheckC":
+                            sql.Users_CheckC(tableName: path, _as: _as);
+                            break;
+                        case "CheckD":
+                            sql.Users_CheckD(tableName: path, _as: _as);
+                            break;
+                        case "CheckE":
+                            sql.Users_CheckE(tableName: path, _as: _as);
+                            break;
+                        case "CheckF":
+                            sql.Users_CheckF(tableName: path, _as: _as);
+                            break;
+                        case "CheckG":
+                            sql.Users_CheckG(tableName: path, _as: _as);
+                            break;
+                        case "CheckH":
+                            sql.Users_CheckH(tableName: path, _as: _as);
+                            break;
+                        case "CheckI":
+                            sql.Users_CheckI(tableName: path, _as: _as);
+                            break;
+                        case "CheckJ":
+                            sql.Users_CheckJ(tableName: path, _as: _as);
+                            break;
+                        case "CheckK":
+                            sql.Users_CheckK(tableName: path, _as: _as);
+                            break;
+                        case "CheckL":
+                            sql.Users_CheckL(tableName: path, _as: _as);
+                            break;
+                        case "CheckM":
+                            sql.Users_CheckM(tableName: path, _as: _as);
+                            break;
+                        case "CheckN":
+                            sql.Users_CheckN(tableName: path, _as: _as);
+                            break;
+                        case "CheckO":
+                            sql.Users_CheckO(tableName: path, _as: _as);
+                            break;
+                        case "CheckP":
+                            sql.Users_CheckP(tableName: path, _as: _as);
+                            break;
+                        case "CheckQ":
+                            sql.Users_CheckQ(tableName: path, _as: _as);
+                            break;
+                        case "CheckR":
+                            sql.Users_CheckR(tableName: path, _as: _as);
+                            break;
+                        case "CheckS":
+                            sql.Users_CheckS(tableName: path, _as: _as);
+                            break;
+                        case "CheckT":
+                            sql.Users_CheckT(tableName: path, _as: _as);
+                            break;
+                        case "CheckU":
+                            sql.Users_CheckU(tableName: path, _as: _as);
+                            break;
+                        case "CheckV":
+                            sql.Users_CheckV(tableName: path, _as: _as);
+                            break;
+                        case "CheckW":
+                            sql.Users_CheckW(tableName: path, _as: _as);
+                            break;
+                        case "CheckX":
+                            sql.Users_CheckX(tableName: path, _as: _as);
+                            break;
+                        case "CheckY":
+                            sql.Users_CheckY(tableName: path, _as: _as);
+                            break;
+                        case "CheckZ":
+                            sql.Users_CheckZ(tableName: path, _as: _as);
+                            break;
+                        case "LdapSearchRoot":
+                            sql.Users_LdapSearchRoot(tableName: path, _as: _as);
+                            break;
+                        case "SynchronizedTime":
+                            sql.Users_SynchronizedTime(tableName: path, _as: _as);
                             break;
                         case "Comments":
                             sql.Users_Comments(tableName: path, _as: _as);
@@ -1326,6 +1916,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                                 .Issues_Title(tableName: path, _as: _as)
                                 .ItemTitle(
                                     tableName: path,
+                                    tableType: tableType,
                                     idColumn: Rds.IdColumn(SiteSettings.ReferenceType),
                                     _as: Joined
                                         ? path + ",ItemTitle"
@@ -1853,6 +2444,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                                 .Results_Title(tableName: path, _as: _as)
                                 .ItemTitle(
                                     tableName: path,
+                                    tableType: tableType,
                                     idColumn: Rds.IdColumn(SiteSettings.ReferenceType),
                                     _as: Joined
                                         ? path + ",ItemTitle"

@@ -1,7 +1,7 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
 using System.Linq;
-using Microsoft.AspNetCore.Mvc;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Libraries.Resources
 {
     public static class JavaScripts

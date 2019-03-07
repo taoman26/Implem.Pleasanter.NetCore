@@ -20,7 +20,7 @@ namespace Implem.Libraries.DataSources.SqlServer
         public SqlHavingCollection SqlHavingCollection = new SqlHavingCollection();
         public bool AddUpdatorParam = true;
         public bool AddUpdatedTimeParam = true;
-        public bool SelectIdentity;
+        public bool SetIdentity;
         public bool CountRecord;
         public string If;
         public bool Not = false;
@@ -52,7 +52,11 @@ namespace Implem.Libraries.DataSources.SqlServer
             int? commandCount = null)
         {
             if (!Using) return;
-            commandText.Append(CommandText);
+            if (!CommandText.IsNullOrEmpty())
+            {
+                commandText.Append(CommandText
+                    .Replace("#CommandCount#", commandCount.ToString()));
+            }
             AddParams_Param(sqlCommand, commandCount);
         }
 
@@ -189,12 +193,12 @@ namespace Implem.Libraries.DataSources.SqlServer
             }
         }
 
-        protected void Build_SelectIdentity(
+        protected void Build_SetIdentity(
             StringBuilder commandText, bool selectIdentity, int? commandCount)
         {
             if (selectIdentity)
             {
-                commandText.Append("set @_I = @@identity select @_I;\n");
+                commandText.Append("set @_I = @@identity;\n");
             }
         }
 
@@ -202,7 +206,7 @@ namespace Implem.Libraries.DataSources.SqlServer
         {
             if (CountRecord)
             {
-                commandText.Append("select @@rowcount;\n");
+                commandText.Append("select '{\"Count\":' + convert(nvarchar,@@rowcount) + '}';\n");
             }
         }
 

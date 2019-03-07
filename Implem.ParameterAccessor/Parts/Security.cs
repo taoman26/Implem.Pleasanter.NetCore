@@ -5,5 +5,9 @@ namespace Implem.ParameterAccessor.Parts
     {
         public int RequestLimit;
         public List<string> PrivilegedUsers;
+        public bool RevealUserDisabled;
+        public int LockoutCount;
+        public int PasswordExpirationPeriod;
+        public List<PasswordPolicy> PasswordPolicies;
     }
 }

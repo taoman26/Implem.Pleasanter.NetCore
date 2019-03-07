@@ -1,4 +1,5 @@
-﻿using Implem.Libraries.Utilities;
+﻿using Implem.DefinitionAccessor;
+using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.General;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Security;
@@ -12,18 +13,20 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static Error.Types OnUpdating(SiteSettings ss)
+        public static Error.Types OnUpdating(IContext context, SiteSettings ss)
         {
-            if (!ss.CanManagePermission())
+            if (!context.CanManagePermission(ss: ss))
             {
                 return Error.Types.HasNotPermission;
             }
-            foreach (var controlId in Forms.Keys())
+            foreach (var key in context.Forms.Keys)
             {
-                switch (controlId)
+                switch (key)
                 {
                     case "InheritPermission":
-                        var type = SiteValidators.InheritPermission(ss);
+                        var type = SiteValidators.InheritPermission(
+                            context: context,
+                            ss: ss);
                         if (type != Error.Types.None) return type;
                         break;
                 }

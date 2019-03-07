@@ -234,6 +234,16 @@ namespace Implem.Pleasanter.Libraries.Html
             return this;
         }
 
+        public HtmlAttributes AutoComplete(string value, bool _using = true)
+        {
+            if (!value.IsNullOrEmpty() && _using)
+            {
+                Add("autocomplete");
+                Add(value);
+            }
+            return this;
+        }
+
         public HtmlAttributes AccessKey(string value, bool _using = true)
         {
             if (!value.IsNullOrEmpty() && _using)
@@ -599,6 +609,16 @@ namespace Implem.Pleasanter.Libraries.Html
             if (_using)
             {
                 Add("data-width");
+                Add(value.ToString());
+            }
+            return this;
+        }
+
+        public HtmlAttributes DataOrder(int? value, bool _using = true)
+        {
+            if (_using && value >= 0)
+            {
+                Add("data-order");
                 Add(value.ToString());
             }
             return this;

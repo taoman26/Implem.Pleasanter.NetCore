@@ -1,6 +1,7 @@
-# Implem.Pleasanter
-## プリザンターとは
-ノンプログラミングでWebデータベース型の業務アプリケーションが作成できるオープンソース・ソフトウェア。
+![image](https://user-images.githubusercontent.com/12204265/48656589-f785b200-ea69-11e8-8278-3cf084ccbd27.png)
+
+## Pleasanterとは
+Pleasanter（プリザンター）はオープンソースのビジネスアプリケーションプラットフォームです。顧客管理や営業支援、プロジェクト管理など様々な業務をノンプログラミングでWebデータベース化することができます。動作が軽く、汎用性が高いため、日常的なコミュニケーションやマネジメントの支援ツールとして利用できます。
 
 ## ダウンロード
 セットアップモジュールのダウンロードサイトです。  
@@ -13,6 +14,7 @@ https://pleasanter.azurewebsites.net
 ## 資料
 * [紹介資料](https://pleasanter.org/downloads/pleasanterp.pdf)
 * [パンフレット](https://pleasanter.org/downloads/pleasanter.pdf)
+* [アプリ作成ガイド](https://pleasanter.org/downloads/hands-on1.pdf)
 
 ## 主な利用シーン
 * [問合せ管理](https://implem.co.jp/2017/08/19/1728/)

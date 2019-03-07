@@ -2,6 +2,7 @@
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
+using Implem.Pleasanter.Libraries.Security;
 using System.Web;
 namespace Implem.Pleasanter.Libraries.HtmlParts
 {
@@ -9,35 +10,46 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder BackUrl(
             this HtmlBuilder hb,
+            IContext context,
             long siteId,
             long parentId,
             string referenceType,
             string siteReferenceType)
         {
-            return !Request.IsAjax()
+            return !context.Ajax
                 ? hb.Hidden(
                     controlId: "BackUrl",
-                    rawValue: BackUrl(siteId, parentId, referenceType, siteReferenceType))
+                    rawValue: BackUrl(
+                        context: context,
+                        siteId: siteId,
+                        parentId: parentId,
+                        referenceType: referenceType,
+                        siteReferenceType: siteReferenceType))
                 : hb;
         }
 
         private static string BackUrl(
-            long siteId, long parentId, string referenceType, string siteReferenceType)
+            IContext context,
+            long siteId,
+            long parentId,
+            string referenceType,
+            string siteReferenceType)
         {
-            var controller = Routes.Controller();
-            var referer = HttpUtility.UrlDecode(Url.UrlReferrer());
-            switch (controller)
+            var referer = HttpUtility.UrlDecode(context.UrlReferrer);
+            switch (context.Controller)
             {
                 case "admins":
-                    return Locations.Top();
+                    return Locations.Top(context: context);
                 case "versions":
                     return referer != null
                         ? referer
-                        : Locations.Top();
+                        : Locations.Top(context: context);
+                case "tenants":
+                    return AdminsOrTop(context: context);
                 case "depts":
                 case "groups":
                 case "users":
-                    switch (Routes.Action())
+                    switch (context.Action)
                     {
                         case "new":
                         case "edit":
@@ -45,55 +57,89 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                 referer?.EndsWith("/new") == false
                                     ? referer
                                     : null,
-                                Locations.Get(controller));
+                                Locations.Get(
+                                    context: context,
+                                    parts: context.Controller));
                         case "editapi":
                             return referer != null
                                 ? referer
-                                : Locations.Top();
+                                : Locations.Top(context: context);
                         default:
-                            return Locations.Get("Admins");
+                            return AdminsOrTop(context: context);
                     }
                 default:
                     switch (referenceType)
                     {
                         case "Sites":
-                            switch (Routes.Action())
+                            switch (context.Action)
                             {
                                 case "new":
-                                    return Locations.ItemIndex(siteId);
+                                case "trashbox":
+                                    return Locations.ItemIndex(
+                                        context: context,
+                                        id: siteId);
                                 case "edit":
                                     switch (siteReferenceType)
                                     {
                                         case "Wikis":
-                                            return Locations.ItemIndex(parentId);
+                                            return Locations.ItemIndex(
+                                                context: context,
+                                                id: parentId);
                                         default:
-                                            return Locations.ItemIndex(siteId);
+                                            return Locations.ItemIndex(
+                                                context: context,
+                                                id: siteId);
                                     }
                                 default:
-                                    return Locations.ItemIndex(parentId);
+                                    return Locations.ItemIndex(
+                                        context: context,
+                                        id: parentId);
                             }
                         case "Wikis":
-                            return QueryStrings.Int("back") == 1 && !referer.IsNullOrEmpty()
-                                ? referer
-                                : Locations.ItemIndex(parentId);
+                            return context.QueryStrings.Int("back") == 1
+                                && !referer.IsNullOrEmpty()
+                                    ? referer
+                                    : Locations.ItemIndex(
+                                        context: context,
+                                        id: parentId);
                         default:
-                            switch (Routes.Action())
+                            switch (context.Action)
                             {
                                 case "new":
                                 case "edit":
-                                    return
-                                        QueryStrings.Int("back") == 1 &&
-                                        !referer.IsNullOrEmpty()
+                                    return context.QueryStrings.Int("back") == 1
+                                        && !referer.IsNullOrEmpty()
                                             ? referer
                                             : Locations.Get(
-                                                "Items",
-                                                siteId.ToString(),
-                                                Requests.ViewModes.GetBySession(siteId));
+                                                context: context,
+                                                parts: new string[]
+                                                {
+                                                    context.Publish
+                                                        ? "Publishes"
+                                                        : "Items",
+                                                    siteId.ToString(),
+                                                    Requests.ViewModes.GetSessionData(
+                                                        context: context,
+                                                        siteId: siteId)
+                                                });
+                                case "trashbox":
+                                    return Locations.ItemIndex(
+                                        context: context,
+                                        id: siteId);
                                 default:
-                                    return Locations.ItemIndex(parentId);
+                                    return Locations.ItemIndex(
+                                        context: context,
+                                        id: parentId);
                             }
                     }
             }
+        }
+
+        private static string AdminsOrTop(IContext context)
+        {
+            return Permissions.CanManageTenant(context: context)
+                ? Locations.Admins(context: context)
+                : Locations.Top(context: context);
         }
     }
 }

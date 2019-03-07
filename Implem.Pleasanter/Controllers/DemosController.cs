@@ -1,49 +1,41 @@
 ﻿using Implem.DefinitionAccessor;
-using Implem.Pleasanter.Filters;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class DemosController : Controller
+    public class DemosController
     {
-        [AllowAnonymous]
-        [HttpPost]
-        public string Register()
+        public string Register(IContext context)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             if (Parameters.Service.Demo)
             {
-                var json = DemoUtilities.Register();
-                log.Finish(json.Length);
+                var json = DemoUtilities.Register(context: context);
+                log.Finish(context: context, responseSize: json.Length);
                 return json;
             }
             else
             {
-                log.Finish();
+                log.Finish(context: context);
                 return null;
             }
         }
 
-        [AllowAnonymous]
-        [HttpGet]
-        public ActionResult Login()
+        public (string redirectUrl, string errors, string notFound) Login(IContext context)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             if (Parameters.Service.Demo)
             {
-                DemoUtilities.Login();
-                log.Finish();
-                return Redirect(Locations.Get());
+                DemoUtilities.Login(context: context);
+                log.Finish(context: context);
+                return (Locations.Get(context: context), null, null);
             }
             else
             {
-                log.Finish();
-                return RedirectToAction("Errors", "NotFound");
+                log.Finish(context: context);
+                return (null, "Errors", "NotFound");
             }
         }
     }

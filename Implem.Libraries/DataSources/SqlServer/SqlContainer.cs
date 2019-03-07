@@ -1,4 +1,5 @@
 ﻿using Implem.Libraries.Classes;
+using Implem.Libraries.Utilities;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
@@ -14,6 +15,7 @@ namespace Implem.Libraries.DataSources.SqlServer
         public int ConnectionTimeOut;
         public int CommandTimeOut;
         public bool Transactional = false;
+        public bool SelectIdentity = false;
         public bool WriteSqlToDebugLog = true;
         public List<string> DataTableNames = new List<string>();
 

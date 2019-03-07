@@ -1,6 +1,9 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.General;
-using Microsoft.AspNetCore.Mvc;
+using Implem.Pleasanter.Libraries.Requests;
+using System.Net.Http;
+using System.Web.Http;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Libraries.Responses
 {
     public static class ApiResults
@@ -10,9 +13,12 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(ApiResponses.Success(id, message));
         }
 
-        public static ContentResult Error(Error.Types type)
+        public static ContentResult Error(IContext context, Error.Types type, params string[] data)
         {
-            return Get(ApiResponses.Error(type));
+            return Get(ApiResponses.Error(
+                context: context,
+                type: type,
+                data: data));
         }
 
         public static ContentResult Get(ApiResponse apiResponse)
@@ -29,14 +35,14 @@ namespace Implem.Pleasanter.Libraries.Responses
             };
         }
 
-        public static ContentResult BadRequest()
+        public static ContentResult BadRequest(IContext context)
         {
-            return Get(ApiResponses.BadRequest());
+            return Get(ApiResponses.BadRequest(context: context));
         }
 
-        public static ContentResult Unauthorized()
+        public static ContentResult Unauthorized(IContext context)
         {
-            return Get(ApiResponses.Unauthorized());
+            return Get(ApiResponses.Unauthorized(context: context));
         }
     }
 }

@@ -1,41 +1,40 @@
-﻿using AspNetCoreCurrentRequestContext;
+﻿using Implem.Pleasanter.Libraries.Requests;
+using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Http;
 using System.Configuration;
-using System.Web;
 namespace Implem.Pleasanter.Libraries.Security
 {
     public static class Authentications
     {
-        public static string SignIn(string returnUrl)
+        public static string SignIn(IContext context, string returnUrl)
         {
             return new UserModel(
-                SiteSettingsUtilities.UsersSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.UsersSiteSettings(context: context),
                 setByForm: true)
-                    .Authenticate(returnUrl);
+                    .Authenticate(context: context, returnUrl: returnUrl);
         }
 
-        public static bool Try(string loginId, string password)
+        public static bool Try(IContext context, string loginId, string password)
         {
-            return new UserModel(SiteSettingsUtilities.UsersSiteSettings(), setByForm: true)
-                .Authenticate();
+            return new UserModel(
+                context: context,
+                ss: SiteSettingsUtilities.UsersSiteSettings(context: context),
+                setByForm: true)
+                    .Authenticate(context: context);
         }
 
-        public static void SignOut()
+        public static void SignOut(IContext context)
         {
-            AspNetCoreHttpContext.Current.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).Wait();
-            AspNetCoreHttpContext.Current.Session.Clear();
+            context.FormsAuthenticationSignOut();
+            context.FederatedAuthenticationSessionAuthenticationModuleDeleteSessionTokenCookie();
+            context.SessionAbandon();
         }
 
-        public static bool Windows()
+        public static bool Windows(IContext context)
         {
-            return false;
-            //TODO Windows Authentication
-            //return ((AuthenticationSection)ConfigurationManager
-            //    .GetSection("system.web/authentication")).Mode.ToString() == "Windows";
+            return context.AuthenticationsWindows();
         }
     }
 }

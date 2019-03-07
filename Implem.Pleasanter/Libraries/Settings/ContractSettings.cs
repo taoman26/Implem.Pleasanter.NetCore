@@ -1,5 +1,11 @@
-﻿using Implem.Libraries.Utilities;
+﻿using Implem.DefinitionAccessor;
+using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.DataSources;
+using Implem.Pleasanter.Libraries.Requests;
+using Implem.Pleasanter.Libraries.Server;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 namespace Implem.Pleasanter.Libraries.Settings
 {
@@ -11,7 +17,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         public int? Users;
         public long? Sites;
         public long? Items;
-        public int? StorageSize;
+        public decimal? StorageSize;
         public bool? Import;
         public bool? Export;
         public bool? Notice;
@@ -20,7 +26,13 @@ namespace Implem.Pleasanter.Libraries.Settings
         public bool? Style;
         public bool? Script;
         public bool? Api;
-        public DateTime Deadline;
+        public DateTime? Deadline;
+        public Dictionary<string, bool> Extensions;
+        public List<string> AllowIpAddresses;
+        public string SamlCompanyCode;
+        public string SamlThumbprint;
+        public string SamlLoginUrl;
+        public int? AllowOriginalLogin;
 
         public ContractSettings()
         {
@@ -41,9 +53,64 @@ namespace Implem.Pleasanter.Libraries.Settings
             return null;
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return this.ToJson() == "[]";
+        }
+
+        public bool OverDeadline(IContext context)
+        {
+            return Deadline?.InRange() == true
+                && Deadline.ToDateTime() < DateTime.Now.ToLocal(context: context);
+        }
+
+        public bool UsersLimit(IContext context, int number = 1)
+        {
+            return Users > 0
+                && Rds.ExecuteScalar_int(
+                    context: context,
+                    statements: Rds.SelectUsers(
+                    column: Rds.UsersColumn().UsersCount(),
+                        where: Rds.UsersWhere().TenantId(context.TenantId))) + number > Users;
+        }
+
+        public bool SitesLimit(IContext context, int number = 1)
+        {
+            return Sites > 0
+                && Rds.ExecuteScalar_int(
+                    context: context,
+                    statements: Rds.SelectSites(
+                        column: Rds.SitesColumn().SitesCount(),
+                        where: Rds.SitesWhere().TenantId(context.TenantId))) + number > Sites;
+        }
+
+        public bool ItemsLimit(IContext context, long siteId, int number = 1)
+        {
+            return Items > 0
+                && Rds.ExecuteScalar_int(
+                    context: context,
+                    statements: Rds.SelectItems(
+                        column: Rds.ItemsColumn().ItemsCount(),
+                        where: Rds.ItemsWhere().SiteId(siteId))) + number > Items;
+        }
+
+        public bool Attachments()
+        {
+            return Parameters.BinaryStorage.Attachments && StorageSize != 0;
+        }
+
+        public bool Images()
+        {
+            return Parameters.BinaryStorage.Images && Attachments();
+        }
+
+        public bool AllowedIpAddress(string ipAddress)
+        {
+            if (AllowIpAddresses?.Any() != true)
+            {
+                return true;
+            }
+            return AllowIpAddresses.Contains(ipAddress);
         }
     }
 }

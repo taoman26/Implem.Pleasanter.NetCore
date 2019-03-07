@@ -1,32 +1,24 @@
-using Implem.Pleasanter.Filters;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Resources;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class ResourcesController : Controller
+    public class ResourcesController
     {
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public ContentResult Scripts()
+        public ContentResult Scripts(IContext context)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var result = JavaScripts.Get();
-            log.Finish(result.Content.Length);
+            log.Finish(context: context, responseSize: result.Content.Length);
             return result;
         }
 
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public ContentResult Styles()
+        public ContentResult Styles(IContext context)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var result = Css.Get();
-            log.Finish(result.Content.Length);
+            log.Finish(context: context, responseSize: result.Content.Length);
             return result;
         }
     }

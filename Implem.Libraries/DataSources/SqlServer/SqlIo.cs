@@ -1,5 +1,4 @@
 ﻿using Implem.Libraries.Utilities;
-using Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling;
 using System;
 using System.Data;
 using System.Data.SqlClient;
@@ -41,13 +40,14 @@ namespace Implem.Libraries.DataSources.SqlServer
 
         private void SetCommandUserParams()
         {
-            SqlCommand.Parameters.AddWithValue("_U", SqlContainer.RdsUser.UserId);
+            SqlCommand.Parameters.AddWithValue("_T", SqlContainer.RdsUser.TenantId);
             SqlCommand.Parameters.AddWithValue("_D", SqlContainer.RdsUser.DeptId);
+            SqlCommand.Parameters.AddWithValue("_U", SqlContainer.RdsUser.UserId);
         }
 
         private void SetCommandText()
         {
-            if (SqlContainer.SqlStatementCollection.Any(o => o.SelectIdentity))
+            if (SqlContainer.SqlStatementCollection.Any(o => o.SetIdentity))
             {
                 CommandText.Append("declare @_I bigint;\n");
             }
@@ -55,6 +55,7 @@ namespace Implem.Libraries.DataSources.SqlServer
             {
                 SqlContainer.SqlStatementCollection[0].BuildCommandText(
                     SqlContainer, SqlCommand, CommandText);
+                SelectIdentity();
             }
             else
             {
@@ -66,7 +67,16 @@ namespace Implem.Libraries.DataSources.SqlServer
                             SqlCommand,
                             CommandText,
                             data.Count));
+                SelectIdentity();
                 SetTransaction();
+            }
+        }
+
+        private void SelectIdentity()
+        {
+            if (SqlContainer.SelectIdentity)
+            {
+                CommandText.Append(Sqls.SelectIdentity);
             }
         }
 
@@ -94,17 +104,7 @@ namespace Implem.Libraries.DataSources.SqlServer
             SqlCommand.Connection.Open();
             Try(action: () =>
             {
-                switch (SqlContainer.RdsProvider)
-                {
-                    case "Azure":
-                        SqlCommand.ExecuteNonQuery();
-                        //TODO Azure
-                        //SqlCommand.ExecuteNonQueryWithRetry();
-                        break;
-                    default:
-                        SqlCommand.ExecuteNonQuery();
-                        break;
-                }
+                SqlCommand.ExecuteNonQuery();
             });
             SqlCommand.Connection.Close();
             Clear();
@@ -117,17 +117,7 @@ namespace Implem.Libraries.DataSources.SqlServer
             SqlCommand.Connection.Open();
             Try(action: () =>
             {
-                switch (SqlContainer.RdsProvider)
-                {
-                    case "Azure":
-                        value = SqlCommand.ExecuteScalar();
-                        //TODO Azure
-                        //value = SqlCommand.ExecuteScalarWithRetry();
-                        break;
-                    default:
-                        value = SqlCommand.ExecuteScalar();
-                        break;
-                }
+                value = SqlCommand.ExecuteScalar();
             });
             SqlCommand.Connection.Close();
             Clear();
@@ -140,27 +130,7 @@ namespace Implem.Libraries.DataSources.SqlServer
             SetCommand();
             Try(action: () =>
             {
-                switch (SqlContainer.RdsProvider)
-                {
-                    case "Azure":
-                        new SqlDataAdapter(SqlCommand).Fill(dataTable);
-                        //TODO Azure
-                        //var retryPolicy = Azures.RetryPolicy();
-                        //retryPolicy.ExecuteAction(() =>
-                        //{
-                        //    using (var con = new ReliableSqlConnection(
-                        //        SqlCommand.Connection.ConnectionString))
-                        //    {
-                        //        con.Open(retryPolicy);
-                        //        SqlCommand.Connection = con.Current;
-                        //        new SqlDataAdapter(SqlCommand).Fill(dataTable);
-                        //    }
-                        //});
-                        break;
-                    default:
-                        new SqlDataAdapter(SqlCommand).Fill(dataTable);
-                        break;
-                }
+                new SqlDataAdapter(SqlCommand).Fill(dataTable);
             });
             Clear();
             return dataTable;
@@ -172,27 +142,7 @@ namespace Implem.Libraries.DataSources.SqlServer
             SetCommand();
             Try(action: () =>
             {
-                switch (SqlContainer.RdsProvider)
-                {
-                    case "Azure":
-                        SqlContainer.SqlDataAdapter(SqlCommand).Fill(dataSet);
-                        //TODO Azure
-                        //var retryPolicy = Azures.RetryPolicy();
-                        //retryPolicy.ExecuteAction(() =>
-                        //{
-                        //    using (var con = new ReliableSqlConnection(
-                        //        SqlCommand.Connection.ConnectionString))
-                        //    {
-                        //        con.Open(retryPolicy);
-                        //        SqlCommand.Connection = con.Current;
-                        //        SqlContainer.SqlDataAdapter(SqlCommand).Fill(dataSet);
-                        //    }
-                        //});
-                        break;
-                    default:
-                        SqlContainer.SqlDataAdapter(SqlCommand).Fill(dataSet);
-                        break;
-                }
+                SqlContainer.SqlDataAdapter(SqlCommand).Fill(dataSet);
             });
             Clear();
             return dataSet;
@@ -237,11 +187,6 @@ namespace Implem.Libraries.DataSources.SqlServer
             return ExecuteScalar().ToBool();
         }
 
-        public string ExecuteScalar_string()
-        {
-            return ExecuteScalar().ToStr();
-        }
-
         public int ExecuteScalar_int()
         {
             return ExecuteScalar().ToInt();
@@ -262,9 +207,24 @@ namespace Implem.Libraries.DataSources.SqlServer
             return ExecuteScalar().ToDateTime();
         }
 
+        public string ExecuteScalar_string()
+        {
+            return ExecuteScalar().ToStr();
+        }
+
         public byte[] ExecuteScalar_bytes()
         {
             return (byte[])ExecuteScalar();
+        }
+
+        public SqlResponse ExecuteScalar_response()
+        {
+            var response = ExecuteScalar().ToStr().Deserialize<SqlResponse>() ?? new SqlResponse();
+            if (!response.ErrorMessage.IsNullOrEmpty())
+            {
+                throw new Exception(response.ErrorMessage);
+            }
+            return response;
         }
 
         public DataTable ExecuteTable(string commandText)

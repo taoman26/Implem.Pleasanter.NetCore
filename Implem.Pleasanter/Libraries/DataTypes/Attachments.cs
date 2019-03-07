@@ -4,6 +4,7 @@ using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Interfaces;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Collections.Generic;
@@ -16,28 +17,30 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         {
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
             return hb.Td(action: () => hb
                 .Ol(action: () => ForEach(item => hb
                     .Li(action: () => hb
                         .A(
-                            href: Locations.DownloadFile(item.Guid),
+                            href: Locations.DownloadFile(
+                                context: context,
+                                guid: item.Guid),
                             action: () => hb
                                 .Text(text: item.Name))))));
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
             return this.ToJson();
         }
 
-        public string ToExport(Column column, ExportColumn exportColumn)
+        public string ToExport(IContext context, Column column, ExportColumn exportColumn)
         {
             return string.Empty;
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
             return string.Empty;
         }
@@ -56,19 +59,20 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return attachments.ToJson();
         }
 
-        public void Write(List<SqlStatement> statements, long referenceId)
+        public void Write(IContext context, List<SqlStatement> statements, long referenceId)
         {
             ForEach(attachment =>
             {
                 if (Parameters.BinaryStorage.IsLocal())
                 {
-                    attachment.WriteToLocal();
+                    attachment.WriteToLocal(context: context);
                 }
-                attachment.SqlStatement(statements, referenceId);
+                attachment.SqlStatement(
+                    context: context, statements: statements, referenceId: referenceId);
             });
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return this?.Any() != true;
         }

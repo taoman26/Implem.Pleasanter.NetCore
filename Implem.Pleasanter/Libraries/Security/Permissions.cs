@@ -3,7 +3,6 @@ using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.Requests;
-using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
 using System.Collections.Generic;
@@ -85,11 +84,12 @@ namespace Implem.Pleasanter.Libraries.Security
             Update
         }
 
-        public static Dictionary<long, Types> Get(IEnumerable<long> targets)
+        public static Dictionary<long, Types> Get(IContext context, IEnumerable<long> targets)
         {
             return Hash(
-                dataRows: Rds.ExecuteTable(statements:
-                    Rds.SelectPermissions(
+                dataRows: Rds.ExecuteTable(
+                    context: context,
+                    statements: Rds.SelectPermissions(
                         distinct: true,
                         column: Rds.PermissionsColumn()
                             .ReferenceId()
@@ -106,42 +106,83 @@ namespace Implem.Pleasanter.Libraries.Security
         }
 
         public static SqlWhereCollection SetCanReadWhere(
+            IContext context,
             SiteSettings ss,
             SqlWhereCollection where,
             bool checkPermission = true)
         {
-            if (ss.ColumnHash.ContainsKey("SiteId"))
+            if (ss.IsSite(context: context) && ss.ReferenceType == "Sites")
             {
-                if (ss.AllowedIntegratedSites != null)
+                where.Add(
+                    tableName: "Sites",
+                    raw: $"[Sites].[ParentId] in ({ss.SiteId})");
+            }
+            else
+            {
+                if (ss.ColumnHash.ContainsKey("SiteId"))
                 {
-                    where.Or(new SqlWhereCollection()
-                        .Add(
-                            tableName: ss.ReferenceType,
-                            raw: "#TableBracket#.[SiteId] in ({0})".Params(
-                                ss.AllowedIntegratedSites.Join()))
-                        .CheckRecordPermission(ss, ss.IntegratedSites));
-                }
-                else
-                {
-                    where.Add(
-                        tableName: ss.ReferenceType,
-                        raw: "#TableBracket#.[SiteId]={0}".Params(ss.SiteId));
-                    if (!ss.CanRead(site: true) && checkPermission)
+                    if (ss.AllowedIntegratedSites != null)
                     {
-                        where.CheckRecordPermission(ss);
+                        where.Or(new SqlWhereCollection()
+                            .Add(
+                                tableName: ss.ReferenceType,
+                                raw: "[{0}].[SiteId] in ({1})".Params(
+                                    ss.ReferenceType, ss.AllowedIntegratedSites.Join()))
+                            .CheckRecordPermission(ss, ss.IntegratedSites));
+                    }
+                    else
+                    {
+                        where.Add(
+                            tableName: ss.ReferenceType,
+                            raw: "[{0}].[SiteId] in ({1})".Params(
+                                ss.ReferenceType, ss.SiteId));
+                        if (!context.CanRead(ss: ss, site: true) && checkPermission)
+                        {
+                            where.CheckRecordPermission(ss);
+                        }
                     }
                 }
             }
             return where;
         }
 
-        public static SqlWhereCollection CanRead(
-            this SqlWhereCollection where, string idColumnBracket)
+        public static SqlWhereCollection SiteUserWhere(
+            this Rds.UsersWhereCollection where, long siteId)
         {
-            return HasPrivilege()
+            var deptRaw = "[Users].[DeptId] and [Users].[DeptId]>0";
+            var userRaw = "[Users].[UserId] and [Users].[UserId]>0";
+            return where.Add(
+                subLeft: Rds.SelectPermissions(
+                    column: Rds.PermissionsColumn()
+                        .PermissionType(function: Sqls.Functions.Max),
+                    where: Rds.PermissionsWhere()
+                        .ReferenceId(siteId)
+                        .Or(Rds.PermissionsWhere()
+                            .DeptId(raw: deptRaw)
+                            .Add(
+                                subLeft: Rds.SelectGroupMembers(
+                                    column: Rds.GroupMembersColumn()
+                                        .GroupMembersCount(),
+                                    where: Rds.GroupMembersWhere()
+                                        .GroupId(raw: "[Permissions].[GroupId]")
+                                        .Or(Rds.GroupMembersWhere()
+                                            .DeptId(raw: deptRaw)
+                                            .UserId(raw: userRaw))
+                                        .Add(raw: "[Permissions].[GroupId]>0")),
+                                _operator: ">0")
+                            .UserId(raw: userRaw))),
+                _operator: ">0");
+        }
+
+        public static SqlWhereCollection CanRead(
+            this SqlWhereCollection where,
+            IContext context,
+            string idColumnBracket,
+            bool _using = true)
+        {
+            return _using && !context.HasPrivilege
                 ? where
-                : where
-                    .Sites_TenantId(Sessions.TenantId())
+                    .Sites_TenantId(context.TenantId)
                     .Or(or: new SqlWhereCollection()
                         .Add(
                             tableName: null,
@@ -149,7 +190,8 @@ namespace Implem.Pleasanter.Libraries.Security
                         .Add(
                             tableName: null,
                             subLeft: CheckRecordPermission(idColumnBracket),
-                            _operator: null));
+                            _operator: null))
+                : where;
         }
 
         private static SqlWhereCollection CheckRecordPermission(
@@ -183,7 +225,7 @@ namespace Implem.Pleasanter.Libraries.Security
                         .Add(raw: DeptOrUser("Permissions"))));
         }
 
-        private static string DeptOrUser(string tableName)
+        public static string DeptOrUser(string tableName)
         {
             return "((@_D <> 0 and [{0}].[DeptId]=@_D) or(@_U <> 0 and [{0}].[UserId]=@_U))"
                 .Params(tableName);
@@ -203,28 +245,31 @@ namespace Implem.Pleasanter.Libraries.Security
             return hash;
         }
 
-        public static Types Get(long siteId)
+        public static Types Get(IContext context, long siteId)
         {
-            var data = Get(siteId.ToSingleList());
+            var data = Get(context: context, targets: siteId.ToSingleList());
             return data.Count() == 1
                 ? data.First().Value
                 : Types.NotSet;
         }
 
-        public static bool Can(long siteId, Types type)
+        public static bool Can(IContext context, long siteId, Types type)
         {
-            return (Get(siteId) & type) == type || HasPrivilege();
+            return (Get(context: context, siteId: siteId) & type) == type
+                || context.HasPrivilege;
         }
 
-        public static bool CanRead(long siteId)
+        public static bool CanRead(IContext context, long siteId)
         {
-            return (Get(siteId) & Types.Read) == Types.Read || HasPrivilege();
+            return (Get(context: context, siteId: siteId) & Types.Read) == Types.Read
+                || context.HasPrivilege;
         }
 
-        public static long InheritPermission(long id)
+        public static long InheritPermission(IContext context, long id)
         {
-            return Rds.ExecuteScalar_long(statements:
-                Rds.SelectSites(
+            return Rds.ExecuteScalar_long(
+                context: context,
+                statements: Rds.SelectSites(
                     column: Rds.SitesColumn().InheritPermission(),
                     where: Rds.SitesWhere()
                         .SiteId(sub: Rds.SelectItems(
@@ -233,185 +278,221 @@ namespace Implem.Pleasanter.Libraries.Security
         }
 
         public static IEnumerable<long> AllowSites(
-            IEnumerable<long> sites, string referenceType = null)
+            IContext context, IEnumerable<long> sites, string referenceType = null)
         {
-            return Rds.ExecuteTable(statements:
-                Rds.SelectSites(
+            return Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectSites(
                     column: Rds.SitesColumn().SiteId(),
                     where: Rds.SitesWhere()
-                        .TenantId(Sessions.TenantId())
+                        .TenantId(context.TenantId)
                         .SiteId_In(sites)
                         .ReferenceType(referenceType, _using: referenceType != null)
                         .Add(
                             raw: Def.Sql.CanReadSites,
-                            _using: !HasPrivilege())))
+                            _using: !context.HasPrivilege)))
                                 .AsEnumerable()
                                 .Select(o => o["SiteId"].ToLong());
         }
 
         public static IEnumerable<Column> AllowedColumns(
-            this IEnumerable<Column> columns,
-            bool checkPermission,
-            IEnumerable<ColumnAccessControl> readColumnAccessControls)
+            this IEnumerable<Column> columns, bool checkPermission)
         {
-            return columns
-                .Where(o => !checkPermission || o.CanRead || readColumnAccessControls?.Any(p =>
-                    p.ColumnName == o.ColumnName && p.AllowedUsers?.Any() == true) == true);
+            return columns.Where(o => !checkPermission || o.CanRead);
         }
 
         public static IEnumerable<string> AllowedColumns(SiteSettings ss)
         {
-            return ss.Columns.AllowedColumns(
-                checkPermission: true,
-                readColumnAccessControls: ss.ReadColumnAccessControls)
-                    .Select(o => o.ColumnName)
-                    .ToList();
+            return ss.Columns.AllowedColumns(checkPermission: true)
+                .Select(o => o.ColumnName)
+                .ToList();
         }
 
         public static bool Allowed(
             this List<ColumnAccessControl> columnAccessControls,
+            IContext context,
+            SiteSettings ss,
             Column column,
             Types? type,
             List<string> mine)
         {
             return columnAccessControls?
                 .FirstOrDefault(o => o.ColumnName == column.ColumnName)?
-                .Allowed(type, mine) != false;
+                .Allowed(
+                    context: context,
+                    ss: ss,
+                    type: type,
+                    mine: mine) != false;
         }
 
-        public static bool HasPermission(this SiteSettings ss)
+        public static bool HasPermission(this IContext context, SiteSettings ss)
         {
-            return
-                ss.PermissionType != null ||
-                ss.ItemPermissionType != null ||
-                HasPrivilege();
+            return ss.PermissionType != null
+                || ss.ItemPermissionType != null
+                || context.HasPrivilege;
         }
 
-        public static bool CanRead(this SiteSettings ss, bool site = false)
+        public static bool CanRead(this IContext context, SiteSettings ss, bool site = false)
         {
-            switch (Routes.Controller())
+            switch (context.Controller)
             {
+                case "tenants":
                 case "depts":
-                    return CanManageTenant();
+                    return CanManageTenant(context: context)
+                        || context.UserSettings?.EnableManageTenant == true;
                 case "groups":
-                    return CanReadGroup();
+                    return CanReadGroup(context: context);
                 case "users":
-                    return CanManageTenant() || Sessions.UserId() == Routes.Id();
+                    return CanManageTenant(context: context)
+                        || context.UserId == context.Id;
                 default:
-                    return ss.Can(Types.Read, site);
+                    return context.Can(ss: ss, type: Types.Read, site: site);
             }
         }
 
-        public static bool CanCreate(this SiteSettings ss, bool site = false)
+        public static bool CanCreate(this IContext context, SiteSettings ss, bool site = false)
         {
-            switch (Routes.Controller())
+            switch (context.Controller)
             {
+                case "tenants":
+                    return false;
                 case "depts":
                 case "users":
-                    return CanManageTenant();
+                    return CanManageTenant(context: context);
                 case "groups":
-                    return CanEditGroup();
+                    return CanEditGroup(context: context);
                 default:
-                    return ss.Can(Types.Create, site);
+                    return context.Can(ss: ss, type: Types.Create, site: site);
             }
         }
 
-        public static bool CanUpdate(this SiteSettings ss, bool site = false)
+        public static bool CanUpdate(this IContext context, SiteSettings ss, bool site = false)
         {
-            switch (Routes.Controller())
+            switch (context.Controller)
             {
+                case "tenants":
                 case "depts":
-                    return CanManageTenant();
+                    return CanManageTenant(context: context)
+                        || context.UserSettings?.EnableManageTenant == true;
                 case "groups":
-                    return CanEditGroup();
+                    return CanEditGroup(context: context);
                 case "users":
-                    return CanManageTenant() || Sessions.UserId() == Routes.Id();
-                default:
-                    if (ss.ReferenceType == "Sites")
-                    {
-                        return ss.CanManageSite();
-                    }
-                    else
-                    {
-                        return ss.Can(Types.Update, site);
-                    }
-            }
-        }
-
-        public static bool CanMove(SiteSettings source, SiteSettings destination)
-        {
-            return source.CanUpdate() && destination.CanUpdate();
-        }
-
-        public static bool CanDelete(this SiteSettings ss, bool site = false)
-        {
-            switch (Routes.Controller())
-            {
-                case "depts":
-                    return CanManageTenant();
-                case "groups":
-                    return CanEditGroup();
-                case "users":
-                    return CanManageTenant() &&
-                        Sessions.UserId() != Routes.Id();
+                    return CanManageTenant(context: context)
+                        || context.UserId == context.Id;
                 default:
                     if (ss.ReferenceType == "Sites")
                     {
-                        return ss.CanManageSite();
+                        return context.CanManageSite(ss: ss);
                     }
                     else
                     {
-                        return ss.Can(Types.Delete, site);
+                        return context.Can(ss: ss, type: Types.Update, site: site);
                     }
             }
         }
 
-        public static bool CanSendMail(this SiteSettings ss, bool site = false)
+        public static bool CanMove(IContext context, SiteSettings source, SiteSettings destination)
         {
-            if (!Contract.Mail()) return false;
-            switch (Routes.Controller())
+            return context.CanUpdate(ss: source)
+                && context.CanUpdate(ss: destination);
+        }
+
+        public static bool CanDelete(this IContext context, SiteSettings ss, bool site = false)
+        {
+            switch (context.Controller)
             {
+                case "tenants":
+                    return false;
                 case "depts":
-                    return CanManageTenant();
+                    return CanManageTenant(context: context);
                 case "groups":
-                    return CanEditGroup();
+                    return CanEditGroup(context: context);
                 case "users":
-                    return CanManageTenant() || Sessions.UserId() == Routes.Id();
+                    return CanManageTenant(context: context)
+                        && context.UserId != context.Id;
                 default:
                     if (ss.ReferenceType == "Sites")
                     {
-                        return ss.CanManageSite();
+                        return context.CanManageSite(ss: ss);
                     }
                     else
                     {
-                        return ss.Can(Types.SendMail, site);
+                        return context.Can(ss: ss, type: Types.Delete, site: site);
                     }
             }
         }
 
-        public static bool CanImport(this SiteSettings ss, bool site = false)
+        public static bool CanSendMail(this IContext context, SiteSettings ss, bool site = false)
         {
-            return Contract.Import() && ss.Can(Types.Import, site);
+            if (context.ContractSettings.Mail == false) return false;
+            switch (context.Controller)
+            {
+                case "tenants":
+                    return false;
+                case "depts":
+                    return CanManageTenant(context: context);
+                case "groups":
+                    return CanEditGroup(context: context);
+                case "users":
+                    return CanManageTenant(context: context)
+                        || context.UserId == context.Id;
+                default:
+                    if (ss.ReferenceType == "Sites")
+                    {
+                        return context.CanManageSite(ss: ss);
+                    }
+                    else
+                    {
+                        return context.Can(ss: ss, type: Types.SendMail, site: site);
+                    }
+            }
         }
 
-        public static bool CanExport(this SiteSettings ss, bool site = false)
+        public static bool CanImport(this IContext context, SiteSettings ss, bool site = false)
         {
-            return Contract.Export() && ss.Can(Types.Export, site);
+            if (context.ContractSettings.Import == false) return false;
+            switch (context.Controller)
+            {
+                case "tenants":
+                case "depts":
+                case "groups":
+                    return false;
+                case "users":
+                    return CanManageTenant(context: context);
+                default:
+                    return context.Can(ss: ss, type: Types.Import, site: site);
+            }
         }
 
-        public static bool CanManageSite(this SiteSettings ss, bool site = false)
+        public static bool CanExport(this IContext context, SiteSettings ss, bool site = false)
         {
-            return ss.Can(Types.ManageSite, site);
+            if (context.ContractSettings.Import == false) return false;
+            switch (context.Controller)
+            {
+                case "tenants":
+                case "depts":
+                case "groups":
+                    return false;
+                case "users":
+                    return CanManageTenant(context: context);
+                default:
+                    return context.Can(ss: ss, type: Types.Export, site: site);
+            }
         }
 
-        public static bool CanManagePermission(this SiteSettings ss, bool site = false)
+        public static bool CanManageSite(this IContext context, SiteSettings ss, bool site = false)
         {
-            return ss.Can(Types.ManagePermission, site);
+            return context.Can(ss: ss, type: Types.ManageSite, site: site);
         }
 
-        public static ColumnPermissionTypes ColumnPermissionType(this Column self)
+        public static bool CanManagePermission(this IContext context, SiteSettings ss, bool site = false)
         {
-            switch(Url.RouteData("action").ToLower())
+            return context.Can(ss: ss, type: Types.ManagePermission, site: site);
+        }
+
+        public static ColumnPermissionTypes ColumnPermissionType(this Column self, IContext context)
+        {
+            switch(context.Action)
             {
                 case "new":
                     return self.CanCreate
@@ -428,64 +509,61 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanManageTenant()
+        public static bool CanManageTenant(IContext context)
         {
-            return Sessions.User().TenantManager || HasPrivilege();
+            return context.User?.TenantManager == true
+                || context.HasPrivilege;
         }
 
-        public static bool CanReadGroup()
+        public static bool CanReadGroup(IContext context)
         {
             return 
-                Sessions.UserSettings().DisableGroupAdmin != true &&
-                (Routes.Id() == 0 ||
-                CanManageTenant() ||
-                Groups().Any() ||
-                HasPrivilege());
+                context.UserSettings?.DisableGroupAdmin != true &&
+                (context.Id == 0 ||
+                CanManageTenant(context: context) ||
+                Groups(context: context).Any() ||
+                context.HasPrivilege);
         }
 
-        public static bool CanEditGroup()
+        public static bool CanEditGroup(IContext context)
         {
             return
-                Sessions.UserSettings().DisableGroupAdmin != true &&
-                (Routes.Id() == 0 ||
-                CanManageTenant() ||
-                Groups().Any(o => o["Admin"].ToBool()) ||
-                HasPrivilege());
+                context.UserSettings?.DisableGroupAdmin != true
+                && (context.Id == 0
+                || CanManageTenant(context: context)
+                || Groups(context: context).Any(o => o["Admin"].ToBool())
+                || context.HasPrivilege);
         }
 
-        private static bool Can(this SiteSettings ss, Types type, bool site)
+        private static bool Can(this IContext context, SiteSettings ss, Types type, bool site)
         {
-            return (ss.GetPermissionType(site) & type) == type || HasPrivilege();
+            return (ss.GetPermissionType(site) & type) == type
+                || context.HasPrivilege;
         }
 
-        private static IEnumerable<DataRow> Groups()
+        private static IEnumerable<DataRow> Groups(IContext context)
         {
-            return Rds.ExecuteTable(statements:
-                Rds.SelectGroupMembers(
+            return Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectGroupMembers(
                     column: Rds.GroupMembersColumn().Admin(),
                     where: Rds.GroupMembersWhere()
-                        .GroupId(Routes.Id())
+                        .GroupId(context.Id)
                         .Add(raw: DeptOrUser("GroupMembers"))))
                             .AsEnumerable();
         }
 
-        public static SqlWhereCollection GroupMembersWhere()
+        public static Types? Admins(IContext context, Types? type = Types.NotSet)
         {
-            return Rds.GroupMembersWhere().Add(raw: DeptOrUser("GroupMembers"));
-        }
-
-        public static Types? Admins(Types? type = Types.NotSet)
-        {
-            var user = Sessions.User();
-            if (user.TenantManager) type |= Types.ManageTenant;
-            if (user.ServiceManager) type |= Types.ManageService;
+            if (context.User?.TenantManager == true) type |= Types.ManageTenant;
+            if (context.User?.ServiceManager == true) type |= Types.ManageService;
             return type;
         }
 
-        public static bool HasPrivilege()
+        public static bool PrivilegedUsers(string loginId)
         {
-            return Parameters.Security.PrivilegedUsers?.Contains(
-                Sessions.User().LoginId) ?? false;
+            return loginId != null &&
+                Parameters.Security.PrivilegedUsers?.Contains(loginId) == true;
         }
     }
 }

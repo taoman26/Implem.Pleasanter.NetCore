@@ -32,58 +32,60 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public int SavedOwnerId = 0;
         [NonSerialized] public string SavedData = "[]";
 
-        public bool ReferenceId_Updated(Column column = null)
+        public bool ReferenceId_Updated(IContext context, Column column = null)
         {
             return ReferenceId != SavedReferenceId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != ReferenceId);
+                column.GetDefaultInput(context: context).ToLong() != ReferenceId);
         }
 
-        public bool ReferenceType_Updated(Column column = null)
+        public bool ReferenceType_Updated(IContext context, Column column = null)
         {
             return ReferenceType != SavedReferenceType && ReferenceType != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != ReferenceType);
+                column.GetDefaultInput(context: context).ToString() != ReferenceType);
         }
 
-        public bool OwnerId_Updated(Column column = null)
+        public bool OwnerId_Updated(IContext context, Column column = null)
         {
             return OwnerId != SavedOwnerId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != OwnerId);
+                column.GetDefaultInput(context: context).ToInt() != OwnerId);
         }
 
-        public bool Data_Updated(Column column = null)
+        public bool Data_Updated(IContext context, Column column = null)
         {
             return Data.ToJson() != SavedData && Data.ToJson() != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Data.ToJson());
+                column.GetDefaultInput(context: context).ToString() != Data.ToJson());
         }
 
-        public OrderModel(DataRow dataRow, string tableAlias = null)
+        public OrderModel(IContext context, DataRow dataRow, string tableAlias = null)
         {
-            OnConstructing();
-            Set(dataRow, tableAlias);
-            OnConstructed();
+            OnConstructing(context: context);
+            Context = context;
+            if (dataRow != null) Set(context, dataRow, tableAlias);
+            OnConstructed(context: context);
         }
 
-        private void OnConstructing()
-        {
-        }
-
-        private void OnConstructed()
+        private void OnConstructing(IContext context)
         {
         }
 
-        public void ClearSessions()
+        private void OnConstructed(IContext context)
+        {
+        }
+
+        public void ClearSessions(IContext context)
         {
         }
 
         public OrderModel Get(
+            IContext context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -93,33 +95,50 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0)
         {
-            Set(Rds.ExecuteTable(statements: Rds.SelectOrders(
-                tableType: tableType,
-                column: column ?? Rds.OrdersDefaultColumns(),
-                join: join ??  Rds.OrdersJoinDefault(),
-                where: where ?? Rds.OrdersWhereDefault(this),
-                orderBy: orderBy,
-                param: param,
-                distinct: distinct,
-                top: top)));
+            Set(context, Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectOrders(
+                    tableType: tableType,
+                    column: column ?? Rds.OrdersDefaultColumns(),
+                    join: join ??  Rds.OrdersJoinDefault(),
+                    where: where ?? Rds.OrdersWhereDefault(this),
+                    orderBy: orderBy,
+                    param: param,
+                    distinct: distinct,
+                    top: top)));
             return this;
         }
 
-        private void SetBySession()
+        public void SetByModel(OrderModel orderModel)
+        {
+            ReferenceId = orderModel.ReferenceId;
+            ReferenceType = orderModel.ReferenceType;
+            OwnerId = orderModel.OwnerId;
+            Data = orderModel.Data;
+            Comments = orderModel.Comments;
+            Creator = orderModel.Creator;
+            Updator = orderModel.Updator;
+            CreatedTime = orderModel.CreatedTime;
+            UpdatedTime = orderModel.UpdatedTime;
+            VerUp = orderModel.VerUp;
+            Comments = orderModel.Comments;
+        }
+
+        private void SetBySession(IContext context)
         {
         }
 
-        private void Set(DataTable dataTable)
+        private void Set(IContext context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
-                case 1: Set(dataTable.Rows[0]); break;
+                case 1: Set(context, dataTable.Rows[0]); break;
                 case 0: AccessStatus = Databases.AccessStatuses.NotFound; break;
                 default: AccessStatus = Databases.AccessStatuses.Overlap; break;
             }
         }
 
-        private void Set(DataRow dataRow, string tableAlias = null)
+        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -163,19 +182,19 @@ namespace Implem.Pleasanter.Models
                             SavedComments = Comments.ToJson();
                             break;
                         case "Creator":
-                            Creator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Creator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedCreator = Creator.Id;
                             break;
                         case "Updator":
-                            Updator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Updator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedUpdator = Updator.Id;
                             break;
                         case "CreatedTime":
-                            CreatedTime = new Time(dataRow, column.ColumnName);
+                            CreatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedCreatedTime = CreatedTime.Value;
                             break;
                         case "UpdatedTime":
-                            UpdatedTime = new Time(dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
+                            UpdatedTime = new Time(context, dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
                         case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
@@ -184,17 +203,17 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public bool Updated()
+        public bool Updated(IContext context)
         {
             return
-                ReferenceId_Updated() ||
-                ReferenceType_Updated() ||
-                OwnerId_Updated() ||
-                Ver_Updated() ||
-                Data_Updated() ||
-                Comments_Updated() ||
-                Creator_Updated() ||
-                Updator_Updated();
+                ReferenceId_Updated(context: context) ||
+                ReferenceType_Updated(context: context) ||
+                OwnerId_Updated(context: context) ||
+                Ver_Updated(context: context) ||
+                Data_Updated(context: context) ||
+                Comments_Updated(context: context) ||
+                Creator_Updated(context: context) ||
+                Updator_Updated(context: context);
         }
 
         /// <summary>
@@ -207,34 +226,36 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public OrderModel(long referenceId, string referenceType)
+        public OrderModel(IContext context, SiteSettings ss, long referenceId, string referenceType)
         {
             ReferenceId = referenceId;
             ReferenceType = referenceType;
             OwnerId = referenceId == 0
-                ? Sessions.UserId()
+                ? context.UserId
                 : 0;
-            Get();
+            Get(context: context);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
         public string UpdateOrCreate(
+            IContext context,
             SqlWhereCollection where = null,
             SqlParamCollection param = null,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             Rds.ExecuteNonQuery(
+                context: context,
                 transactional: true,
-                statements: new SqlStatement[]
-                {
-                    Rds.UpdateOrInsertOrders(
-                        selectIdentity: true,
-                        where: where ?? Rds.OrdersWhereDefault(this),
-                        param: param ?? Rds.OrdersParamDefault(this, setDefault: true),
-                        tableType: tableType)
-                });
+                statements: Rds.UpdateOrInsertOrders(
+                    where: where ?? Rds.OrdersWhereDefault(
+                        orderModel: this),
+                    param: param ?? Rds.OrdersParamDefault(
+                        context: context,
+                        orderModel: this,
+                        setDefault: true),
+                    tableType: tableType));
             return new ResponseCollection().ToJson();
         }
     }

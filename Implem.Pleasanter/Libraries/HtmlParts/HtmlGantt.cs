@@ -1,6 +1,7 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Html;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
@@ -15,6 +16,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Gantt(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             Column groupBy,
             Column sortBy,
@@ -26,20 +28,22 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         {
             return hb.Div(css: "both", action: () => hb
                 .FieldDropDown(
+                    context: context,
                     controlId: "GanttGroupBy",
                     fieldCss: "field-auto-thin",
                     controlCss: " auto-postback",
-                    labelText: Displays.GroupBy(),
+                    labelText: Displays.GroupBy(context: context),
                     optionCollection: ss.GanttGroupByOptions(),
                     selectedValue: groupBy?.ColumnName,
                     insertBlank: true,
                     method: "post")
                 .FieldDropDown(
+                    context: context,
                     controlId: "GanttSortBy",
                     fieldCss: "field-auto-thin",
                     controlCss: " auto-postback",
-                    labelText: Displays.SortBy(),
-                    optionCollection: ss.GanttSortByOptions(),
+                    labelText: Displays.SortBy(context: context),
+                    optionCollection: ss.GanttSortByOptions(context: context),
                     selectedValue: sortBy?.ColumnName,
                     insertBlank: true,
                     method: "post")
@@ -48,37 +52,37 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         textType: HtmlTypes.TextTypes.DateTime,
                         fieldCss: "field-auto-thin",
                         controlId: "GanttStartDate",
-                        controlCss: " w100 auto-postback",
-                        labelText: Displays.StartDate(),
-                        text: startDate.ToLocal().InRange()
-                            ? startDate.ToLocal().ToString(
-                                "d", Sessions.CultureInfo())
+                        controlCss: " w100 auto-postback always-send",
+                        labelText: Displays.StartDate(context: context),
+                        text: startDate.ToLocal(context: context).InRange()
+                            ? startDate.ToLocal(context: context).ToString(
+                                "d", context.CultureInfo())
                             : string.Empty,
-                        format: Displays.YmdDatePickerFormat(),
+                        format: Displays.YmdDatePickerFormat(context: context),
                         method: "post")
                     .Button(
                         controlId: "GanttPreviousButton",
-                        text: Displays.Previous(),
+                        text: Displays.Previous(context: context),
                         controlCss: "button-icon",
                         accessKey: "b",
                         onClick: "$p.moveGantt('Previous');",
                         icon: "ui-icon-seek-prev")
                     .Button(
                         controlId: "GanttNextButton",
-                        text: Displays.Next(),
+                        text: Displays.Next(context: context),
                         controlCss: "button-icon",
                         accessKey: "n",
                         onClick: "$p.moveGantt('Next');",
                         icon: "ui-icon-seek-next")
                     .Button(
                         controlId: "GanttFirstDayButton",
-                        text: Displays.FirstDay(),
+                        text: Displays.FirstDay(context: context),
                         controlCss: "button-icon",
                         onClick: "$p.moveGantt('FirstDay');",
                         icon: "ui-icon-calendar")
                     .Button(
                         controlId: "GanttTodayButton",
-                        text: Displays.Today(),
+                        text: Displays.Today(context: context),
                         controlCss: "button-icon",
                         onClick: "$p.moveGantt('Today');",
                         icon: "ui-icon-calendar"))
@@ -86,7 +90,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     controlId: "GanttPeriod",
                     fieldCss: "field-auto-thin",
                     controlCss: " auto-postback",
-                    labelText: Displays.Period(),
+                    labelText: Displays.Period(context: context),
                     min: Parameters.General.GanttPeriodMin,
                     max: range.Period,
                     step: 1,
@@ -94,6 +98,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     method: "post")
                 .Div(id: "GanttBody", action: () => hb
                     .GanttBody(
+                        context: context,
                         ss: ss,
                         groupBy: groupBy,
                         sortBy: sortBy,
@@ -105,21 +110,25 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static Dictionary<string, ControlData> GanttDays(
-            IEnumerable<DataRow> dataRows)
+            IContext context, IEnumerable<DataRow> dataRows)
         {
             var now = DateTime.Now;
-            var month = new DateTime(now.ToLocal().Year, now.ToLocal().Month, 1);
+            var month = new DateTime(
+                year: now.ToLocal(context: context).Year,
+                month: now.ToLocal(context: context).Month,
+                day: 1);
             return Enumerable.Range(
                 1,
                 100)
                     .ToDictionary(
                         o => month.AddDays(o).ToString(),
                         o => new ControlData(month.AddDays(o).ToString(
-                            "Y", Sessions.CultureInfo())));
+                            "Y", context.CultureInfo())));
         }
 
         public static HtmlBuilder GanttBody(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             Column groupBy,
             Column sortBy,
@@ -132,28 +141,28 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             hb
                 .Hidden(
                     controlId: "GanttMinDate",
-                    value: startDate.ToLocal().ToString(
-                        "d", Sessions.CultureInfo()))
+                    value: startDate.ToLocal(context: context).ToString(
+                        "d", context.CultureInfo()))
                 .Hidden(
                     controlId: "GanttMaxDate",
-                    value: startDate.AddDays(period).ToLocal().ToString(
-                        "d", Sessions.CultureInfo()))
+                    value: startDate.AddDays(period).ToLocal(context: context).ToString(
+                        "d", context.CultureInfo()))
                 .Hidden(
                     controlId: "GanttPrevious",
-                    value: startDate.AddDays(-7).ToLocal().ToString(
-                        "d", Sessions.CultureInfo()))
+                    value: startDate.AddDays(-7).ToLocal(context: context).ToString(
+                        "d", context.CultureInfo()))
                 .Hidden(
                     controlId: "GanttNext",
-                    value: startDate.AddDays(7).ToLocal().ToString(
-                        "d", Sessions.CultureInfo()))
+                    value: startDate.AddDays(7).ToLocal(context: context).ToString(
+                        "d", context.CultureInfo()))
                 .Hidden(
                     controlId: "GanttFirstDay",
-                    value: range.Min.ToLocal().ToString(
-                        "d", Sessions.CultureInfo()))
+                    value: range.Min.ToLocal(context: context).ToString(
+                        "d", context.CultureInfo()))
                 .Hidden(
                     controlId: "GanttToday",
-                    value: DateTime.Today.ToLocal().ToString(
-                        "d", Sessions.CultureInfo()))
+                    value: DateTime.Today.ToLocal(context: context).ToString(
+                        "d", context.CultureInfo()))
                 .Hidden(
                     controlId: "ShowGanttProgressRate",
                     value: ss.ShowGanttProgressRate.ToBool().ToOneOrZeroString());
@@ -164,8 +173,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .Svg(id: "GanttAxis")
                     .Hidden(
                         controlId: "GanttJson",
-                        value: new Gantt(ss, dataRows, groupBy, sortBy)
-                            .Json(groupBy, sortBy))
+                        value: new Gantt(
+                            context: context,
+                            ss: ss,
+                            dataRows: dataRows,
+                            groupBy: groupBy,
+                            sortBy: sortBy)
+                                .Json(groupBy, sortBy))
                 : hb;
         }
     }

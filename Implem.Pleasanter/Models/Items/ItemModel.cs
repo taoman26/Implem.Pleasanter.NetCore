@@ -38,47 +38,47 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public string SavedFullText = string.Empty;
         [NonSerialized] public DateTime SavedSearchIndexCreatedTime = 0.ToDateTime();
 
-        public bool ReferenceId_Updated(Column column = null)
+        public bool ReferenceId_Updated(IContext context, Column column = null)
         {
             return ReferenceId != SavedReferenceId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != ReferenceId);
+                column.GetDefaultInput(context: context).ToLong() != ReferenceId);
         }
 
-        public bool ReferenceType_Updated(Column column = null)
+        public bool ReferenceType_Updated(IContext context, Column column = null)
         {
             return ReferenceType != SavedReferenceType && ReferenceType != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != ReferenceType);
+                column.GetDefaultInput(context: context).ToString() != ReferenceType);
         }
 
-        public bool SiteId_Updated(Column column = null)
+        public bool SiteId_Updated(IContext context, Column column = null)
         {
             return SiteId != SavedSiteId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != SiteId);
+                column.GetDefaultInput(context: context).ToLong() != SiteId);
         }
 
-        public bool Title_Updated(Column column = null)
+        public bool Title_Updated(IContext context, Column column = null)
         {
             return Title != SavedTitle && Title != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Title);
+                column.GetDefaultInput(context: context).ToString() != Title);
         }
 
-        public bool FullText_Updated(Column column = null)
+        public bool FullText_Updated(IContext context, Column column = null)
         {
             return FullText != SavedFullText && FullText != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != FullText);
+                column.GetDefaultInput(context: context).ToString() != FullText);
         }
 
-        public bool SearchIndexCreatedTime_Updated(Column column = null)
+        public bool SearchIndexCreatedTime_Updated(IContext context, Column column = null)
         {
             return SearchIndexCreatedTime != SavedSearchIndexCreatedTime &&
                 (column == null ||
@@ -86,26 +86,28 @@ namespace Implem.Pleasanter.Models
                 column.DefaultTime().Date != SearchIndexCreatedTime.Date);
         }
 
-        public ItemModel(DataRow dataRow, string tableAlias = null)
+        public ItemModel(IContext context, DataRow dataRow, string tableAlias = null)
         {
-            OnConstructing();
-            Set(dataRow, tableAlias);
-            OnConstructed();
+            OnConstructing(context: context);
+            Context = context;
+            if (dataRow != null) Set(context, dataRow, tableAlias);
+            OnConstructed(context: context);
         }
 
-        private void OnConstructing()
-        {
-        }
-
-        private void OnConstructed()
+        private void OnConstructing(IContext context)
         {
         }
 
-        public void ClearSessions()
+        private void OnConstructed(IContext context)
+        {
+        }
+
+        public void ClearSessions(IContext context)
         {
         }
 
         public ItemModel Get(
+            IContext context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -115,464 +117,749 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0)
         {
-            Set(Rds.ExecuteTable(statements: Rds.SelectItems(
-                tableType: tableType,
-                column: column ?? Rds.ItemsDefaultColumns(),
-                join: join ??  Rds.ItemsJoinDefault(),
-                where: where ?? Rds.ItemsWhereDefault(this),
-                orderBy: orderBy,
-                param: param,
-                distinct: distinct,
-                top: top)));
+            Set(context, Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectItems(
+                    tableType: tableType,
+                    column: column ?? Rds.ItemsDefaultColumns(),
+                    join: join ??  Rds.ItemsJoinDefault(),
+                    where: where ?? Rds.ItemsWhereDefault(this),
+                    orderBy: orderBy,
+                    param: param,
+                    distinct: distinct,
+                    top: top)));
             return this;
         }
 
-        public string Index()
+        public string Index(IContext context)
         {
             if (ReferenceId == 0)
             {
-                return SiteUtilities.SiteTop();
+                return SiteUtilities.SiteTop(context: context);
             }
             if (ReferenceType != "Sites")
             {
-                return HtmlTemplates.Error(Error.Types.NotFound);
+                return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
             SetSite(
+                context: context,
                 initSiteSettings: true,
                 setSiteIntegration: true);
-            ViewModes.Set(Site.SiteId);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Sites": return SiteUtilities.SiteMenu(
-                    siteModel: Site);
-                case "Issues": return IssueUtilities.Index(ss: Site.SiteSettings);
-                case "Results": return ResultUtilities.Index(ss: Site.SiteSettings);
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Sites":
+                    return SiteUtilities.SiteMenu(context: context, siteModel: Site);
+                case "Issues":
+                    return IssueUtilities.Index(context: context, ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.Index(context: context, ss: Site.SiteSettings);
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string IndexJson()
+        public string IndexJson(IContext context)
         {
             if (ReferenceType != "Sites")
             {
-                return Messages.ResponseNotFound().ToJson();
+                return Messages.ResponseNotFound(context: context).ToJson();
             }
             SetSite(
+                context: context,
                 initSiteSettings: true,
                 setSiteIntegration: true);
-            ViewModes.Set(Site.SiteId);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.IndexJson(ss: Site.SiteSettings);
-                case "Results": return ResultUtilities.IndexJson(ss: Site.SiteSettings);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.IndexJson(context: context, ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.IndexJson(context: context, ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Calendar()
+        public string TrashBox(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            if (ReferenceId != 0 && ReferenceType != "Sites")
+            {
+                return HtmlTemplates.Error(context, Error.Types.NotFound);
+            }
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                setSiteIntegration: true,
+                tableType: Sqls.TableTypes.Deleted);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
+            if (ReferenceId == 0)
+            {
+                return SiteUtilities.TrashBox(context: context, ss: Site.SiteSettings);
+            }
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Calendar(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.Calendar(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Sites":
+                    return SiteUtilities.TrashBox(context: context, ss: Site.SiteSettings);
+                case "Issues":
+                    return IssueUtilities.TrashBox(context: context, ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.TrashBox(context: context, ss: Site.SiteSettings);
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string CalendarJson()
+        public string TrashBoxJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            if (ReferenceType != "Sites")
+            {
+                return Messages.ResponseNotFound(context: context).ToJson();
+            }
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                setSiteIntegration: true,
+                tableType: Sqls.TableTypes.Deleted);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.CalendarJson(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.CalendarJson(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.TrashBoxJson(context: context, ss: Site.SiteSettings);
+                case "Issues":
+                    return IssueUtilities.TrashBoxJson(context: context, ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.TrashBoxJson(context: context, ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Crosstab()
+        public string Calendar(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Crosstab(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                case "Results": return ResultUtilities.Crosstab(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.Calendar(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.Calendar(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string CrosstabJson()
+        public string CalendarJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.CrosstabJson(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                case "Results": return ResultUtilities.CrosstabJson(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.CalendarJson(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.CalendarJson(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Gantt()
+        public string Crosstab(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Gantt(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.Crosstab(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                case "Results":
+                    return ResultUtilities.Crosstab(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string GanttJson()
+        public string CrosstabJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.GanttJson(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.CrosstabJson(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                case "Results":
+                    return ResultUtilities.CrosstabJson(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string BurnDown()
+        public string Gantt(IContext context)
         {
-            SetSite(initSiteSettings: true, setSiteIntegration: true);
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.BurnDown(ss: Site.SiteSettings);
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.Gantt(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string BurnDownJson()
+        public string GanttJson(IContext context)
         {
-            SetSite(initSiteSettings: true, setSiteIntegration: true);
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.BurnDownJson(ss: Site.SiteSettings);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.GanttJson(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string BurnDownRecordDetailsJson()
+        public string BurnDown(IContext context)
         {
-            SetSite(initSiteSettings: true, setSiteIntegration: true);
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                setSiteIntegration: true);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.BurnDownRecordDetails(Site.SiteSettings);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.BurnDown(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string TimeSeries()
+        public string BurnDownJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                setSiteIntegration: true);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.TimeSeries(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                case "Results": return ResultUtilities.TimeSeries(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.BurnDownJson(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string TimeSeriesJson()
+        public string BurnDownRecordDetailsJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                setSiteIntegration: true);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.TimeSeriesJson(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                case "Results": return ResultUtilities.TimeSeriesJson(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.BurnDownRecordDetails(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Kamban()
+        public string TimeSeries(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Kamban(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.Kamban(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.TimeSeries(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                case "Results":
+                    return ResultUtilities.TimeSeries(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string KambanJson()
+        public string TimeSeriesJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.KambanJson(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.KambanJson(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.TimeSeriesJson(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                case "Results":
+                    return ResultUtilities.TimeSeriesJson(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string ImageLib()
+        public string Kamban(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.ImageLib(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.ImageLib(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.Kamban(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.Kamban(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string ImageLibJson()
+        public string KambanJson(IContext context)
         {
-            SetSite();
-            ViewModes.Set(Site.SiteId);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.ImageLibJson(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.ImageLibJson(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.KambanJson(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.KambanJson(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string New()
+        public string ImageLib(IContext context)
         {
-            SetSite(siteOnly: true, initSiteSettings: true);
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.EditorNew(Site.SiteSettings);
-                case "Results": return ResultUtilities.EditorNew(Site.SiteSettings);
-                case "Wikis": return WikiUtilities.EditorNew(Site.SiteSettings);
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Issues":
+                    return IssueUtilities.ImageLib(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.ImageLib(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string NewJson()
+        public string ImageLibJson(IContext context)
+        {
+            SetSite(context: context);
+            ViewModes.Set(context: context, siteId: Site.SiteId);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.ImageLibJson(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.ImageLibJson(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string New(IContext context)
+        {
+            SetSite(
+                context: context,
+                siteOnly: true,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.EditorNew(
+                        context: context,
+                        ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.EditorNew(
+                        context: context,
+                        ss: Site.SiteSettings);
+                case "Wikis":
+                    return WikiUtilities.EditorNew(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+            }
+        }
+
+        public string NewJson(IContext context)
         {
             return new ResponseCollection()
-                .ReplaceAll("#MainContainer", New())
+                .ReplaceAll("#MainContainer", New(context: context))
                 .WindowScrollTop()
                 .FocusMainForm()
                 .ClearFormData()
-                .PushState("Edit", Locations.Get("Items", ReferenceId.ToString(), "New"))
+                .PushState("Edit", Locations.Get(
+                    context: context,
+                    parts: new string[]
+                    {
+                        "Items",
+                        ReferenceId.ToString(),
+                        "New"
+                    }))
                 .ToJson();
         }
 
-        public string Editor()
+        public string Editor(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Editor(
-                    siteId: ReferenceId,
-                    clearSessions: true);
-                case "Issues": return IssueUtilities.Editor(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId,
-                    clearSessions: true);
-                case "Results": return ResultUtilities.Editor(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId,
-                    clearSessions: true);
-                case "Wikis": return WikiUtilities.Editor(
-                    ss: Site.WikisSiteSettings(ReferenceId),
-                    wikiId: ReferenceId,
-                    clearSessions: true);
-                default: return HtmlTemplates.Error(Error.Types.NotFound);
+                case "Sites":
+                    return SiteUtilities.Editor(
+                        context: context,
+                        siteId: ReferenceId,
+                        clearSessions: true);
+                case "Issues":
+                    return IssueUtilities.Editor(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId,
+                        clearSessions: true);
+                case "Results":
+                    return ResultUtilities.Editor(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId,
+                        clearSessions: true);
+                case "Wikis":
+                    return WikiUtilities.Editor(
+                        context: context,
+                        ss: Site.WikisSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        wikiId: ReferenceId,
+                        clearSessions: true);
+                default:
+                    return HtmlTemplates.Error(context, Error.Types.NotFound);
             }
         }
 
-        public string Import()
+        public string LinkTable(IContext context)
         {
-            SetSite();
+            var dataTableName = context.Forms.Data("TableId");
+            return new ResponseCollection()
+                .ReplaceAll("#" + dataTableName, new HtmlBuilder()
+                    .LinkTable(
+                        context: context,
+                        siteId: context.Forms.Long("TableSiteId"),
+                        direction: context.Forms.Data("Direction"),
+                        dataTableName: dataTableName))
+                .ToJson();
+        }
+
+        public string Import(IContext context)
+        {
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Import(siteModel: Site);
-                case "Results": return ResultUtilities.Import(siteModel: Site);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.Import(
+                        context: context,
+                        siteModel: Site);
+                case "Results":
+                    return ResultUtilities.Import(
+                        context: context,
+                        siteModel: Site);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string OpenExportSelectorDialog()
+        public string OpenExportSelectorDialog(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.OpenExportSelectorDialog(
-                    Site.IssuesSiteSettings(ReferenceId, setSiteIntegration: true),
-                    siteModel: Site);
-                case "Results": return ResultUtilities.OpenExportSelectorDialog(
-                    Site.ResultsSiteSettings(ReferenceId, setSiteIntegration: true),
-                    siteModel: Site);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.OpenExportSelectorDialog(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        siteModel: Site);
+                case "Results":
+                    return ResultUtilities.OpenExportSelectorDialog(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        siteModel: Site);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public ResponseFile Export()
+        public ResponseFile Export(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Export(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    siteModel: Site);
-                case "Results": return ResultUtilities.Export(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    siteModel: Site);
-                default: return null;
+                case "Issues":
+                    return IssueUtilities.Export(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        siteModel: Site);
+                case "Results":
+                    return ResultUtilities.Export(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        siteModel: Site);
+                default:
+                    return null;
             }
         }
 
-        public ResponseFile ExportCrosstab()
+        public ResponseFile ExportCrosstab(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.ExportCrosstab(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    siteModel: Site);
-                case "Results": return ResultUtilities.ExportCrosstab(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    siteModel: Site);
-                default: return null;
+                case "Issues":
+                    return IssueUtilities.ExportCrosstab(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        siteModel: Site);
+                case "Results":
+                    return ResultUtilities.ExportCrosstab(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        siteModel: Site);
+                default:
+                    return null;
             }
         }
 
-        public string SearchDropDown()
+        public string SearchDropDown(IContext context)
         {
-            SetSite();
-            var controlId = Forms.Data("DropDownSearchTarget");
-            var searchText = Forms.Data("DropDownSearchText");
-            switch (Forms.ControlId())
+            SetSite(context: context);
+            var controlId = context.Forms.Data("DropDownSearchTarget");
+            var searchText = context.Forms.Data("DropDownSearchText");
+            string parentClass = context.Forms.Data("DropDownSearchParentClass");
+            int parentId = context.Forms.Int("DropDownSearchParentDataId");
+            switch (context.Forms.ControlId())
             {
                 case "DropDownSearchResults":
-                    return AppendSearchDropDown(controlId, searchText);
+                    return
+                        AppendSearchDropDown(
+                            context: context,
+                            controlId: controlId,
+                            searchText: searchText,
+                            parentClass: parentClass,
+                            parentId: parentId);
                 default:
-                    return SearchDropDown(controlId, searchText);
+                    return SearchDropDown(
+                        context: context,
+                        controlId: controlId,
+                        searchText: searchText,
+                        parentClass: parentClass,
+                        parentId: parentId);
             }
         }
 
-        private string AppendSearchDropDown(string controlId, string searchText)
+        private string AppendSearchDropDown(
+            IContext context,
+            string controlId,
+            string searchText,
+            string parentClass = "",
+            int parentId = 0)
         {
-            var offset = Forms.Int("DropDownSearchResultsOffset");
-            var column = SearchDropDownColumn(controlId, searchText, offset);
+            var offset = context.Forms.Int("DropDownSearchResultsOffset");
+            var column = SearchDropDownColumn(
+                context: context,
+                controlId: controlId,
+                searchText: searchText,
+                offset: offset,
+                parentClass: parentClass,
+                parentId: parentId);
             var nextOffset = Paging.NextOffset(
-                offset, column.TotalCount, Parameters.General.DropDownSearchPageSize);
+                offset: offset,
+                totalCount: column.TotalCount,
+                pageSize: Parameters.General.DropDownSearchPageSize);
             return new ResponseCollection()
                 .Append("#DropDownSearchResults", new HtmlBuilder()
                     .SelectableItems(
-                        listItemCollection: column?.EditChoices(addNotSet: nextOffset == -1)))
+                        listItemCollection: column?.EditChoices(
+                            context: context,
+                            addNotSet: nextOffset == -1)))
                 .Val("#DropDownSearchResultsOffset", nextOffset)
                 .ToJson();
         }
 
-        private string SearchDropDown(string controlId, string searchText)
+        private string SearchDropDown(
+            IContext context,
+            string controlId,
+            string searchText,
+            string parentClass = "",
+            int parentId = 0)
         {
-            var column = SearchDropDownColumn(controlId, searchText);
+            var column = SearchDropDownColumn(
+                context: context,
+                controlId: controlId,
+                searchText: searchText,
+                parentClass: parentClass,
+                parentId: parentId);
             var nextOffset = Paging.NextOffset(
-                0, column.TotalCount, Parameters.General.DropDownSearchPageSize);
+                offset: 0,
+                totalCount: column.TotalCount,
+                pageSize: Parameters.General.DropDownSearchPageSize);
             return new ResponseCollection()
                 .ReplaceAll(
                     "#DropDownSearchResults",
                     new HtmlBuilder().Selectable(
                         controlId: "DropDownSearchResults",
-                        listItemCollection: column?.EditChoices(addNotSet: true),
+                        listItemCollection: column?.EditChoices(
+                            context: context,
+                            addNotSet: true),
                         action: "SearchDropDown",
                         method: "post"))
                 .Val("#DropDownSearchResultsOffset", nextOffset)
@@ -580,85 +867,130 @@ namespace Implem.Pleasanter.Models
                 .ToJson();
         }
 
-        public string SelectSearchDropDown()
+        public string SelectSearchDropDown(IContext context)
         {
-            SetSite();
-            var controlId = Forms.Data("DropDownSearchTarget");
-            var searchText = Forms.Data("DropDownSearchText");
-            var column = SearchDropDownColumn(controlId, searchText);
-            var selected = Forms.List("DropDownSearchResults");
-            var editor = Forms.Bool("DropDownSearchOnEditor");
-            var multiple = Forms.Bool("DropDownSearchMultiple");
+            SetSite(context: context);
+            var controlId = context.Forms.Data("DropDownSearchTarget");
+            var searchText = context.Forms.Data("DropDownSearchText");
+            var column = SearchDropDownColumn(
+                context: context,
+                controlId: controlId,
+                searchText: searchText);
+            var selected = context.Forms.List("DropDownSearchResults");
+            var editor = context.Forms.Bool("DropDownSearchOnEditor");
+            var multiple = context.Forms.Bool("DropDownSearchMultiple");
             if (multiple)
             {
-                return SelectSearchDropDownResponse(controlId, column, selected, editor, multiple);
+                return SelectSearchDropDownResponse(
+                    context: context,
+                    controlId: controlId,
+                    column: column,
+                    selected: selected,
+                    editor: editor,
+                    multiple: multiple);
             }
             else if (selected.Count() != 1)
             {
                 return new ResponseCollection()
-                    .Message(Messages.SelectOne())
+                    .Message(Messages.SelectOne(context: context))
                     .ToJson();
             }
             else
             {
-                return SelectSearchDropDownResponse(controlId, column, selected, editor, multiple);
+                return SelectSearchDropDownResponse(
+                    context: context,
+                    controlId: controlId,
+                    column: column,
+                    selected: selected,
+                    editor: editor,
+                    multiple: multiple);
             }
         }
 
-        private Column SearchDropDownColumn(string controlId, string searchText, int offset = 0)
+        private Column SearchDropDownColumn(
+            IContext context,
+            string controlId,
+            string searchText,
+            int offset = 0,
+            string parentClass = "",
+            int parentId = 0)
         {
-            var ss = SiteSettingsUtilities.Get(Site, ReferenceId, setSiteIntegration: true);
-            var column = ss.GetColumn(controlId.Substring(
-                controlId.StartsWith("ViewFilters__")
-                    ? "ViewFilters__".Length
-                    : (ss.ReferenceType + "_").Length));
+            var ss = SiteSettingsUtilities.Get(
+                context: context,
+                siteModel: Site,
+                referenceId: ReferenceId,
+                setSiteIntegration: true);
+            var column = ss.GetColumn(
+                context: context,
+                columnName: controlId.Substring(
+                    controlId.StartsWith("ViewFilters__")
+                        ? "ViewFilters__".Length
+                        : (ss.ReferenceType + "_").Length));
             if (column?.Linked() == true)
             {
                 column?.SetChoiceHash(
+                    context: context,
                     siteId: column.SiteId,
                     linkHash: column.SiteSettings.LinkHash(
+                        context: context,
                         columnName: column.Name,
                         searchText: searchText,
-                        offset: offset),
-                    searchIndexes: searchText.SearchIndexes());    
+                        offset: offset,
+                        parentClass: parentClass,
+                        parentId: parentId),
+                    searchIndexes: searchText.SearchIndexes(context: context));
             }
             else
             {
                 ss.SetChoiceHash(
-                     columnName: column?.ColumnName,
-                     searchText: Forms.Data("DropDownSearchText"));
+                    context: context,
+                    columnName: column?.ColumnName,
+                    searchText: context.Forms.Data("DropDownSearchText"));
             }
             return column;
         }
 
         private static string SelectSearchDropDownResponse(
-            string controlId, Column column, List<string> selected, bool editor, bool multiple)
+            IContext context,
+            string controlId,
+            Column column,
+            List<string> selected,
+            bool editor,
+            bool multiple)
         {
             column.SiteSettings.SetChoiceHash(
+                context: context,
                 columnName: column.ColumnName,
                 selectedValues: selected);
-            var optionCollection = column?.EditChoices(addNotSet: true)?
-                .Where(o => selected.Contains(o.Key))
-                .ToDictionary(o => o.Key, o => o.Value);
+            var optionCollection = column?.EditChoices(
+                context: context,
+                addNotSet: true)?
+                    .Where(o => selected.Contains(o.Key))
+                    .ToDictionary(o => o.Key, o => o.Value);
             return optionCollection?.Any() == true
                 ? new ResponseCollection()
-                    .CloseDialog()
+                    .CloseDialog("#DropDownSearchDialog")
                     .Html("[id=\"" + controlId + "\"]", new HtmlBuilder()
                         .OptionCollection(
+                            context: context,
                             optionCollection: optionCollection,
                             selectedValue: SelectSearchDropDownSelectedValue(
-                                selected, editor, multiple),
+                                context: context,
+                                selected: selected,
+                                editor: editor,
+                                multiple: multiple),
                             multiple: multiple,
                             insertBlank: editor))
                     .Invoke("setDropDownSearch")
+                    .Trigger("#" + controlId, "change")
                     .ToJson()
                 : new ResponseCollection()
-                    .Message(Messages.NotFound())
+                    .Message(Messages.NotFound(context: context))
                     .ToJson();
         }
 
         public static string SelectSearchDropDownSelectedValue(
-            List<string> selected, bool editor, bool multiple)
+            IContext context, List<string> selected, bool editor, bool multiple)
         {
             if (multiple)
             {
@@ -673,557 +1005,964 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string GridRows()
+        public string GridRows(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.GridRows(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    offset: DataViewGrid.Offset());
-                case "Results": return ResultUtilities.GridRows(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    offset: DataViewGrid.Offset());
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.GridRows(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        offset: DataViewGrid.Offset(context: context));
+                case "Results":
+                    return ResultUtilities.GridRows(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        offset: DataViewGrid.Offset(context: context));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string ImageLibNext()
+        public string TrashBoxGridRows(IContext context)
         {
-            SetSite();
+            SetSite(context: context, tableType: Sqls.TableTypes.Deleted);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.ImageLibNext(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    offset: Forms.Int("ImageLibOffset"));
-                case "Results": return ResultUtilities.ImageLibNext(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true),
-                    offset: Forms.Int("ImageLibOffset"));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.GridRows(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            tableType: Sqls.TableTypes.Deleted),
+                        offset: DataViewGrid.Offset(context: context),
+                        action: "TrashBoxGridRows");
+                case "Results":
+                    return ResultUtilities.GridRows(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            tableType: Sqls.TableTypes.Deleted),
+                        offset: DataViewGrid.Offset(context: context),
+                        action: "TrashBoxGridRows");
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public Microsoft.AspNetCore.Mvc.ContentResult GetByApi()
+        public string ImageLibNext(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.ImageLibNext(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        offset: context.Forms.Int("ImageLibOffset"));
+                case "Results":
+                    return ResultUtilities.ImageLibNext(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        offset: context.Forms.Int("ImageLibOffset"));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public System.Web.Mvc.ContentResult GetByApi(IContext context)
+        {
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
                 case "Issues":
                     if (SiteId == ReferenceId)
                     {
                         return IssueUtilities.GetByApi(
-                            ss: Site.IssuesSiteSettings(ReferenceId));
+                            context: context,
+                            ss: Site.IssuesSiteSettings(
+                                context: context,
+                                referenceId: ReferenceId));
                     }
                     else
                     {
                         return IssueUtilities.GetByApi(
-                            ss: Site.IssuesSiteSettings(ReferenceId),
+                            context: context,
+                            ss: Site.IssuesSiteSettings(
+                                context: context,
+                                referenceId: ReferenceId),
                             issueId: ReferenceId);
                     }
                 case "Results":
                     if (SiteId == ReferenceId)
                     {
                         return ResultUtilities.GetByApi(
-                            ss: Site.ResultsSiteSettings(ReferenceId));
+                            context: context,
+                            ss: Site.ResultsSiteSettings(
+                                context: context,
+                                referenceId: ReferenceId));
                     }
                     else
                     {
                         return ResultUtilities.GetByApi(
-                            ss: Site.ResultsSiteSettings(ReferenceId),
+                            context: context,
+                            ss: Site.ResultsSiteSettings(
+                                context: context,
+                                referenceId: ReferenceId),
                             resultId: ReferenceId);
                     }
-                default: return ApiResults.Get(ApiResponses.BadRequest());
+                default:
+                    return ApiResults.Get(ApiResponses.BadRequest(context: context));
             }
         }
 
-        public string Create()
+        public string Create(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Sites": return SiteUtilities.Create(
-                    parentId: Site.SiteId,
-                    inheritPermission: Site.InheritPermission);
-                case "Issues": return IssueUtilities.Create(
-                    ss: Site.IssuesSiteSettings(ReferenceId));
-                case "Results": return ResultUtilities.Create(
-                    ss: Site.ResultsSiteSettings(ReferenceId));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Create(
+                        context: context,
+                        parentId: Site.SiteId,
+                        inheritPermission: Site.InheritPermission);
+                case "Issues":
+                    return IssueUtilities.Create(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId));
+                case "Results":
+                    return ResultUtilities.Create(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public Microsoft.AspNetCore.Mvc.ContentResult CreateByApi()
+        public System.Web.Mvc.ContentResult CreateByApi(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.CreateByApi(
-                    ss: Site.IssuesSiteSettings(ReferenceId));
-                case "Results": return ResultUtilities.CreateByApi(
-                    ss: Site.ResultsSiteSettings(ReferenceId));
-                default: return ApiResults.Get(ApiResponses.BadRequest());
+                case "Issues":
+                    return IssueUtilities.CreateByApi(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId));
+                case "Results":
+                    return ResultUtilities.CreateByApi(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId));
+                default:
+                    return ApiResults.Get(ApiResponses.BadRequest(context: context));
             }
         }
 
-        public string Templates()
+        public string Templates(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Sites": return SiteUtilities.Templates(
-                    siteModel: Site);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Templates(
+                        context: context,
+                        parentId: Site.SiteId,
+                        inheritPermission: Site.InheritPermission);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string CreateByTemplate()
+        public string CreateByTemplate(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Sites": return SiteUtilities.CreateByTemplate(
-                    siteModel: Site);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.CreateByTemplate(
+                        context: context,
+                        parentId: Site.SiteId,
+                        inheritPermission: Site.InheritPermission);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string SiteMenu()
+        public string SiteMenu(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Sites": return SiteUtilities.SiteMenuJson(
-                    siteModel: Site);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.SiteMenuJson(
+                        context: context,
+                        siteModel: Site);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Update()
+        public string Update(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Update(
-                    siteModel: Site,
-                    siteId: ReferenceId);
-                case "Issues": return IssueUtilities.Update(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.Update(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId);
-                case "Wikis": return WikiUtilities.Update(
-                    ss: Site.WikisSiteSettings(ReferenceId),
-                    wikiId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Update(
+                        context: context,
+                        siteModel: Site,
+                        siteId: ReferenceId);
+                case "Issues":
+                    return IssueUtilities.Update(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.Update(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.Update(
+                        context: context,
+                        ss: Site.WikisSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public Microsoft.AspNetCore.Mvc.ContentResult UpdateByApi()
+        public System.Web.Mvc.ContentResult UpdateByApi(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.UpdateByApi(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.UpdateByApi(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId);
-                default: return ApiResults.Get(ApiResponses.BadRequest());
+                case "Issues":
+                    return IssueUtilities.UpdateByApi(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.UpdateByApi(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId);
+                default:
+                    return ApiResults.Get(ApiResponses.BadRequest(context: context));
             }
         }
 
-        public string DeleteComment()
+        public string DeleteComment(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Update(
-                    siteModel: Site,
-                    siteId: ReferenceId);
-                case "Issues": return IssueUtilities.Update(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.Update(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId);
-                case "Wikis": return WikiUtilities.Update(
-                    ss: Site.WikisSiteSettings(ReferenceId),
-                    wikiId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Update(
+                        context: context,
+                        siteModel: Site,
+                        siteId: ReferenceId);
+                case "Issues":
+                    return IssueUtilities.Update(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.Update(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.Update(
+                        context: context,
+                        ss: Site.WikisSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Copy()
+        public string Copy(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Copy(
-                    siteModel: Site);
-                case "Issues": return IssueUtilities.Copy(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.Copy(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Copy(
+                        context: context,
+                        siteModel: Site);
+                case "Issues":
+                    return IssueUtilities.Copy(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.Copy(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string MoveTargets()
+        public string MoveTargets(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             return new ResponseCollection().Html("#MoveTargets", new HtmlBuilder()
                 .OptionCollection(
+                    context: context,
                     optionCollection: MoveTargets(
-                        Rds.ExecuteTable(statements: new SqlStatement(
-                            commandText: Def.Sql.MoveTarget,
-                            param: Rds.SitesParam()
-                                .TenantId(Sessions.TenantId())
-                                .ReferenceType(Site.ReferenceType)
-                                .SiteId(Site.SiteId)
-                                .Add(name: "HasPrivilege", value: Permissions.HasPrivilege())))
-                                    .AsEnumerable())))
-                                        .ToJson();
+                        context: context,
+                        sites: Rds.ExecuteTable(
+                            context: context,
+                            statements: new SqlStatement(
+                                commandText: Def.Sql.MoveTarget,
+                                param: Rds.SitesParam()
+                                    .TenantId(context.TenantId)
+                                    .ReferenceType(Site.ReferenceType)
+                                    .SiteId(Site.SiteId)
+                                    .Add(name: "HasPrivilege", value: context.HasPrivilege)))
+                                        .AsEnumerable())))
+                                            .ToJson();
         }
 
-        private Dictionary<string, ControlData> MoveTargets(IEnumerable<DataRow> siteCollection)
+        private Dictionary<string, ControlData> MoveTargets(
+            IContext context, IEnumerable<DataRow> sites)
         {
             var moveTargets = new Dictionary<string, ControlData>();
-            siteCollection
-                .Where(o => o["ReferenceType"].ToString() == Site.ReferenceType)
+            sites
+                .Where(dataRow => dataRow.String("ReferenceType") == Site.ReferenceType)
                 .ForEach(dataRow =>
                 {
                     var current = dataRow;
-                    var titles = new List<string>() { current["Title"].ToString() };
-                    while(siteCollection.Any(o =>
-                        o["SiteId"].ToLong() == current["ParentId"].ToLong()))
+                    var titles = new List<string>()
+                    {
+                        current.String("Title")
+                    };
+                    while(sites.Any(o =>
+                        o.Long("SiteId") == current.Long("ParentId")))
                         {
-                            current = siteCollection.First(o =>
-                                o["SiteId"].ToLong() == current["ParentId"].ToLong());
-                            titles.Insert(0, current["Title"].ToString());
+                            current = sites.First(o =>
+                                o.Long("SiteId") == current.Long("ParentId"));
+                            titles.Insert(0, current.String("Title"));
                         }
                     moveTargets.Add(
-                        dataRow["SiteId"].ToString(),
+                        dataRow.String("SiteId"),
                         new ControlData(titles.Join(" / ")));
                 });
             return moveTargets;
         }
 
-        public string Move()
+        public string Move(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (ReferenceType)
             {
-                case "Issues": return IssueUtilities.Move(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
+                case "Issues":
+                    return IssueUtilities.Move(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
                     issueId: ReferenceId);
-                case "Results": return ResultUtilities.Move(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
+                case "Results":
+                    return ResultUtilities.Move(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
                     resultId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string BulkMove()
+        public string BulkMove(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.BulkMove(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                case "Results": return ResultUtilities.BulkMove(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.BulkMove(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                case "Results":
+                    return ResultUtilities.BulkMove(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Delete()
+        public string Delete(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Delete(
-                    ss: Site.SitesSiteSettings(ReferenceId),
+                case "Sites":
+                    return SiteUtilities.Delete(
+                        context: context,
+                        ss: Site.SitesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        siteId: ReferenceId);
+                case "Issues":
+                    return IssueUtilities.Delete(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.Delete(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.Delete(
+                        context: context,
+                        ss: Site.WikisSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public System.Web.Mvc.ContentResult DeleteByApi(IContext context)
+        {
+            SetSite(context: context);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.DeleteByApi(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.DeleteByApi(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        resultId: ReferenceId);
+                default:
+                    return ApiResults.Get(ApiResponses.BadRequest(context: context));
+            }
+        }
+
+        public string BulkDelete(IContext context)
+        {
+            SetSite(context: context);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.BulkDelete(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                case "Results":
+                    return ResultUtilities.BulkDelete(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string DeleteHistory(IContext context)
+        {
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                tableType: Sqls.TableTypes.History);
+            if (SiteId == ReferenceId)
+            {
+                return SiteUtilities.DeleteHistory(
+                    context: context,
+                    ss: Site.SiteSettings,
                     siteId: ReferenceId);
-                case "Issues": return IssueUtilities.Delete(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.Delete(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId);
-                case "Wikis": return WikiUtilities.Delete(
-                    ss: Site.WikisSiteSettings(ReferenceId),
-                    wikiId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+            }
+            else
+            {
+                switch (Site.ReferenceType)
+                {
+                    case "Issues":
+                        return IssueUtilities.DeleteHistory(
+                            context: context,
+                            ss: Site.SiteSettings,
+                            issueId: ReferenceId);
+                    case "Results":
+                        return ResultUtilities.DeleteHistory(
+                            context: context,
+                            ss: Site.SiteSettings,
+                            resultId: ReferenceId);
+                    case "Wikis":
+                        return WikiUtilities.DeleteHistory(
+                            context: context,
+                            ss: Site.SiteSettings,
+                            wikiId: ReferenceId);
+                    default:
+                        return Messages.ResponseNotFound(context: context).ToJson();
+                }
             }
         }
 
-        public Microsoft.AspNetCore.Mvc.ContentResult DeleteByApi()
+        public string PhysicalDelete(IContext context)
         {
-            SetSite();
+            SetSite(context: context, tableType: Sqls.TableTypes.Deleted);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.DeleteByApi(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.DeleteByApi(
-                    ss: Site.ResultsSiteSettings(ReferenceId),
-                    resultId: ReferenceId);
-                default: return ApiResults.Get(ApiResponses.BadRequest());
+                case "Sites":
+                    return SiteUtilities.PhysicalDelete(
+                        context: context,
+                        ss: Site.SitesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            tableType: Sqls.TableTypes.Deleted));
+                case "Issues":
+                    return IssueUtilities.PhysicalDelete(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            tableType: Sqls.TableTypes.Deleted));
+                case "Results":
+                    return ResultUtilities.PhysicalDelete(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            tableType: Sqls.TableTypes.Deleted));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string BulkDelete()
+        public string Restore(IContext context)
         {
-            SetSite();
+            SetSite(context: context, tableType: Sqls.TableTypes.Deleted);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.BulkDelete(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                case "Results": return ResultUtilities.BulkDelete(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Restore(
+                        context: context,
+                        ss: SiteSettingsUtilities.SitesSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.Deleted));
+                case "Issues":
+                    return IssueUtilities.Restore(
+                        context: context,
+                        ss: SiteSettingsUtilities.IssuesSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.Deleted));
+                case "Results":
+                    return ResultUtilities.Restore(
+                        context: context,
+                        ss: SiteSettingsUtilities.ResultsSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.Deleted));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Restore(long referenceId)
+        public string RestoreFromHistory(IContext context)
         {
-            ReferenceId = referenceId;
-            Get(Sqls.TableTypes.Deleted, where: Rds.ItemsWhere().ReferenceId(ReferenceId));
-            SetSite();
+            SetSite(context: context, tableType: Sqls.TableTypes.History);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Restore(
-                    siteId: ReferenceId);
-                case "Issues": return IssueUtilities.Restore(
-                    ss: SiteSettingsUtilities.IssuesSiteSettings(Site, ReferenceId),
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.Restore(
-                    ss: SiteSettingsUtilities.ResultsSiteSettings(Site, ReferenceId),
-                    resultId: ReferenceId);
-                case "Wikis": return WikiUtilities.Restore(
-                    ss: SiteSettingsUtilities.WikisSiteSettings(Site, ReferenceId),
-                    wikiId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.RestoreFromHistory(
+                        context: context,
+                        ss: SiteSettingsUtilities.SitesSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.History),
+                        siteId: ReferenceId);
+                case "Issues":
+                    return IssueUtilities.RestoreFromHistory(
+                        context: context,
+                        ss: SiteSettingsUtilities.IssuesSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.History),
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.RestoreFromHistory(
+                        context: context,
+                        ss: SiteSettingsUtilities.ResultsSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.History),
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.RestoreFromHistory(
+                        context: context,
+                        ss: SiteSettingsUtilities.WikisSiteSettings(
+                            context: context,
+                            siteModel: Site,
+                            referenceId: ReferenceId,
+                            tableType: Sqls.TableTypes.History),
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string EditSeparateSettings()
+        public string EditSeparateSettings(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.EditSeparateSettings(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.EditSeparateSettings(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Separate()
+        public string Separate(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.Separate(
-                    ss: Site.IssuesSiteSettings(ReferenceId),
-                    issueId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.Separate(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId),
+                        issueId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string Histories()
+        public string Histories(IContext context)
         {
-            SetSite(initSiteSettings: true);
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                tableType: Sqls.TableTypes.NormalAndHistory);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.Histories(
-                    siteModel: Site);
-                case "Issues": return IssueUtilities.Histories(
-                    ss: Site.SiteSettings,
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.Histories(
-                    ss: Site.SiteSettings,
-                    resultId: ReferenceId);
-                case "Wikis": return WikiUtilities.Histories(
-                    ss: Site.SiteSettings,
-                    wikiId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.Histories(
+                        context: context,
+                        siteModel: Site);
+                case "Issues":
+                    return IssueUtilities.Histories(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.Histories(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.Histories(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string History()
+        public string History(IContext context)
         {
-            SetSite(initSiteSettings: true);
+            SetSite(
+                context: context,
+                initSiteSettings: true,
+                tableType: Sqls.TableTypes.History);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.History(
-                    siteModel: Site);
-                case "Issues": return IssueUtilities.History(
-                    ss: Site.SiteSettings,
-                    issueId: ReferenceId);
-                case "Results": return ResultUtilities.History(
-                    ss: Site.SiteSettings,
-                    resultId: ReferenceId);
-                case "Wikis": return WikiUtilities.History(
-                    ss: Site.SiteSettings,
-                    wikiId: ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.History(
+                        context: context,
+                        siteModel: Site);
+                case "Issues":
+                    return IssueUtilities.History(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.History(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.History(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string EditorJson()
+        public string EditorJson(IContext context)
         {
-            SetSite(initSiteSettings: true);
+            SetSite(context: context, initSiteSettings: true);
             switch (ReferenceType)
             {
-                case "Sites": return SiteUtilities.EditorJson(
-                    siteModel: Site);
-                case "Issues": return IssueUtilities.EditorJson(
-                    Site.SiteSettings, ReferenceId);
-                case "Results": return ResultUtilities.EditorJson(
-                    Site.SiteSettings, ReferenceId);
-                case "Wikis": return WikiUtilities.EditorJson(
-                    Site.SiteSettings, ReferenceId);
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Sites":
+                    return SiteUtilities.EditorJson(
+                        context: context,
+                        siteModel: Site);
+                case "Issues":
+                    return IssueUtilities.EditorJson(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        issueId: ReferenceId);
+                case "Results":
+                    return ResultUtilities.EditorJson(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        resultId: ReferenceId);
+                case "Wikis":
+                    return WikiUtilities.EditorJson(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        wikiId: ReferenceId);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string UpdateByCalendar()
+        public string UpdateByCalendar(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.UpdateByCalendar(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.UpdateByCalendar(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.UpdateByCalendar(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.UpdateByCalendar(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string UpdateByKamban()
+        public string UpdateByKamban(IContext context)
         {
-            SetSite();
+            SetSite(context: context);
             switch (Site.ReferenceType)
             {
-                case "Issues": return IssueUtilities.UpdateByKamban(
-                    ss: Site.IssuesSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                case "Results": return ResultUtilities.UpdateByKamban(
-                    ss: Site.ResultsSiteSettings(
-                        referenceId: ReferenceId,
-                        setSiteIntegration: true,
-                        setAllChoices: true));
-                default: return Messages.ResponseNotFound().ToJson();
+                case "Issues":
+                    return IssueUtilities.UpdateByKamban(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                case "Results":
+                    return ResultUtilities.UpdateByKamban(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true,
+                            setAllChoices: true));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string SynchronizeTitles()
+        public string SynchronizeTitles(IContext context)
         {
-            SetSite(initSiteSettings: true);
-            return SiteUtilities.SynchronizeTitles(Site);
+            SetSite(context: context, initSiteSettings: true);
+            return SiteUtilities.SynchronizeTitles(
+                context: context,
+                siteModel: Site);
         }
 
-        public string SynchronizeSummaries()
+        public string SynchronizeSummaries(IContext context)
         {
-            SetSite();
-            return SiteUtilities.SynchronizeSummaries(Site);
+            SetSite(context: context);
+            return SiteUtilities.SynchronizeSummaries(
+                context: context,
+                siteModel: Site);
         }
 
-        public string SynchronizeFormulas()
+        public string SynchronizeFormulas(IContext context)
         {
-            SetSite();
-            return SiteUtilities.SynchronizeFormulas(Site);
+            SetSite(context: context);
+            return SiteUtilities.SynchronizeFormulas(
+                context: context,
+                siteModel: Site);
         }
 
         private void SetSite(
+            IContext context,
             bool siteOnly = false,
             bool initSiteSettings = false,
-            bool setSiteIntegration = false)
+            bool setSiteIntegration = false,
+            Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             Site = GetSite(
+                context: context,
                 siteOnly: siteOnly,
                 initSiteSettings: initSiteSettings,
-                setSiteIntegration: setSiteIntegration);
+                setSiteIntegration: setSiteIntegration,
+                tableType: tableType);
         }
 
         public SiteModel GetSite(
+            IContext context,
             bool siteOnly = false,
             bool initSiteSettings = false,
-            bool setSiteIntegration = false)
+            bool setSiteIntegration = false,
+            Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             SiteModel siteModel;
-            if (ReferenceType == "Sites" && Forms.Exists("Ver"))
+            if (ReferenceType == "Sites" && context.Forms.Exists("Ver"))
             {
                 siteModel = new SiteModel();
                 siteModel.Get(
+                    context: context,
                     where: Rds.SitesWhere()
+                        .TenantId(context.TenantId)
                         .SiteId(ReferenceId)
-                        .Ver(Forms.Int("Ver")),
+                        .Ver(context.Forms.Int("Ver")),
                     tableType: Sqls.TableTypes.NormalAndHistory);
-                siteModel.VerType =  Forms.Bool("Latest")
+                siteModel.VerType =  context.Forms.Bool("Latest")
                     ? Versions.VerTypes.Latest
                     : Versions.VerTypes.History;
             }
             else
             {
                 siteModel = siteOnly
-                    ? new SiteModel(ReferenceId)
-                    : new SiteModel(ReferenceType == "Sites" ? ReferenceId : SiteId);
+                    ? new SiteModel(
+                        context: context,
+                        siteId: ReferenceId)
+                    : new SiteModel(
+                        context: context,
+                        siteId: ReferenceType == "Sites"
+                            ? ReferenceId
+                            : SiteId);
             }
             if (initSiteSettings)
             {
                 siteModel.SiteSettings = SiteSettingsUtilities.Get(
+                    context: context,
                     siteModel: siteModel,
                     referenceId: ReferenceId,
-                    setSiteIntegration: setSiteIntegration);
+                    setSiteIntegration: setSiteIntegration,
+                    tableType: tableType);
             }
             return siteModel;
         }
 
-        private void SetBySession()
+        private void SetBySession(IContext context)
         {
         }
 
-        private void Set(DataTable dataTable)
+        private void Set(IContext context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
-                case 1: Set(dataTable.Rows[0]); break;
+                case 1: Set(context, dataTable.Rows[0]); break;
                 case 0: AccessStatus = Databases.AccessStatuses.NotFound; break;
                 default: AccessStatus = Databases.AccessStatuses.Overlap; break;
             }
         }
 
-        private void Set(DataRow dataRow, string tableAlias = null)
+        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -1269,19 +2008,19 @@ namespace Implem.Pleasanter.Models
                             SavedComments = Comments.ToJson();
                             break;
                         case "Creator":
-                            Creator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Creator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedCreator = Creator.Id;
                             break;
                         case "Updator":
-                            Updator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Updator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedUpdator = Updator.Id;
                             break;
                         case "CreatedTime":
-                            CreatedTime = new Time(dataRow, column.ColumnName);
+                            CreatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedCreatedTime = CreatedTime.Value;
                             break;
                         case "UpdatedTime":
-                            UpdatedTime = new Time(dataRow, column.ColumnName);
+                            UpdatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
                         case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
@@ -1290,19 +2029,19 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public bool Updated()
+        public bool Updated(IContext context)
         {
             return
-                ReferenceId_Updated() ||
-                Ver_Updated() ||
-                ReferenceType_Updated() ||
-                SiteId_Updated() ||
-                Title_Updated() ||
-                FullText_Updated() ||
-                SearchIndexCreatedTime_Updated() ||
-                Comments_Updated() ||
-                Creator_Updated() ||
-                Updator_Updated();
+                ReferenceId_Updated(context: context) ||
+                Ver_Updated(context: context) ||
+                ReferenceType_Updated(context: context) ||
+                SiteId_Updated(context: context) ||
+                Title_Updated(context: context) ||
+                FullText_Updated(context: context) ||
+                SearchIndexCreatedTime_Updated(context: context) ||
+                Comments_Updated(context: context) ||
+                Creator_Updated(context: context) ||
+                Updator_Updated(context: context);
         }
 
         /// <summary>
@@ -1315,12 +2054,18 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public ItemModel(long referenceId)
+        public ItemModel(IContext context, long referenceId)
         {
-            OnConstructing();
+            OnConstructing(context: context);
             ReferenceId = referenceId;
-            Get();
-            OnConstructed();
+            Get(
+                context: context,
+                join: Rds.ItemsJoin().Add(
+                    new SqlJoin(
+                        "[Sites]",
+                        SqlJoin.JoinTypes.Inner,
+                        "[Sites].[SiteId] = [Items].[SiteId] and [Sites].[TenantId] = @_T")));
+            OnConstructed(context: context);
         }
     }
 }

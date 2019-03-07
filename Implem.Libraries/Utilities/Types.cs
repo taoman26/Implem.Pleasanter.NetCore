@@ -97,6 +97,7 @@ namespace Implem.Libraries.Utilities
 
         public static string ToStr(this object self) 
         {
+            { if (self is DateTime datetime) return datetime.ToString("yyyy/MM/dd HH:mm:ss"); }
             return (self ?? string.Empty).ToString();
         }
 

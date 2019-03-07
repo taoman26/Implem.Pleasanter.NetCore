@@ -2,9 +2,11 @@
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Extensions;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
+using Implem.Pleasanter.Models;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -15,9 +17,14 @@ namespace Implem.Pleasanter.Libraries.ViewModes
     public static class CrosstabUtilities
     {
         public static List<string> JoinColumns(
-            View view, Column groupByX, Column groupByY, List<Column> columns)
+            View view, Column groupByX, Column groupByY, List<Column> columns, Column value)
         {
-            var data = new List<string>() { groupByX?.ColumnName, groupByY?.ColumnName };
+            var data = new List<string>()
+            {
+                groupByX?.ColumnName,
+                groupByY?.ColumnName,
+                value?.ColumnName
+            };
             if (view.CrosstabGroupByY == "Columns")
             {
                 columns?.ForEach(o => data.Add(o.ColumnName));
@@ -25,37 +32,46 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return data;
         }
 
-        public static bool InRangeX(IEnumerable<DataRow> dataRows)
+        public static bool InRangeX(IContext context, IEnumerable<DataRow> dataRows)
         {
             var inRange = dataRows.Select(o => o.String("GroupByX")).Distinct().Count() <=
                 Parameters.General.CrosstabXLimit;
             if (!inRange)
             {
-                Sessions.Set(
-                    "Message",
-                    Messages.TooManyCases(Parameters.General.CrosstabXLimit.ToString()));
+                SessionUtilities.Set(
+                    context: context,
+                    message: Messages.TooManyCases(
+                        context: context,
+                        data: Parameters.General.CrosstabXLimit.ToString()));
             }
             return inRange;
         }
 
-        public static bool InRangeY(IEnumerable<DataRow> dataRows)
+        public static bool InRangeY(IContext context, IEnumerable<DataRow> dataRows)
         {
             var inRange = dataRows.Select(o => o.String("GroupByY")).Distinct().Count() <=
                 Parameters.General.CrosstabYLimit;
             if (!inRange)
             {
-                Sessions.Set(
-                    "Message",
-                    Messages.TooManyCases(Parameters.General.CrosstabYLimit.ToString()));
+                SessionUtilities.Set(
+                    context: context,
+                    message: Messages.TooManyCases(
+                        context: context,
+                        data: Parameters.General.CrosstabYLimit.ToString()));
             }
             return inRange;
         }
 
-        public static string DateGroup(SiteSettings ss, Column column, string timePeriod)
+        public static string DateGroup(
+            IContext context, SiteSettings ss, Column column, string timePeriod)
         {
-            var columnBracket = ColumnBracket(column);
+            var columnBracket = ColumnBracket(
+                context: context,
+                column: column);
             switch (timePeriod)
             {
+                case "Yearly":
+                    return "substring(convert(varchar,{0},111),1,4)".Params(columnBracket);
                 case "Monthly":
                     return "substring(convert(varchar,{0},111),1,7)".Params(columnBracket);
                 case "Weekly":
@@ -79,19 +95,30 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static SqlWhereCollection Where(
-            SiteSettings ss, Column column, string timePeriod, DateTime month)
+            IContext context, SiteSettings ss, Column column, string timePeriod, DateTime month)
         {
             switch (timePeriod)
             {
+                case "Yearly":
+                    var year = new DateTime(month.Year, 1, 1);
+                    return new SqlWhereCollection(new SqlWhere(
+                        tableName: column.TableName(),
+                        columnBrackets: new string[]
+                        {
+                            "[{0}] between '{1}' and '{2:yyyy/MM/dd HH:mm:ss.fff}'".Params(
+                                column.Name,
+                                year.AddYears(-11).ToUniversal(context: context),
+                                year.AddYears(1).AddMilliseconds(-3).ToUniversal(context: context))
+                        }, _operator: null));
                 case "Monthly":
                     return new SqlWhereCollection(new SqlWhere(
                         tableName: column.TableName(),
                         columnBrackets: new string[]
                         {
-                            "[{0}] between '{1}' and '{2}'".Params(
+                            "[{0}] between '{1}' and '{2:yyyy/MM/dd HH:mm:ss.fff}'".Params(
                                 column.Name,
-                                month.AddMonths(-11).ToUniversal(),
-                                month.AddMonths(1).AddMilliseconds(-3).ToUniversal())
+                                month.AddMonths(-11).ToUniversal(context: context),
+                                month.AddMonths(1).AddMilliseconds(-3).ToUniversal(context: context))
                         }, _operator: null));
                 case "Weekly":
                     var end = WeeklyEndDate(month);
@@ -99,29 +126,31 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                         tableName: column.TableName(),
                         columnBrackets: new string[]
                         {
-                            "[{0}] between '{1}' and '{2}'".Params(
+                            "[{0}] between '{1}' and '{2:yyyy/MM/dd HH:mm:ss.fff}'".Params(
                                 column.Name,
-                                end.AddDays(-77).ToUniversal(),
-                                end.AddDays(7).AddMilliseconds(-3).ToUniversal())
+                                end.AddDays(-77).ToUniversal(context: context),
+                                end.AddDays(7).AddMilliseconds(-3).ToUniversal(context: context))
                         }, _operator: null));
                 case "Daily":
                     return new SqlWhereCollection(new SqlWhere(
                         tableName: column.TableName(),
                         columnBrackets: new string[]
                         {
-                            "[{0}] between '{1}' and '{2}'".Params(
+                            "[{0}] between '{1}' and '{2:yyyy/MM/dd HH:mm:ss.fff}'".Params(
                                 column.Name,
-                                month.ToUniversal(),
-                                month.AddMonths(1).AddMilliseconds(-3).ToUniversal())
+                                month.ToUniversal(context: context),
+                                month.AddMonths(1).AddMilliseconds(-3).ToUniversal(context: context))
                         }, _operator: null));
                 default: return null;
             }
         }
 
-        private static string ColumnBracket(Column column)
+        private static string ColumnBracket(IContext context, Column column)
         {
             var columnBracket = "[{0}].[{1}]".Params(column.TableName(), column.Name);
-            var diff = Diff(column);
+            var diff = Diff(
+                context: context,
+                column: column);
             if (diff != 0)
             {
                 columnBracket = $"dateadd(hour,{diff},{columnBracket})";
@@ -129,13 +158,15 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return columnBracket;
         }
 
-        private static int Diff(Column column)
+        private static int Diff(IContext context, Column column)
         {
-            var now = DateTime.Now.ToLocal();
+            var now = DateTime.Now.ToLocal(context: context);
             switch (column.Name)
             {
                 case "CompletionTime":
-                    return Diff(now.AddDifferenceOfDates(column.EditorFormat, minus: true));
+                    return Diff(now.AddDifferenceOfDates(
+                        format: column.EditorFormat,
+                        minus: true));
                 default:
                     return Diff(now);
             }
@@ -146,14 +177,19 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return (from - DateTime.Now).TotalHours.ToInt();
         }
 
-        public static List<Column> GetColumns(SiteSettings ss, List<Column> columns)
+        public static List<Column> GetColumns(
+            IContext context, SiteSettings ss, List<Column> columns)
         {
             return columns?.Any() == true
                 ? columns
-                : ss.CrosstabColumnsOptions().Select(o => ss.GetColumn(o.Key)).ToList();
+                : ss.CrosstabColumnsOptions().Select(o => ss
+                    .GetColumn(
+                        context: context,
+                        columnName: o.Key)).ToList();
         }
 
         public static string Csv(
+            IContext context,
             SiteSettings ss,
             View view,
             Column groupByX,
@@ -169,31 +205,55 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             if (groupByY != null)
             {
                 csv.Body(
+                    context: context,
                     ss: ss,
                     view: view,
-                    choicesX: ChoicesX(groupByX, timePeriod, month),
-                    choicesY: ChoicesY(groupByY),
+                    choicesX: ChoicesX(
+                        context: context,
+                        groupByX: groupByX,
+                        view: view,
+                        timePeriod: timePeriod,
+                        month: month),
+                    choicesY: ChoicesY(
+                        context: context,
+                        groupByY: groupByY,
+                        view: view),
                     aggregateType: aggregateType,
                     value: value,
                     firstHeaderText: $"{groupByY.LabelText} | {groupByX.LabelText}",
                     timePeriod: timePeriod,
                     month: month,
-                    data: Elements(groupByX, groupByY, dataRows));
+                    data: Elements(
+                        groupByX: groupByX,
+                        groupByY: groupByY,
+                        dataRows: dataRows));
             }
             else
             {
-                var columnList = GetColumns(ss, columns);
+                var columnList = GetColumns(
+                    context: context,
+                    ss: ss,
+                    columns: columns);
                 csv.Body(
+                    context: context,
                     ss: ss,
                     view: view,
-                    choicesX: ChoicesX(groupByX, timePeriod, month),
+                    choicesX: ChoicesX(
+                        context: context,
+                        groupByX: groupByX,
+                        view: view,
+                        timePeriod: timePeriod,
+                        month: month),
                     choicesY: ChoicesY(columnList),
                     aggregateType: aggregateType,
                     value: value,
                     firstHeaderText: groupByX.LabelText,
                     timePeriod: timePeriod,
                     month: month,
-                    data: ColumnsElements(groupByX, dataRows, columnList),
+                    data: ColumnsElements(
+                        groupByX: groupByX,
+                        dataRows: dataRows,
+                        columnList: columnList),
                     columnList: columnList);
             }
             return csv.ToString();
@@ -201,6 +261,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
 
         private static void Body(
             this StringBuilder csv,
+            IContext context,
             SiteSettings ss,
             View view,
             Dictionary<string, ControlData> choicesX,
@@ -217,22 +278,27 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             {
                 firstHeaderText
             };
-            headers.AddRange(choicesX.Select(o => o.Value.DisplayValue()));
+            headers.AddRange(choicesX.Select(o => o.Value.DisplayValue(context: context)));
             csv.AppendRow(headers);
             choicesY?.ForEach(choiceY =>
             {
                 var cells = new List<string>()
                 {
-                    choiceY.Value.DisplayValue()
+                    choiceY.Value.DisplayValue(context: context)
                 };
                 var column = columnList?.Any() != true
                     ? value
-                    : ss.GetColumn(choiceY.Key);
+                    : ss.GetColumn(context: context, columnName: choiceY.Key);
                 var row = data.Where(o => o.GroupByY == choiceY.Key).ToList();
                 cells.AddRange(choicesX
                     .Select(choiceX => CellText(
-                        column, aggregateType, CellValue(
-                            data, choiceX, choiceY))));
+                        context: context,
+                        value: column,
+                        aggregateType: aggregateType,
+                        data: CellValue(
+                            data: data,
+                            choiceX: choiceX,
+                            choiceY: choiceY))));
                 csv.AppendRow(cells);
             });
         }
@@ -241,10 +307,10 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             Column groupByX, Column groupByY, IEnumerable<DataRow> dataRows)
         {
             return dataRows
-                .Select(o => new CrosstabElement(
-                    o.String(groupByX.ColumnName),
-                    o.String(groupByY.ColumnName),
-                    o.Decimal("Value")))
+                .Select(dataRow => new CrosstabElement(
+                    groupByX: dataRow.String(groupByX.ColumnName),
+                    groupByY: dataRow.String(groupByY.ColumnName),
+                    value: dataRow.Decimal("Value")))
                 .ToList();
         }
 
@@ -252,23 +318,24 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             Column groupByX, IEnumerable<DataRow> dataRows, List<Column> columnList)
         {
             var data = new List<CrosstabElement>();
-            dataRows.ForEach(o =>
+            dataRows.ForEach(dataRow =>
                 columnList.ForEach(column =>
                     data.Add(new CrosstabElement(
-                        o.String(groupByX.ColumnName),
-                        column.ColumnName,
-                        o.Decimal(column.ColumnName)))));
+                        groupByX: dataRow.String(groupByX.ColumnName),
+                        groupByY: column.ColumnName,
+                        value: dataRow.Decimal(column.ColumnName)))));
             return data;
         }
 
         public static Dictionary<string, ControlData> ChoicesX(
-            Column groupByX, string timePeriod, DateTime month)
+            IContext context, Column groupByX, View view, string timePeriod, DateTime month)
         {
             return groupByX?.TypeName == "datetime"
                 ? CorrectedChoices(groupByX, timePeriod, month)
-                : groupByX.ChoiceHash?.ToDictionary(
-                    o => o.Key,
-                    o => new ControlData(o.Value.Text));
+                : groupByX?.EditChoices(
+                    context: context,
+                    insertBlank: true,
+                    view: view);
         }
 
         private static Dictionary<string, ControlData> CorrectedChoices(
@@ -276,11 +343,23 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         {
             switch (timePeriod)
             {
+                case "Yearly": return Yearly(date);
                 case "Monthly": return Monthly(date);
                 case "Weekly": return Weekly(date);
                 case "Daily": return Daily(date);
                 default: return null;
             }
+        }
+
+        private static Dictionary<string, ControlData> Yearly(DateTime date)
+        {
+            var hash = new Dictionary<string, ControlData>();
+            for (var i = -11; i <= 0; i++)
+            {
+                var day = date.AddYears(i);
+                hash.Add(day.ToString("yyyy"), new ControlData(day.ToString("yyyy")));
+            }
+            return hash;
         }
 
         private static Dictionary<string, ControlData> Monthly(DateTime date)
@@ -322,10 +401,13 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return hash;
         }
 
-        public static Dictionary<string, ControlData> ChoicesY(Column groupByY)
+        public static Dictionary<string, ControlData> ChoicesY(
+            IContext context, Column groupByY, View view)
         {
-            return groupByY?.ChoiceHash?.ToDictionary(
-                o => o.Key, o => new ControlData(o.Value.Text));
+            return groupByY?.EditChoices(
+                context: context,
+                insertBlank: true,
+                view: view);
         }
 
         public static Dictionary<string, ControlData> ChoicesY(List<Column> columnList)
@@ -344,10 +426,12 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                 o.GroupByY == choiceY.Key)?.Value ?? 0;
         }
 
-        public static string CellText(Column value, string aggregateType, decimal data)
+        public static string CellText(
+            IContext context, Column value, string aggregateType, decimal data)
         {
             return value?.Display(
-                data,
+                context: context,
+                value: data,
                 unit: aggregateType != "Count",
                 format: aggregateType != "Count") ?? data.ToString();
         }

@@ -1,172 +1,148 @@
-﻿using Implem.Pleasanter.Filters;
+﻿using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Security;
-using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using System.Web;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class GroupsController : Controller
+    public class GroupsController
     {
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Index()
+        public string Index(IContext context)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
+                var log = new SysLogModel(context: context);
                 var html = GroupUtilities.Index(
-                    ss: SiteSettingsUtilities.GroupsSiteSettings());
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                    context: context,
+                    ss: SiteSettingsUtilities.GroupsSiteSettings(context: context));
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
+                var log = new SysLogModel(context: context);
                 var json = GroupUtilities.IndexJson(
-                    ss: SiteSettingsUtilities.GroupsSiteSettings());
-                log.Finish(json.Length);
-                return Content(json);
+                    context: context,
+                    ss: SiteSettingsUtilities.GroupsSiteSettings(context: context));
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [HttpGet]
-        public ActionResult New(long id = 0)
+        public string New(IContext context, long id = 0)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var html = GroupUtilities.EditorNew(
-                SiteSettingsUtilities.GroupsSiteSettings());
-            ViewBag.HtmlBody = html;
-            log.Finish(html.Length);
-            return View();
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context));
+            log.Finish(context: context, responseSize: html.Length);
+            return html;
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Edit(int id)
+        public string Edit(IContext context, int id)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
+                var log = new SysLogModel(context: context);
                 var html = GroupUtilities.Editor(
-                    SiteSettingsUtilities.GroupsSiteSettings(),
-                    id,
+                    context: context,
+                    ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
+                    groupId: id,
                     clearSessions: true);
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
+                var log = new SysLogModel(context: context);
                 var json = GroupUtilities.EditorJson(
-                    ss: SiteSettingsUtilities.GroupsSiteSettings(),
+                    context: context,
+                    ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                     groupId: id);
-                log.Finish(json.Length);
-                return Content(json);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [HttpGet]
-        public ActionResult Export(long id)
+        public string GridRows(IContext context)
         {
-            var log = new SysLogModel();
-            var responseFile = new ItemModel(id).Export();
-            if (responseFile != null)
-            {
-                log.Finish(responseFile.Length);
-                return responseFile.ToFile();
-            }
-            else
-            {
-                log.Finish(0);
-                return null;
-            }
-        }
-
-        [HttpPost]
-        public string GridRows()
-        {
-            var log = new SysLogModel();
-            var json = GroupUtilities.GridRows();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = GroupUtilities.GridRows(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Create()
+        public string Create(IContext context)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var json = GroupUtilities.Create(
-                ss: SiteSettingsUtilities.GroupsSiteSettings());
-            log.Finish(json.Length);
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context));
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string Update(int id)
+        public string Update(IContext context, int id)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var json = GroupUtilities.Update(
-                ss: SiteSettingsUtilities.GroupsSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 groupId: id);
-            log.Finish(json.Length);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpDelete]
-        public string Delete(int id)
+        public string Delete(IContext context, int id)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var json = GroupUtilities.Delete(
-                ss: SiteSettingsUtilities.GroupsSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 groupId: id);
-            log.Finish(json.Length);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpDelete]
-        public string DeleteComment(int id)
+        public string DeleteComment(IContext context, int id)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var json = GroupUtilities.Update(
-                ss: SiteSettingsUtilities.GroupsSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 groupId: id);
-            log.Finish(json.Length);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Histories(int id)
+        public string Histories(IContext context, int id)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var json = GroupUtilities.Histories(
-                ss: SiteSettingsUtilities.GroupsSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 groupId: id);
-            log.Finish(json.Length);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string History(int id)
+        public string History(IContext context, int id)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
             var json = GroupUtilities.History(
-                ss: SiteSettingsUtilities.GroupsSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 groupId: id);
-            log.Finish(json.Length);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string SelectableMembers(int id)
+        public string SelectableMembers(IContext context, int id)
         {
-            var log = new SysLogModel();
-            var json = GroupUtilities.SelectableMembersJson();
+            var log = new SysLogModel(context: context);
+            var json = GroupUtilities.SelectableMembersJson(context: context);
             return json;
         }
     }

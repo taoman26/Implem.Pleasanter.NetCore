@@ -1,22 +1,57 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.DataSources;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mail;
+using System.Data;
+using Implem.Pleasanter.Libraries.Requests;
+using Implem.Libraries.DataSources.SqlServer;
 namespace Implem.Pleasanter.Libraries.Mails
 {
     public static class Addresses
     {
-        public static IEnumerable<string> GetEnumerable(string addresses)
+        public static IEnumerable<string> GetEnumerable(
+            IContext context, string addresses)
         {
             return addresses.Split(';', ',')
-                .Select(o => o.Trim())
-                .Where(o => o != string.Empty);
+                .Select(address => address.Trim())
+                .SelectMany(address => ConvertedMailAddresses(
+                    context: context,
+                    address: address))
+                .Where(address => !address.IsNullOrEmpty());
         }
 
-        public static string BadAddress(string addresses)
+        private static IEnumerable<string> ConvertedMailAddresses(
+            IContext context, string address)
         {
-            foreach (var address in GetEnumerable(addresses))
+            var userId = address?.RegexFirst(@"(?<=\[User)[0-9]+(?=\])").ToInt();
+            return userId > 0
+                ? Rds.ExecuteTable(
+                    context: context,
+                    statements: Rds.SelectMailAddresses(
+                        column: Rds.MailAddressesColumn()
+                            .MailAddress(),
+                        join: new SqlJoinCollection(
+                            new SqlJoin(
+                                tableBracket: "[Users]",
+                                joinType: SqlJoin.JoinTypes.Inner,
+                                joinExpression: "[MailAddresses].[OwnerId]=[Users].[UserId]")),
+                        where: Rds.MailAddressesWhere()
+                            .OwnerType("Users")
+                            .OwnerId(userId)
+                            .Users_TenantId(context.TenantId)))
+                                .AsEnumerable()
+                                .Select(o => o.String("MailAddress"))
+                                .ToList()
+                : address?.ToSingleList();
+        }
+
+        public static string BadAddress(IContext context, string addresses)
+        {
+            foreach (var address in GetEnumerable(
+                context: context,
+                addresses: addresses))
             {
                 if (Get(address) == string.Empty)
                 {
@@ -33,14 +68,16 @@ namespace Implem.Pleasanter.Libraries.Mails
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
-        public static string ExternalMailAddress(string mailAddresses)
+        public static string ExternalMailAddress(IContext context, string addresses)
         {
             var domains = Parameters.Mail.InternalDomains
                 .Split(',')
                 .Select(o => o.Trim())
                 .Where(o => o != string.Empty);
             if (domains.Count() == 0) return string.Empty;
-            foreach (var mailAddress in GetEnumerable(mailAddresses))
+            foreach (var mailAddress in GetEnumerable(
+                context: context,
+                addresses: addresses))
             {
                 if (!domains.Any(o => Get(mailAddress).EndsWith(o)))
                 {

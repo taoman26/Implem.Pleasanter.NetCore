@@ -1,6 +1,7 @@
 ﻿using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
 using Implem.Pleasanter.Libraries.Models;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
 namespace Implem.Pleasanter.Libraries.Responses
 {
@@ -8,9 +9,9 @@ namespace Implem.Pleasanter.Libraries.Responses
     {
         public static ResponseCollection ViewMode(
             this ResponseCollection res,
+            IContext context,
             SiteSettings ss,
             View view,
-            GridData gridData,
             string invoke = null,
             Message message = null,
             bool loadScroll = false,
@@ -20,16 +21,25 @@ namespace Implem.Pleasanter.Libraries.Responses
         {
             return res
                 .Html(!bodyOnly ? "#ViewModeContainer" : bodySelector, body)
-                .View(ss: ss, view: view)
+                .View(context: context, ss: ss, view: view)
+                .ReplaceAll("#Breadcrumb", new HtmlBuilder()
+                    .Breadcrumb(context: context, ss: ss))
+                .ReplaceAll("#CopyDirectUrlToClipboard", new HtmlBuilder()
+                    .CopyDirectUrlToClipboard(
+                        context: context,
+                        view: view))
                 .ReplaceAll("#Aggregations", new HtmlBuilder()
                     .Aggregations(
+                        context: context,
                         ss: ss,
-                        aggregations: gridData.Aggregations))
+                        view: view))
                 .ReplaceAll("#MainCommandsContainer", new HtmlBuilder()
                     .MainCommands(
+                        context: context,
                         ss: ss,
                         siteId: ss.SiteId,
-                        verType: Versions.VerTypes.Latest))
+                        verType: Versions.VerTypes.Latest,
+                        backButton: !context.Publish))
                 .Invoke(invoke)
                 .Message(message)
                 .LoadScroll(loadScroll)

@@ -1,10 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 namespace Implem.Libraries.Utilities
 {
     public static class Linqs
     {
+        public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
+        {
+            foreach (var element in source)
+            {
+                action(element);
+            }
+        }
+
         public static V Get<K, V>(this IDictionary<K, V> self, K key)
         {
             return key != null && self?.ContainsKey(key) == true
@@ -27,6 +36,20 @@ namespace Implem.Libraries.Utilities
             foreach (var dataPart in data)
             {
                 self.Add(dataPart);
+            }
+            return self.ToDictionary(o => o.Key, o => o.Value);
+        }
+
+        public static Dictionary<K, V> UpdateOrAdd<K, V>(
+            this Dictionary<K, V> self, K key, V value)
+        {
+            if (self.ContainsKey(key))
+            {
+                self[key] = value;
+            }
+            else
+            {
+                self.Add(key, value);
             }
             return self.ToDictionary(o => o.Key, o => o.Value);
         }
@@ -57,6 +80,23 @@ namespace Implem.Libraries.Utilities
         public static T[] ToSingleArray<T>(this T self)
         {
             return new T[] { self };
+        }
+
+        public static bool Any(this MatchCollection self)
+        {
+            return self?.Count > 0;
+        }
+
+        public static IEnumerable<IEnumerable<T>> Buffer<T>(this IEnumerable<T> source, int count)
+        {
+            IEnumerable<IEnumerable<T>> BufferImpl()
+            {
+                for (; source.Any(); source = source.Skip(count))
+                {
+                    yield return source.Take(count);
+                }
+            }
+            return BufferImpl();
         }
     }
 }

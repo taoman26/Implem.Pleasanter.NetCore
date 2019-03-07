@@ -8,6 +8,7 @@ using Implem.Pleasanter.Libraries.HtmlParts;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
 using System.Data;
+using Implem.Pleasanter.Libraries.Requests;
 namespace Implem.Pleasanter.Libraries.DataTypes
 {
     [Serializable]
@@ -32,29 +33,41 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             ProgressRate = progressRate;
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
-            return column.Display(ss, Value);
+            return column.Display(
+                context: context,
+                ss: ss,
+                value: Value);
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
-            return Value.ToString();
+            return column.Display(
+                context: context,
+                ss: ss,
+                value: Value);
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
-            return hb.Td(action: () => Svg(hb, column));
+            return hb.Td(action: () => Svg(
+                hb: hb,
+                context: context,
+                column: column));
         }
 
-        private HtmlBuilder Svg(HtmlBuilder hb, Column column)
+        private HtmlBuilder Svg(HtmlBuilder hb, IContext context, Column column)
         {
-            var width = column.Max != null
+            var width = column.Max != null && column.Max != 0
                 ? Convert.ToInt32(Value / column.Max.ToInt() * 100)
                 : 0;
             return hb.Svg(css: "svg-work-value", action: () => hb
                 .SvgText(
-                    text: column.Display(Value, unit: true),
+                    text: column.Display(
+                        context: context,
+                        value: Value,
+                        unit: true),
                     x: 0,
                     y: Parameters.General.WorkValueTextTop)
                 .Rect(
@@ -71,30 +84,41 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     height: (Parameters.General.WorkValueHeight / 2).ToString()));
         }
 
-        public string GridText(Column column)
+        public string GridText(IContext context, Column column)
         {
-            return column.Display(Value, unit: true);
+            return column.Display(
+                context: context,
+                value: Value,
+                unit: true);
         }
 
-        public string ToExport(Column column, ExportColumn exportColumn = null)
+        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
         {
             return Value.ToString();
         }
 
         public string ToNotice(
+            IContext context,
             decimal saved,
             Column column,
             bool updated,
             bool update)
         {
-            return column.Display(Value, unit: true).ToNoticeLine(
-                column.Display(saved, unit: true),
-                column,
-                updated,
-                update);
+            return column.Display(
+                context: context,
+                value: Value,
+                unit: true).ToNoticeLine(
+                    context: context,
+                    saved: column.Display(
+                        context: context,
+                        value: saved,
+                        unit: true),
+                    column: column,
+                    updated: updated,
+                    update: update);
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return Value == 0;
         }

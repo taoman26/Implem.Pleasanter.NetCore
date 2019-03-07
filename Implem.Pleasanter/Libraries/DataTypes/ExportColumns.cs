@@ -2,6 +2,7 @@
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
@@ -65,12 +66,16 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 !Def.ColumnDefinitionCollection.Any(p => p.ColumnName == key && p.Export > 0));
         }
 
-        public Dictionary<string, ControlData> ExportColumnHash(SiteSettings ss)
+        public Dictionary<string, ControlData> ExportColumnHash(IContext context, SiteSettings ss)
         {
             return Columns.ToDictionary(
                 o => o.Key,
-                o => new ControlData(Displays.Get(ExportColumn(ss, o.Key)) +
-                    (o.Value ? " (" + Displays.Output() + ")" : string.Empty)));
+                o => new ControlData(Displays.Get(
+                    context: context,
+                    id: ExportColumn(ss, o.Key))
+                        + (o.Value
+                            ? $" ({Displays.Output(context: context)})"
+                            : string.Empty)));
         }
 
         public string ExportColumn(SiteSettings ss, string columnName)
@@ -80,6 +85,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public void SetExport(
+            IContext context,
             Responses.ResponseCollection res,
             string controlId,
             IEnumerable<string> selectedValues,
@@ -119,16 +125,19 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             Columns.AddRange(newColumns);
             res.Html("#ExportSettings_Columns",
                 new HtmlBuilder().SelectableItems(
-                    listItemCollection: ExportColumnHash(ss),
+                    listItemCollection: ExportColumnHash(
+                        context: context,
+                        ss: ss),
                     selectedValueTextCollection: selectedValues));
         }
 
-        public Dictionary<string, Column> ColumnHash(SiteSettings ss)
+        public Dictionary<string, Column> ColumnHash(IContext context, SiteSettings ss)
         {
-            return Columns.ToDictionary(o => o.Key, o => ss.GetColumn(o.Key));
+            return Columns.ToDictionary(o => o.Key, o => ss
+                .GetColumn(context: context, columnName: o.Key));
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return ToJson() == "[]";
         }

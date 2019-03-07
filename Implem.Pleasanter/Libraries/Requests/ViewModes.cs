@@ -1,19 +1,37 @@
-﻿using System.Web;
-using AspNetCoreCurrentRequestContext;
-using Implem.Pleasanter.Libraries.Server;
-
+﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Models;
+using System.Collections.Generic;
 namespace Implem.Pleasanter.Libraries.Requests
 {
     public static class ViewModes
     {
-        public static string GetBySession(long siteId)
+        public static string GetSessionData(IContext context, long siteId)
         {
-            return Sessions.Get<string>("ViewMode" + siteId) ?? "index";
+            return SessionData(context: context).Get(siteId) ?? "index";
         }
 
-        public static void Set(long siteId)
+        public static void Set(IContext context, long siteId)
         {
-            Sessions.Set("ViewMode" + siteId, Routes.Action().ToLower());
+            var data = SessionData(context: context);
+            if (data.ContainsKey(siteId))
+            {
+                data[siteId] = context.Action;
+            }
+            else
+            {
+                data.Add(siteId, context.Action);
+            }
+            SessionUtilities.Set(
+                context: context,
+                key: "ViewMode",
+                value: data.ToJson());
+        }
+
+        private static Dictionary<long, string> SessionData(IContext context)
+        {
+            return context.SessionData
+                .Get("ViewMode")?
+                .Deserialize<Dictionary<long, string>>() ?? new Dictionary<long, string>();
         }
     }
 }

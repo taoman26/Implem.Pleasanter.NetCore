@@ -2,6 +2,7 @@
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Extensions;
 using Implem.Pleasanter.Libraries.Html;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
@@ -16,7 +17,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Calendar(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
+            string timePeriod,
             Column fromColumn,
             Column toColumn,
             DateTime month,
@@ -27,37 +30,48 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         {
             return hb.Div(id: "Calendar", css: "both", action: () => hb
                 .FieldDropDown(
+                    context: context,
+                    controlId: "CalendarTimePeriod",
+                    fieldCss: "field-auto-thin",
+                    controlCss: " auto-postback",
+                    labelText: Displays.Period(context: context),
+                    optionCollection: ss.CalendarTimePeriodOptions(context: context),
+                    selectedValue: timePeriod,
+                    method: "post")
+                .FieldDropDown(
+                    context: context,
                     controlId: "CalendarFromTo",
                     fieldCss: "field-auto-thin",
                     controlCss: " auto-postback",
-                    labelText: Displays.Column(),
-                    optionCollection: ss.CalendarColumnOptions(),
+                    labelText: Displays.Column(context: context),
+                    optionCollection: ss.CalendarColumnOptions(context: context),
                     selectedValue: toColumn == null
                         ? fromColumn.ColumnName
                         : $"{fromColumn.ColumnName}-{toColumn.ColumnName}",
                     action: "Calendar",
                     method: "post")
                 .DropDown(
+                    context: context,
                     controlId: "CalendarMonth",
                     controlCss: " w100 auto-postback",
-                    optionCollection: CalendarMonth(),
+                    optionCollection: CalendarMonth(context: context),
                     selectedValue: new DateTime(month.Year, month.Month, 1).ToString(),
                     action: "Calendar",
                     method: "post")
                 .Button(
-                    text: Displays.Previous(),
+                    text: Displays.Previous(context: context),
                     controlCss: "button-icon",
                     accessKey: "b",
                     onClick: "$p.moveCalendar('Previous');",
                     icon: "ui-icon-seek-prev")
                 .Button(
-                    text: Displays.Next(),
+                    text: Displays.Next(context: context),
                     controlCss: "button-icon",
                     accessKey: "n",
                     onClick: "$p.moveCalendar('Next');",
                     icon: "ui-icon-seek-next")
                 .Button(
-                    text: Displays.ThisMonth(),
+                    text: Displays.ThisMonth(context: context),
                     controlCss: "button-icon",
                     onClick: "$p.moveCalendar('ThisMonth');",
                     icon: "ui-icon-calendar")
@@ -68,7 +82,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .DataMethod("post"),
                     action: () => hb
                         .CalendarBody(
+                            context: context,
                             ss: ss,
+                            timePeriod: timePeriod,
                             fromColumn: fromColumn,
                             toColumn: toColumn,
                             month: month,
@@ -78,22 +94,27 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             changedItemId: changedItemId)));
         }
 
-        private static Dictionary<string, ControlData> CalendarMonth()
+        private static Dictionary<string, ControlData> CalendarMonth(IContext context)
         {
             var now = DateTime.Now;
-            var month = new DateTime(now.ToLocal().Year, now.ToLocal().Month, 1);
+            var month = new DateTime(
+                year: now.ToLocal(context: context).Year,
+                month: now.ToLocal(context: context).Month,
+                day: 1);
             return Enumerable.Range(
                 Parameters.General.CalendarBegin,
                 Parameters.General.CalendarEnd - Parameters.General.CalendarBegin)
                     .ToDictionary(
                         o => month.AddMonths(o).ToString(),
                         o => new ControlData(month.AddMonths(o).ToString(
-                            "Y", Sessions.CultureInfo())));
+                            "Y", context.CultureInfo())));
         }
 
         public static HtmlBuilder CalendarBody(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
+            string timePeriod,
             Column fromColumn,
             Column toColumn,
             DateTime month,
@@ -106,32 +127,121 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 .Hidden(
                     controlId: "CalendarCanUpdate",
                     value: (
-                        !fromColumn.RecordedTime &&
-                        fromColumn.EditorReadOnly != true &&
-                        fromColumn.CanUpdate).ToOneOrZeroString())
-                .Hidden(controlId: "CalendarPrevious", value: Times.PreviousMonth(month))
-                .Hidden(controlId: "CalendarNext", value: Times.NextMonth(month))
-                .Hidden(controlId: "CalendarThisMonth", value: Times.ThisMonth());
+                        !fromColumn.RecordedTime
+                        && fromColumn.EditorReadOnly != true
+                        && fromColumn.CanUpdate
+                        && timePeriod == "Monthly").ToOneOrZeroString())
+                .Hidden(
+                    controlId: "CalendarPrevious",
+                    value: Times.PreviousMonth(
+                        context: context,
+                        month: month))
+                .Hidden(
+                    controlId: "CalendarNext",
+                    value: Times.NextMonth(
+                        context: context,
+                        month: month))
+                .Hidden(
+                    controlId: "CalendarThisMonth",
+                    value: Times.ThisMonth(context: context))
+                .Hidden(
+                    controlId: "CalendarFromDefaultInput",
+                    value: fromColumn.DefaultInput)
+                .Hidden(
+                    controlId: "CalendarToDefaultInput",
+                    value: toColumn?.DefaultInput);
             return inRange
                 ? hb
                     .Hidden(
                         controlId: "CalendarJson",
-                        value: Json(ss, fromColumn, toColumn, dataRows, changedItemId))
-                    .CalendarBodyTable(month, begin)
+                        value: Json(
+                            context: context,
+                            ss: ss,
+                            from: fromColumn,
+                            to: toColumn,
+                            dataRows: dataRows,
+                            changedItemId: changedItemId))
+                    .CalendarBodyTable(
+                        context: context,
+                        timePeriod: timePeriod,
+                        month: month,
+                        begin: begin)
                 : hb;
         }
 
         private static HtmlBuilder CalendarBodyTable(
-            this HtmlBuilder hb, DateTime month, DateTime begin)
+            this HtmlBuilder hb,
+            IContext context,
+            string timePeriod,
+            DateTime month,
+            DateTime begin)
         {
-            return hb.Table(action: () => hb
+            switch (timePeriod)
+            {
+                case "Yearly":
+                    return hb.YearlyTable(
+                        context: context,
+                        month: month,
+                        begin: begin);
+                case "Monthly":
+                    return hb.MonthlyTable(
+                        context: context,
+                        month: month,
+                        begin: begin);
+                default:
+                    return hb;
+            }
+        }
+
+        private static HtmlBuilder YearlyTable(
+            this HtmlBuilder hb, IContext context, DateTime month, DateTime begin)
+        {
+            return hb.Table(id: "Grid", action: () => hb
+                .THead(action: () => hb
+                    .Tr(action: () =>
+                    {
+                        for (var x = 0; x < 12; x++)
+                        {
+                            var date = begin.AddMonths(x);
+                            hb.Th(action: () => hb
+                                .A(
+                                    css: "calendar-to-monthly",
+                                    href: "javascript:void(0);",
+                                    attributes: new HtmlAttributes()
+                                        .DataId(date.ToString()),
+                                    action: () => hb
+                                        .Text(text: date.ToString(
+                                            "Y", context.CultureInfo()))));
+                        }
+                    }))
+                .TBody(action: () =>
+                {
+                    for (var x = 0; x < 12; x++)
+                    {
+                        var date = begin.AddMonths(x);
+                        hb.Td(
+                            attributes: new HtmlAttributes()
+                                .Class("container")
+                                .DataId(date.ToString("yyyy/M/d")),
+                            action: () => hb
+                                .Div());
+                    }
+                }));
+        }
+
+        private static HtmlBuilder MonthlyTable(
+            this HtmlBuilder hb, IContext context, DateTime month, DateTime begin)
+        {
+            return hb.Table(id: "Grid", action: () => hb
                 .THead(action: () => hb
                     .Tr(action: () =>
                     {
                         for (var x = 0; x < 7; x++)
                         {
                             hb.Th(css: DayOfWeekCss(x), action: () => hb
-                                .Text(text: DayOfWeekString(x)));
+                                .Text(text: DayOfWeekString(
+                                    context: context,
+                                    x: x)));
                         }
                     }))
                 .TBody(action: () =>
@@ -142,16 +252,17 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         {
                             for (var x = 0; x < 7; x++)
                             {
-                                var date = begin.ToLocal().AddDays(y * 7 + x);
+                                var date = begin.ToLocal(context: context).AddDays(y * 7 + x);
                                 hb.Td(
                                     attributes: new HtmlAttributes()
                                         .Class("container" +
-                                            (date == DateTime.Now.ToLocal().Date
+                                            (date == DateTime.Now.ToLocal(context: context).Date
                                                 ? " today"
                                                 : string.Empty) +
-                                            (month.ToLocal().Month != date.ToLocal().Month
-                                                ? " other-month"
-                                                : string.Empty))
+                                            (month.ToLocal(context: context).Month
+                                                != date.ToLocal(context: context).Month
+                                                    ? " other-month"
+                                                    : string.Empty))
                                         .DataId(date.ToString("yyyy/M/d")),
                                     action: () => hb
                                         .Div(action: () => hb
@@ -166,6 +277,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static string Json(
+            IContext context,
             SiteSettings ss,
             Column from,
             Column to,
@@ -177,10 +289,16 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 id: dataRow.Long("Id"),
                 title: dataRow.String("ItemTitle"),
                 time: (from.EditorFormat == "Ymdhm"
-                    ? dataRow.DateTime("From").ToLocal().ToString("t") + " "
+                    ? dataRow.DateTime("From").ToLocal(context: context).ToString("t") + " "
                     : null),
-                from: ConvertIfCompletionTime(from, dataRow.DateTime("from")),
-                to: ConvertIfCompletionTime(to, dataRow.DateTime("to")),
+                from: ConvertIfCompletionTime(
+                    context: context,
+                    column: from,
+                    dateTime: dataRow.DateTime("from")),
+                to: ConvertIfCompletionTime(
+                    context: context,
+                    column: to,
+                    dateTime: dataRow.DateTime("to")),
                 changedItemId: changedItemId,
                 updatedTime: dataRow.DateTime("UpdatedTime")
             ))
@@ -190,16 +308,17 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 .ToJson();
         }
 
-        private static DateTime ConvertIfCompletionTime(Column column, DateTime dateTime)
+        private static DateTime ConvertIfCompletionTime(
+            IContext context, Column column, DateTime dateTime)
         {
             switch (column?.ColumnName)
             {
                 case "CompletionTime":
                     return dateTime
-                        .ToLocal()
+                        .ToLocal(context: context)
                         .AddDifferenceOfDates(column.EditorFormat, minus: true);
                 default:
-                    return dateTime.ToLocal();
+                    return dateTime.ToLocal(context: context);
             }
         }
 
@@ -210,11 +329,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 : ((DayOfWeek)(Parameters.General.FirstDayOfWeek + x)).ToString().ToLower();
         }
 
-        private static string DayOfWeekString(int x)
+        private static string DayOfWeekString(IContext context, int x)
         {
-            return Displays.Get(Parameters.General.FirstDayOfWeek + x > 6
-                ? ((DayOfWeek)(Parameters.General.FirstDayOfWeek + x - 7)).ToString()
-                : ((DayOfWeek)(Parameters.General.FirstDayOfWeek + x)).ToString());
+            return Displays.Get(
+                context: context,
+                id: Parameters.General.FirstDayOfWeek + x > 6
+                    ? ((DayOfWeek)(Parameters.General.FirstDayOfWeek + x - 7)).ToString()
+                    : ((DayOfWeek)(Parameters.General.FirstDayOfWeek + x)).ToString());
         }
     }
 }

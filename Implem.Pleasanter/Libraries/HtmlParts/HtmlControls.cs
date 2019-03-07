@@ -1,6 +1,7 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataTypes;
 using Implem.Pleasanter.Libraries.Html;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Resources;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
@@ -68,6 +69,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .Type("text")
                         .Value(text)
                         .Placeholder(placeholder)
+                        .AutoComplete("off")
                         .OnChange(onChange)
                         .DataId(dataId)
                         .DataFormat(format)
@@ -142,6 +144,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder MarkDown(
             this HtmlBuilder hb,
+            IContext context,
             string controlId = null,
             string controlCss = null,
             string text = null,
@@ -171,9 +174,10 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         attributes: new HtmlAttributes()
                             .Id(controlId)
                             .Class(Css.Class(
-                                "control-markdown" + (CanUploadImage(readOnly, allowImage, preview)
-                                    ? " upload-image"
-                                    : string.Empty),
+                                "control-markdown" +
+                                    (CanUploadImage(context, readOnly, allowImage, preview)
+                                        ? " upload-image"
+                                        : string.Empty),
                                 controlCss))
                             .Placeholder(placeholder)
                             .DataValidateRequired(validateRequired, _using: !readOnly)
@@ -181,6 +185,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         action: () => hb
                             .Text(text: text))
                     .MarkDownCommands(
+                        context: context,
                         controlId: controlId,
                         readOnly: readOnly,
                         allowImage: allowImage,
@@ -191,13 +196,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder MarkDownCommands(
             this HtmlBuilder hb,
+            IContext context,
             string controlId,
             bool readOnly,
             bool allowImage,
             bool mobile,
             bool preview)
         {
-            return CanUploadImage(readOnly, allowImage, preview)
+            return CanUploadImage(context, readOnly, allowImage, preview)
                 ? hb
                     .Div(
                         attributes: new HtmlAttributes()
@@ -217,9 +223,11 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 : hb;
         }
 
-        private static bool CanUploadImage(bool readOnly, bool allowImage, bool preview)
+        private static bool CanUploadImage(
+            IContext context, bool readOnly, bool allowImage, bool preview)
         {
-            return Contract.Images() && !readOnly && allowImage && !preview;
+            return context.ContractSettings.Images()
+                && !readOnly && allowImage && !preview;
         }
 
         public static HtmlBuilder MarkUp(
@@ -242,6 +250,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder DropDown(
             this HtmlBuilder hb,
+            IContext context,
             string controlId = null,
             string controlCss = null,
             Dictionary<string, ControlData> optionCollection = null,
@@ -257,17 +266,20 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             Column column = null,
             bool _using = true)
         {
+            var match = column == null ? null : System.Text.RegularExpressions.Regex.Match(column.ChoicesText, @"\[\[(\d+)\]\]");
+            string srcId = (match?.Success == true) ? match.Groups[1].ToString() : "";
             return _using
                 ? hb.Select(
                     attributes: new HtmlAttributes()
                         .Id(controlId)
                         .Class(Css.Class(
-                            "control-dropdown" + (optionCollection.Any(o =>
+                            "control-dropdown" + (optionCollection?.Any(o =>
                                 !o.Value.Css.IsNullOrEmpty() ||
-                                !o.Value.Style.IsNullOrEmpty())
+                                !o.Value.Style.IsNullOrEmpty()) == true
                                     ? " has-css"
                                     : string.Empty),
                             controlCss))
+                        .DataId(srcId)
                         .Multiple(multiple)
                         .Disabled(disabled)
                         .OnChange(onChange)
@@ -276,6 +288,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .DataMethod(method),
                     action: () => hb
                         .OptionCollection(
+                            context: context,
                             optionCollection: optionCollection,
                             selectedValue: selectedValue,
                             multiple: multiple,
@@ -287,6 +300,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder OptionCollection(
             this HtmlBuilder hb,
+            IContext context,
             Dictionary<string, ControlData> optionCollection = null,
             string selectedValue = null,
             bool multiple = false,
@@ -301,6 +315,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     ? selectedValue.Deserialize<List<string>>()
                     : null;
                 OptionCollection(
+                    context: context,
                     optionCollection: optionCollection,
                     selectedValue: selectedValue,
                     multiple: multiple,
@@ -322,6 +337,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static Dictionary<string, ControlData> OptionCollection(
+            IContext context,
             Dictionary<string, ControlData> optionCollection = null,
             string selectedValue = null,
             bool multiple = false,
@@ -348,7 +364,9 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 optionCollection?.Add(
                     selectedValue,
                     column != null && column.UserColumn
-                        ? new ControlData(SiteInfo.UserName(userId))
+                        ? new ControlData(SiteInfo.UserName(
+                            context: context,
+                            userId: userId))
                         : new ControlData("? " + selectedValue));
                 return optionCollection;
             }
@@ -689,6 +707,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                     ? "ui-widget-content ui-selected"
                                     : "ui-widget-content")
                             .Title(listItem.Value?.Title)
+                            .DataOrder(listItem.Value?.Order)
                             .DataValue(listItem.Key, _using: listItem.Value?.Text != listItem.Key),
                         action: () =>
                         {
@@ -709,7 +728,8 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         public static HtmlBuilder Attachments(
-           this HtmlBuilder hb,
+            this HtmlBuilder hb,
+            IContext context,
             string controlId = null,
             string columnName = null,
             string controlCss = null,
@@ -736,7 +756,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             .DataName(columnName)
                             .DataAction("binaries/multiupload"),
                         action: () => hb
-                            .Text(text: Displays.FileDragDrop())
+                            .Text(text: Displays.FileDragDrop(context: context))
                             .Input(
                                 id: columnName + ".input",
                                 attributes: new HtmlAttributes()
@@ -750,6 +770,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         action: () => attachments?
                             .ForEach(item => hb
                                 .AttachmentItem(
+                                    context: context,
                                     controlId: controlId,
                                     guid: item.Guid,
                                     css: item.Added == true
@@ -776,13 +797,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                 id: columnName + ".abort",
                                 css: "abort",
                                 action: () => hb
-                                    .Text(text: Displays.Cancel())),
+                                    .Text(text: Displays.Cancel(context: context))),
                         _using: !readOnly)
                 : hb;
         }
 
         private static HtmlBuilder AttachmentItem(
             this HtmlBuilder hb,
+            IContext context,
             string controlId = null,
             string guid = null,
             string css = null,
@@ -801,13 +823,19 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .A(
                             attributes: new HtmlAttributes()
                                 .Class("file-name")
-                                .Href(Locations.ShowFile(guid, temp: added == true)),
+                                .Href(Locations.ShowFile(
+                                    context: context,
+                                    guid: guid,
+                                    temp: added == true)),
                             action: () => hb
                                 .Span(css: "ui-icon ui-icon-circle-zoomin show-file"))
                         .A(
                             attributes: new HtmlAttributes()
                                 .Class("file-name")
-                                .Href(Locations.DownloadFile(guid, temp: added == true)),
+                                .Href(Locations.DownloadFile(
+                                    context: context,
+                                    guid: guid,
+                                    temp: added == true)),
                             action: () => hb
                                 .Text(text: fileName + "　(" + displaySize + ")"))
                         .Div(

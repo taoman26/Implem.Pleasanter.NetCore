@@ -23,81 +23,106 @@ namespace Implem.Pleasanter.Models
 {
     public static class SearchIndexUtilities
     {
-        private static DataSet ResultContents(IEnumerable<DataRow> dataRows)
+        private static DataSet ResultContents(
+            IContext context, IEnumerable<DataRow> dataRows)
         {
             var statements = new List<SqlStatement>();
-            if (dataRows.Any(o => o["ReferenceType"].ToString() == "Sites"))
+            if (dataRows.Any(o => o.String("ReferenceType") == "Sites"))
             {
                 statements.Add(Rds.SelectSites(
                     dataTableName: "Sites",
                     column: Rds.SitesColumn()
                         .ParentId(_as: "SiteId")
                         .SiteId(_as: "Id")
-                        .Title()
-                        .Body(),
+                        .Body()
+                        .Items_Title(),
+                    join: new SqlJoinCollection(
+                        new SqlJoin(
+                            tableBracket: "[Items]",
+                            joinType: SqlJoin.JoinTypes.Inner,
+                            joinExpression: "[Items].[ReferenceId]=[Sites].[SiteId]")),
                     where: Rds.SitesWhere()
-                        .TenantId(Sessions.TenantId())
+                        .TenantId(context.TenantId)
                         .SiteId_In(dataRows
-                            .Where(o => o["ReferenceType"].ToString() == "Sites")
-                            .Select(o => o["ReferenceId"].ToLong()))));
+                            .Where(o => o.String("ReferenceType") == "Sites")
+                            .Select(o => o.Long("ReferenceId")))));
             }
-            if (dataRows.Any(o => o["ReferenceType"].ToString() == "Issues"))
+            if (dataRows.Any(o => o.String("ReferenceType") == "Issues"))
             {
                 statements.Add(Rds.SelectIssues(
                     dataTableName: "Issues",
                     column: Rds.IssuesColumn()
                         .SiteId()
                         .IssueId(_as: "Id")
-                        .Title()
-                        .Body(),
+                        .Body()
+                        .Items_Title(),
+                    join: new SqlJoinCollection(
+                        new SqlJoin(
+                            tableBracket: "[Items]",
+                            joinType: SqlJoin.JoinTypes.Inner,
+                            joinExpression: "[Items].[ReferenceId]=[Issues].[IssueId]")),
                     where: Rds.IssuesWhere()
                         .IssueId_In(dataRows
-                            .Where(o => o["ReferenceType"].ToString() == "Issues")
-                            .Select(o =>o["ReferenceId"].ToLong()))));
+                            .Where(o => o.String("ReferenceType") == "Issues")
+                            .Select(o => o.Long("ReferenceId")))));
             }
-            if (dataRows.Any(o => o["ReferenceType"].ToString() == "Results"))
+            if (dataRows.Any(o => o.String("ReferenceType") == "Results"))
             {
                 statements.Add(Rds.SelectResults(
                     dataTableName: "Results",
                     column: Rds.ResultsColumn()
                         .SiteId()
                         .ResultId(_as: "Id")
-                        .Title()
-                        .Body(),
+                        .Body()
+                        .Items_Title(),
+                    join: new SqlJoinCollection(
+                        new SqlJoin(
+                            tableBracket: "[Items]",
+                            joinType: SqlJoin.JoinTypes.Inner,
+                            joinExpression: "[Items].[ReferenceId]=[Results].[ResultId]")),
                     where: Rds.ResultsWhere()
                         .ResultId_In(dataRows
-                            .Where(o => o["ReferenceType"].ToString() == "Results")
-                            .Select(o =>o["ReferenceId"].ToLong()))));
+                            .Where(o => o.String("ReferenceType") == "Results")
+                            .Select(o => o.Long("ReferenceId")))));
             }
-            if (dataRows.Any(o => o["ReferenceType"].ToString() == "Wikis"))
+            if (dataRows.Any(o => o.String("ReferenceType") == "Wikis"))
             {
                 statements.Add(Rds.SelectWikis(
                     dataTableName: "Wikis",
                     column: Rds.WikisColumn()
                         .SiteId()
                         .WikiId(_as: "Id")
-                        .Title()
-                        .Body(),
+                        .Body()
+                        .Items_Title(),
+                    join: new SqlJoinCollection(
+                        new SqlJoin(
+                            tableBracket: "[Items]",
+                            joinType: SqlJoin.JoinTypes.Inner,
+                            joinExpression: "[Items].[ReferenceId]=[Wikis].[WikiId]")),
                     where: Rds.WikisWhere()
                         .WikiId_In(dataRows
-                            .Where(o => o["ReferenceType"].ToString() == "Wikis")
-                            .Select(o =>o["ReferenceId"].ToLong()))));
+                            .Where(o => o.String("ReferenceType") == "Wikis")
+                            .Select(o => o.Long("ReferenceId")))));
             }
-            return Rds.ExecuteDataSet(statements: statements.ToArray());
+            return Rds.ExecuteDataSet(
+                context: context,
+                statements: statements.ToArray());
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Search()
+        public static string Search(IContext context)
         {
             var dataSet = Get(
-                searchText: QueryStrings.Data("text"),
+                context: context,
+                searchText: context.QueryStrings.Data("text"),
                 dataTableName: "SearchResults",
-                offset: QueryStrings.Int("offset"),
-                pageSize: Parameters.General.SearchPageSize);
+                offset: context.QueryStrings.Int("offset"),
+                pageSize: Parameters.Search.PageSize);
             return MainContainer(
-                text: QueryStrings.Data("text"),
+                context: context,
+                text: context.QueryStrings.Data("text"),
                 offset: 0,
                 results: dataSet?.Tables["SearchResults"].AsEnumerable(),
                 count: Rds.Count(dataSet)).ToString();
@@ -106,25 +131,27 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string SearchJson()
+        public static string SearchJson(IContext context)
         {
-            var offset = QueryStrings.Int("offset");
-            var searchText = QueryStrings.Data("text");
+            var offset = context.QueryStrings.Int("offset");
+            var searchText = context.QueryStrings.Data("text");
             var dataSet = Get(
+                context: context,
                 searchText: searchText,
                 dataTableName: "SearchResults",
                 offset: offset,
-                pageSize: Parameters.General.SearchPageSize);
-            var results = dataSet?.Tables["SearchResults"].AsEnumerable();
+                pageSize: Parameters.Search.PageSize);
+            var dataRows = dataSet?.Tables["SearchResults"].AsEnumerable();
             var res = new ResponseCollection();
             return offset == 0
                 ? res
                     .ReplaceAll(
                         "#MainContainer",
                         MainContainer(
+                            context: context,
                             text: searchText,
                             offset: 0,
-                            results: results,
+                            results: dataRows,
                             count: Rds.Count(dataSet)))
                     .Focus("#Search")
                     .ToJson()
@@ -132,13 +159,16 @@ namespace Implem.Pleasanter.Models
                     .Append(
                         "#SearchResults",
                         new HtmlBuilder().Results(
-                            text: searchText, offset: offset, results: results))
+                            context: context,
+                            text: searchText,
+                            offset: offset,
+                            dataRows: dataRows))
                     .Val(
                         "#SearchOffset",
-                        (results != null &&
-                        results.Any() &&
-                        results.Count() == Parameters.General.SearchPageSize
-                            ? offset + Parameters.General.SearchPageSize
+                        (dataRows != null &&
+                        dataRows.Any() &&
+                        dataRows.Count() == Parameters.Search.PageSize
+                            ? offset + Parameters.Search.PageSize
                             : -1).ToString())
                     .ToJson();
         }
@@ -147,15 +177,18 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder MainContainer(
+            IContext context,
             string text,
             int offset,
             IEnumerable<DataRow> results,
             int count)
         {
             var hb = new HtmlBuilder();
-            var searchIndexes = text.SearchIndexes();
+            var searchIndexes = text.SearchIndexes(context: context);
             return hb.Template(
+                context: context,
                 ss: new SiteSettings(),
+                view: null,
                 verType: Versions.VerTypes.Latest,
                 methodType: BaseModel.MethodTypes.NotSet,
                 referenceType: "SearchIndexes",
@@ -166,36 +199,43 @@ namespace Implem.Pleasanter.Models
                 useBreadcrumb: false,
                 action: () => hb
                     .Div(id: "SearchResults", action: () => hb
-                        .Command(text: text)
-                        .Count(count: count)
-                        .Results(text: text, offset: offset, results: results))
+                        .Command(
+                            context: context,
+                            text: text)
+                        .Count(
+                            context: context,
+                            count: count)
+                        .Results(
+                            context: context,
+                            text: text,
+                            offset: offset,
+                            dataRows: results))
                     .Hidden(
                         controlId: "SearchOffset",
-                        value: Parameters.General.SearchPageSize.ToString()));
+                        value: Parameters.Search.PageSize.ToString()));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static HtmlBuilder Command(this HtmlBuilder hb, string text)
+        private static HtmlBuilder Command(this HtmlBuilder hb, IContext context, string text)
         {
             return hb.Div(css: "command-center", action: () => hb
                 .TextBox(
                     controlId: "Search",
                     controlCss: " w600 focus",
                     text: text,
-                    placeholder: Displays.Search()));
+                    placeholder: Displays.Search(context: context)));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static HtmlBuilder Count(
-            this HtmlBuilder hb, int count)
+        private static HtmlBuilder Count(this HtmlBuilder hb, IContext context, int count)
         {
             return hb.Div(css: "count", action: () => hb
                 .Span(css: "label", action: () => hb
-                    .Text(text: Displays.Quantity()))
+                    .Text(text: Displays.Quantity(context: context)))
                 .Span(css: "data", action: () => hb
                     .Text(text: count.ToString())));
         }
@@ -204,15 +244,19 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder Results(
-            this HtmlBuilder hb, string text, int offset, IEnumerable<DataRow> results)
+            this HtmlBuilder hb,
+            IContext context,
+            string text,
+            int offset,
+            IEnumerable<DataRow> dataRows)
         {
-            if (results?.Any() == true)
+            if (dataRows?.Any() == true)
             {
-                var dataSet = ResultContents(results);
-                results.ForEach(result =>
+                var dataSet = ResultContents(context: context, dataRows: dataRows);
+                dataRows.ForEach(result =>
                 {
-                    var referenceType = result["ReferenceType"].ToString();
-                    var referenceId = result["ReferenceId"].ToLong();
+                    var referenceType = result.String("ReferenceType");
+                    var referenceId = result.Long("ReferenceId");
                     var dataRow = dataSet.Tables[referenceType]
                         .AsEnumerable()
                         .FirstOrDefault(o => o["Id"].ToLong() == referenceId);
@@ -222,10 +266,14 @@ namespace Implem.Pleasanter.Models
                         switch (referenceType)
                         {
                             case "Sites":
-                                href = Locations.ItemIndex(referenceId);
+                                href = Locations.ItemIndex(
+                                    context: context,
+                                    id: referenceId);
                                 break;
                             default:
-                                href = Locations.ItemEdit(referenceId);
+                                href = Locations.ItemEdit(
+                                    context: context,
+                                    id: referenceId);
                                 break;
                         }
                         href += "?back=1";
@@ -234,13 +282,18 @@ namespace Implem.Pleasanter.Models
                                 .Class("result")
                                 .Add("data-href", href),
                             action: () => hb
-                                .Breadcrumb(dataRow["SiteId"].ToLong())
+                                .Breadcrumb(
+                                    context: context,
+                                    ss: new SiteSettings()
+                                    {
+                                        SiteId = dataRow.Long("SiteId")
+                                    })
                                 .H(number: 3, action: () => hb
                                      .A(
                                          href: href,
-                                         text: dataRow["Title"].ToString()))
+                                         text: dataRow.String("Title")))
                                 .P(action: () => hb
-                                    .Text(text: dataRow["Body"].ToString())));
+                                    .Text(text: dataRow.String("Body"))));
                     }
                 });
             }
@@ -251,25 +304,39 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static SqlSelect Select(
-            SiteSettings.SearchTypes? searchType, string searchText, IEnumerable<long> siteIdList)
+            IContext context,
+            SiteSettings ss,
+            string searchText,
+            IEnumerable<long> siteIdList)
         {
-            switch (searchType)
+            if (ss != null && ss.TableType != Sqls.TableTypes.Normal)
+            {
+                return Select(
+                    ss: ss,
+                    searchText: searchText,
+                    siteIdList: siteIdList,
+                    like: Rds.Items_FullText_WhereLike(forward: false));
+            }
+            switch (ss?.SearchType)
             {
                 case SiteSettings.SearchTypes.PartialMatch:
                     return Select(
-                        searchText,
-                        siteIdList,
-                        Rds.Items_FullText_WhereLike(forward: false));
+                        ss: ss,
+                        searchText: searchText,
+                        siteIdList: siteIdList,
+                        like: Rds.Items_FullText_WhereLike(forward: false));
                 case SiteSettings.SearchTypes.MatchInFrontOfTitle:
                     return Select(
-                        searchText,
-                        siteIdList,
-                        Rds.Items_Title_WhereLike(forward: true));
+                        ss: ss,
+                        searchText: searchText,
+                        siteIdList: siteIdList,
+                        like: Rds.Items_Title_WhereLike(forward: true));
                 case SiteSettings.SearchTypes.BroadMatchOfTitle:
                     return Select(
-                        searchText,
-                        siteIdList,
-                        Rds.Items_Title_WhereLike(forward: false));
+                        ss: ss,
+                        searchText: searchText,
+                        siteIdList: siteIdList,
+                        like: Rds.Items_Title_WhereLike(forward: false));
                 default:
                     switch (Parameters.Search.Provider)
                     {
@@ -277,14 +344,16 @@ namespace Implem.Pleasanter.Models
                             var words = Words(searchText);
                             if (words?.Any() != true) return null;
                             return SelectByFullText(
+                                context: context,
                                 column: Rds.ItemsColumn().ReferenceId(),
                                 orderBy: null,
                                 siteIdList: siteIdList,
                                 words: words);
                         default:
-                            var searchIndexes = searchText.SearchIndexes();
+                            var searchIndexes = searchText.SearchIndexes(context: context);
                             if (searchIndexes.Count() == 0) return null;
                             return SelectBySearchIndexes(
+                                context: context,
                                 searchIndexes: searchIndexes,
                                 column: Rds.SearchIndexesColumn().ReferenceId(),
                                 orderBy: null,
@@ -297,9 +366,10 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static SqlSelect Select(
-            string searchText, IEnumerable<long> siteIdList, string like)
+            SiteSettings ss, string searchText, IEnumerable<long> siteIdList, string like)
         {
             return Rds.SelectItems(
+                tableType: ss.TableType,
                 column: Rds.ItemsColumn().ReferenceId(),
                 where: Rds.ItemsWhere()
                     .SiteId_In(siteIdList)
@@ -313,12 +383,17 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static DataSet Get(
-            string searchText, string dataTableName, int offset, int pageSize)
+            IContext context,
+            string searchText,
+            string dataTableName,
+            int offset,
+            int pageSize)
         {
             switch (Parameters.Search.Provider)
             {
                 case "FullText":
                     return Get(
+                        context: context,
                         searchText: searchText,
                         dataTableName: dataTableName,
                         offset: offset,
@@ -326,7 +401,8 @@ namespace Implem.Pleasanter.Models
                         countRecord: offset == 0);
                 default:
                     return Get(
-                        searchIndexes: searchText.SearchIndexes(),
+                        context: context,
+                        searchIndexes: searchText.SearchIndexes(context: context),
                         column: Rds.SearchIndexesColumn()
                             .ReferenceId()
                             .ReferenceType()
@@ -343,6 +419,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static DataSet Get(
+            IContext context,
             string searchText,
             IEnumerable<long> siteIdList = null,
             string dataTableName = null,
@@ -352,11 +429,14 @@ namespace Implem.Pleasanter.Models
         {
             var words = Words(searchText);
             if (words?.Any() != true) return null;
-            return Rds.ExecuteDataSet(statements:
-                SelectByFullText(
+            return Rds.ExecuteDataSet(
+                context: context,
+                statements: SelectByFullText(
+                    context: context,
                     column: Rds.ItemsColumn()
                         .ReferenceId()
-                        .ReferenceType(),
+                        .ReferenceType()
+                        .Title(),
                     orderBy: Rds.ItemsOrderBy()
                         .UpdatedTime(SqlOrderBy.Types.desc),
                     siteIdList: siteIdList,
@@ -388,6 +468,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static SqlSelect SelectByFullText(
+            IContext context,
             SqlColumnCollection column,
             SqlOrderByCollection orderBy,
             IEnumerable<long> siteIdList,
@@ -409,7 +490,7 @@ namespace Implem.Pleasanter.Models
                     .Add(raw: FullTextWhere(words))
                     .Add(
                         raw: Def.Sql.CanRead,
-                        _using: !Permissions.HasPrivilege())
+                        _using: !context.HasPrivilege)
                     .Add(
                         raw: "[Items].[SiteId] in ({0})".Params(siteIdList?.Join()),
                         _using: siteIdList?.Any() == true),
@@ -473,6 +554,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static DataSet Get(
+            IContext context,
             IEnumerable<string> searchIndexes,
             SqlColumnCollection column,
             IEnumerable<long> siteIdList = null,
@@ -482,8 +564,10 @@ namespace Implem.Pleasanter.Models
             bool countRecord = false)
         {
             if (searchIndexes.Count() == 0) return null;
-            return Rds.ExecuteDataSet(statements:
-                SelectBySearchIndexes(
+            return Rds.ExecuteDataSet(
+                context: context,
+                statements: SelectBySearchIndexes(
+                    context: context,
                     searchIndexes: searchIndexes,
                     column: column,
                     orderBy: Rds.SearchIndexesOrderBy()
@@ -501,6 +585,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static SqlSelect SelectBySearchIndexes(
+            IContext context,
             IEnumerable<string> searchIndexes,
             SqlColumnCollection column,
             SqlOrderByCollection orderBy,
@@ -518,7 +603,7 @@ namespace Implem.Pleasanter.Models
                     .Word(searchIndexes, multiParamOperator: " or ")
                     .Add(
                         raw: Def.Sql.CanRead,
-                        _using: !Permissions.HasPrivilege())
+                        _using: !context.HasPrivilege)
                     .Add(
                         raw: "[Items].[SiteId] in ({0})".Params(siteIdList?.Join()),
                         _using: siteIdList?.Any() == true),
@@ -540,18 +625,19 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         private static decimal Concordance(IEnumerable<string> searchIndexes)
         {
-            return Math.Ceiling(searchIndexes.Count() * Parameters.General.SearchConcordanceRate);
+            return Math.Ceiling(searchIndexes.Count() * Parameters.Search.ConcordanceRate);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void Maintain()
+        public static void Maintain(IContext context)
         {
             if ((DateTime.Now - Applications.SearchIndexesMaintenanceDate).Days > 0)
             {
-                Rds.ExecuteNonQuery(statements:
-                    Rds.PhysicalDeleteSearchIndexes(
+                Rds.ExecuteNonQuery(
+                    context: context,
+                    statements: Rds.PhysicalDeleteSearchIndexes(
                         where: Rds.SearchIndexesWhere().Add(
                             sub: Rds.ExistsItems(
                                 not: true,
@@ -564,49 +650,102 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void CreateInBackground()
+        public static string RebuildSearchIndexes(IContext context, SiteModel siteModel)
         {
-            if (Parameters.BackgroundTask.Enabled)
+            siteModel.SiteSettings = SiteSettingsUtilities.Get(
+                context: context,
+                siteModel: siteModel,
+                referenceId: siteModel.SiteId);
+            var ss = siteModel.SiteSettings.SiteSettingsOnUpdate(context: context);
+            var invalid = SiteValidators.OnUpdating(
+                context: context,
+                ss: ss,
+                siteModel: siteModel);
+            switch (invalid)
             {
-                var hash = new Dictionary<long, SiteModel>();
-                Rds.ExecuteTable(statements: Rds.SelectItems(
+                case Error.Types.None: break;
+                default: return invalid.MessageJson(context: context);
+            }
+            RebuildSearchIndexes(
+                context: context,
+                siteId: siteModel.SiteId);
+            return new ResponseCollection()
+                .Message(Messages.RebuildingCompleted(context: context))
+                .ToJson();
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
+        public static void RebuildSearchIndexes(IContext context, long siteId = -1)
+        {
+            var hash = new Dictionary<long, SiteModel>();
+            Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectItems(
                     column: Rds.ItemsColumn()
                         .ReferenceId()
                         .SiteId()
-                        .Updator()
-                        .UpdatedTime(),
-                    where: Rds.ItemsWhere().Add(
-                        raw: "[SearchIndexCreatedTime] is null or [SearchIndexCreatedTime]<>[UpdatedTime]"),
+                        .UpdatedTime()
+                        .Users_TenantId()
+                        .Users_DeptId()
+                        .Users_UserId(),
+                    join: Rds.ItemsJoinDefault().Add(new SqlJoin(
+                        tableBracket: "[Users]",
+                        joinType: SqlJoin.JoinTypes.Inner,
+                        joinExpression: "[Users].[UserId]=[Items].[Updator]")),
+                    where: siteId > 0
+                        ? Rds.ItemsWhere().SiteId(siteId)
+                        : Rds.ItemsWhere().Add(raw: new List<string>()
+                        {
+                            "[Items].[SearchIndexCreatedTime] is null",
+                            "[Items].[SearchIndexCreatedTime]<>[Items].[UpdatedTime]"
+                        }.Join(" or ")),
                     top: Parameters.BackgroundTask.CreateSearchIndexLot))
                         .AsEnumerable()
                         .Select(o => new
                         {
                             ReferenceId = o["ReferenceId"].ToLong(),
                             SiteId = o["SiteId"].ToLong(),
-                            Updator = o["Updator"].ToInt(),
                             UpdatedTime = o.Field<DateTime>("UpdatedTime")
-                                .ToString("yyyy/M/d H:m:s.fff")
+                                .ToString("yyyy/M/d H:m:s.fff"),
+                            TenantId = o.Int("TenantId"),
+                            DeptId = o.Int("DeptId"),
+                            UserId = o.Int("UserId")
                         })
                         .ForEach(data =>
                         {
+                            var currentContext = context.CreateContext(
+                                tenantId: data.TenantId,
+                                deptId: data.DeptId,
+                                userId: data.UserId);
                             var siteModel = hash.Get(data.SiteId) ??
-                                new SiteModel().Get(where: Rds.SitesWhere().SiteId(data.SiteId));
-                            Sessions.Set(siteModel.TenantId, data.Updator);
+                                new SiteModel().Get(
+                                    context: currentContext,
+                                    where: Rds.SitesWhere().SiteId(data.SiteId));
                             if (!hash.ContainsKey(data.SiteId))
                             {
                                 siteModel.SiteSettings = SiteSettingsUtilities.Get(
-                                    siteModel, siteModel.SiteId);
+                                    context: currentContext,
+                                    siteModel: siteModel,
+                                    referenceId: siteModel.SiteId);
                                 hash.Add(data.SiteId, siteModel);
                             }
                             Libraries.Search.Indexes.Create(
-                                siteModel.SiteSettings, data.ReferenceId, force: true);
-                            Rds.ExecuteNonQuery(statements: Rds.UpdateItems(
-                                where: Rds.ItemsWhere().ReferenceId(data.ReferenceId),
-                                param: Rds.ItemsParam().SearchIndexCreatedTime(data.UpdatedTime),
-                                addUpdatorParam: false,
-                                addUpdatedTimeParam: false));
+                                context: currentContext,
+                                ss: siteModel.SiteSettings,
+                                id: data.ReferenceId,
+                                force: true);
+                            Rds.ExecuteNonQuery(
+                                context: currentContext,
+                                statements: Rds.UpdateItems(
+                                    where: Rds.ItemsWhere()
+                                        .ReferenceId(data.ReferenceId),
+                                    param: Rds.ItemsParam()
+                                        .SearchIndexCreatedTime(data.UpdatedTime),
+                                    addUpdatorParam: false,
+                                    addUpdatedTimeParam: false));
                         });
-            }
         }
     }
 }

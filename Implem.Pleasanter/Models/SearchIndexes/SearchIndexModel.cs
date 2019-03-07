@@ -38,50 +38,52 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public string SavedSubset = string.Empty;
         [NonSerialized] public long SavedInheritPermission = 0;
 
-        public bool Word_Updated(Column column = null)
+        public bool Word_Updated(IContext context, Column column = null)
         {
             return Word != SavedWord && Word != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Word);
+                column.GetDefaultInput(context: context).ToString() != Word);
         }
 
-        public bool ReferenceId_Updated(Column column = null)
+        public bool ReferenceId_Updated(IContext context, Column column = null)
         {
             return ReferenceId != SavedReferenceId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != ReferenceId);
+                column.GetDefaultInput(context: context).ToLong() != ReferenceId);
         }
 
-        public bool Priority_Updated(Column column = null)
+        public bool Priority_Updated(IContext context, Column column = null)
         {
             return Priority != SavedPriority &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != Priority);
+                column.GetDefaultInput(context: context).ToInt() != Priority);
         }
 
-        public SearchIndexModel(DataRow dataRow, string tableAlias = null)
+        public SearchIndexModel(IContext context, DataRow dataRow, string tableAlias = null)
         {
-            OnConstructing();
-            Set(dataRow, tableAlias);
-            OnConstructed();
+            OnConstructing(context: context);
+            Context = context;
+            if (dataRow != null) Set(context, dataRow, tableAlias);
+            OnConstructed(context: context);
         }
 
-        private void OnConstructing()
-        {
-        }
-
-        private void OnConstructed()
+        private void OnConstructing(IContext context)
         {
         }
 
-        public void ClearSessions()
+        private void OnConstructed(IContext context)
+        {
+        }
+
+        public void ClearSessions(IContext context)
         {
         }
 
         public SearchIndexModel Get(
+            IContext context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -91,33 +93,53 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0)
         {
-            Set(Rds.ExecuteTable(statements: Rds.SelectSearchIndexes(
-                tableType: tableType,
-                column: column ?? Rds.SearchIndexesDefaultColumns(),
-                join: join ??  Rds.SearchIndexesJoinDefault(),
-                where: where ?? Rds.SearchIndexesWhereDefault(this),
-                orderBy: orderBy,
-                param: param,
-                distinct: distinct,
-                top: top)));
+            Set(context, Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectSearchIndexes(
+                    tableType: tableType,
+                    column: column ?? Rds.SearchIndexesDefaultColumns(),
+                    join: join ??  Rds.SearchIndexesJoinDefault(),
+                    where: where ?? Rds.SearchIndexesWhereDefault(this),
+                    orderBy: orderBy,
+                    param: param,
+                    distinct: distinct,
+                    top: top)));
             return this;
         }
 
-        private void SetBySession()
+        public void SetByModel(SearchIndexModel searchIndexModel)
+        {
+            Word = searchIndexModel.Word;
+            ReferenceId = searchIndexModel.ReferenceId;
+            Priority = searchIndexModel.Priority;
+            ReferenceType = searchIndexModel.ReferenceType;
+            Title = searchIndexModel.Title;
+            Subset = searchIndexModel.Subset;
+            InheritPermission = searchIndexModel.InheritPermission;
+            Comments = searchIndexModel.Comments;
+            Creator = searchIndexModel.Creator;
+            Updator = searchIndexModel.Updator;
+            CreatedTime = searchIndexModel.CreatedTime;
+            UpdatedTime = searchIndexModel.UpdatedTime;
+            VerUp = searchIndexModel.VerUp;
+            Comments = searchIndexModel.Comments;
+        }
+
+        private void SetBySession(IContext context)
         {
         }
 
-        private void Set(DataTable dataTable)
+        private void Set(IContext context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
-                case 1: Set(dataTable.Rows[0]); break;
+                case 1: Set(context, dataTable.Rows[0]); break;
                 case 0: AccessStatus = Databases.AccessStatuses.NotFound; break;
                 default: AccessStatus = Databases.AccessStatuses.Overlap; break;
             }
         }
 
-        private void Set(DataRow dataRow, string tableAlias = null)
+        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -170,19 +192,19 @@ namespace Implem.Pleasanter.Models
                             SavedComments = Comments.ToJson();
                             break;
                         case "Creator":
-                            Creator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Creator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedCreator = Creator.Id;
                             break;
                         case "Updator":
-                            Updator = SiteInfo.User(dataRow[column.ColumnName].ToInt());
+                            Updator = SiteInfo.User(context: context, userId: dataRow.Int(column.ColumnName));
                             SavedUpdator = Updator.Id;
                             break;
                         case "CreatedTime":
-                            CreatedTime = new Time(dataRow, column.ColumnName);
+                            CreatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedCreatedTime = CreatedTime.Value;
                             break;
                         case "UpdatedTime":
-                            UpdatedTime = new Time(dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
+                            UpdatedTime = new Time(context, dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
                         case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
@@ -191,16 +213,16 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public bool Updated()
+        public bool Updated(IContext context)
         {
             return
-                Word_Updated() ||
-                ReferenceId_Updated() ||
-                Ver_Updated() ||
-                Priority_Updated() ||
-                Comments_Updated() ||
-                Creator_Updated() ||
-                Updator_Updated();
+                Word_Updated(context: context) ||
+                ReferenceId_Updated(context: context) ||
+                Ver_Updated(context: context) ||
+                Priority_Updated(context: context) ||
+                Comments_Updated(context: context) ||
+                Creator_Updated(context: context) ||
+                Updator_Updated(context: context);
         }
     }
 }

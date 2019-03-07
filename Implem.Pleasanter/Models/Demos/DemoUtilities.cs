@@ -26,33 +26,42 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Register()
+        public static string Register(IContext context)
         {
+            var ss = new SiteSettings();
             var passphrase = Strings.NewGuid();
-            var mailAddress = Forms.Data("Users_DemoMailAddress");
+            var mailAddress = context.Forms.Data("Users_DemoMailAddress");
             var tenantModel = new TenantModel()
             {
                 TenantName = mailAddress
             };
-            tenantModel.Create();
+            tenantModel.Create(context: context, ss: ss);
+            context = context.CreateContext(
+                tenantId: tenantModel.TenantId,
+                language: context.Language);
             var demoModel = new DemoModel()
             {
-                TenantId = tenantModel.TenantId,
                 Passphrase = passphrase,
                 MailAddress = mailAddress
             };
-            demoModel.Create();
-            demoModel.Initialize(new OutgoingMailModel()
+            demoModel.Create(context: context, ss: ss);
+            demoModel.Initialize(context: context, outgoingMailModel: new OutgoingMailModel()
             {
-                Title = new Title(Displays.DemoMailTitle()),
+                Title = new Title(Displays.DemoMailTitle(context: context)),
                 Body = Displays.DemoMailBody(
-                    Locations.DemoUri(passphrase),
-                    Parameters.Service.DemoUsagePeriod.ToString()),
+                    context: context,
+                    data: new string[]
+                    {
+                        Locations.DemoUri(
+                            context: context,
+                            passphrase: passphrase),
+                        Parameters.Service.DemoUsagePeriod.ToString()
+                    }),
                 From = new System.Net.Mail.MailAddress(Parameters.Mail.SupportFrom),
                 To = mailAddress,
                 Bcc = Parameters.Mail.SupportFrom
             });
-            return Messages.ResponseSentAcceptanceMail()
+            return Messages.ResponseSentAcceptanceMail(context: context)
                 .Remove("#DemoForm")
                 .ToJson();
         }
@@ -60,36 +69,46 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static bool Login()
+        public static bool Login(IContext context)
         {
             var demoModel = new DemoModel().Get(
+                context: context,
                 where: Rds.DemosWhere()
-                    .Passphrase(QueryStrings.Data("passphrase"))
+                    .Passphrase(context.QueryStrings.Data("passphrase"))
                     .CreatedTime(
                         DateTime.Now.AddDays(Parameters.Service.DemoUsagePeriod * -1),
                         _operator: ">="));
             if (demoModel.AccessStatus == Databases.AccessStatuses.Selected)
             {
-                var loginId = LoginId(demoModel, "User1");
+                context = context.CreateContext(
+                    tenantId: demoModel.TenantId,
+                    language: context.Language);
                 var password = Strings.NewGuid().Sha512Cng();
                 if (!demoModel.Initialized)
                 {
                     var idHash = new Dictionary<string, long>();
-                    demoModel.Initialize(idHash, password);
+                    demoModel.Initialize(
+                        context: context,
+                        idHash: idHash,
+                        password: password);
                 }
                 else
                 {
-                    Rds.ExecuteNonQuery(statements: Rds.UpdateUsers(
-                        param: Rds.UsersParam().Password(password),
-                        where: Rds.UsersWhere().LoginId(loginId)));
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.UpdateUsers(
+                            param: Rds.UsersParam().Password(password),
+                            where: Rds.UsersWhere().LoginId(demoModel.LoginId)));
                 }
                 new UserModel()
                 {
-                    LoginId = loginId,
+                    LoginId = demoModel.LoginId,
                     Password = password
-                }.Authenticate(string.Empty);
-                SiteInfo.Reflesh(force: true);
-                return Sessions.LoggedIn();
+                }.Authenticate(
+                    context: context,
+                    returnUrl: string.Empty);
+                SiteInfo.Reflesh(context: context, force: true);
+                return context.Authenticated;
             }
             else
             {
@@ -100,16 +119,27 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
+        private static string FirstUser(IContext context)
+        {
+            return Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
+                .Where(o => o.Type == "Users")
+                .FirstOrDefault()?
+                .Id;
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
         private static void Initialize(
-            this DemoModel demoModel, OutgoingMailModel outgoingMailModel)
+            this DemoModel demoModel, IContext context, OutgoingMailModel outgoingMailModel)
         {
             var idHash = new Dictionary<string, long>();
-            var loginId = LoginId(demoModel, "User1");
             var password = Strings.NewGuid().Sha512Cng();
             System.Threading.Tasks.Task.Run(() =>
             {
-                demoModel.Initialize(idHash, password);
-                outgoingMailModel.Send();
+                demoModel.Initialize(context: context, idHash: idHash, password: password);
+                outgoingMailModel.Send(context: context, ss: new SiteSettings());
             });
         }
 
@@ -117,129 +147,210 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static void Initialize(
-            this DemoModel demoModel, Dictionary<string, long> idHash, string password)
+            this DemoModel demoModel,
+            IContext context,
+            Dictionary<string, long> idHash,
+            string password)
         {
             demoModel.InitializeTimeLag();
-            InitializeDepts(demoModel, idHash);
-            InitializeUsers(demoModel, idHash, password);
-            SiteInfo.Reflesh(force: true);
-            InitializeSites(demoModel, idHash);
+            InitializeDepts(
+                context: context,
+                demoModel: demoModel,
+                idHash: idHash);
+            InitializeUsers(
+                context: context,
+                demoModel: demoModel,
+                idHash: idHash,
+                password: password);
+            SiteInfo.Reflesh(
+                context: context,
+                force: true);
+            InitializeSites(context: context, demoModel: demoModel, idHash: idHash);
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Sites")
                 .OrderBy(o => o.Id)
                 .ForEach(o =>
                 {
-                    InitializeIssues(demoModel, o.Id, idHash);
-                    InitializeResults(demoModel, o.Id, idHash);
+                    InitializeIssues(
+                        context: context, demoModel: demoModel, parentId: o.Id, idHash: idHash);
+                    InitializeResults(
+                        context: context, demoModel: demoModel, parentId: o.Id, idHash: idHash);
                 });
-            InitializeLinks(demoModel, idHash);
-            InitializePermissions(idHash);
-            Rds.ExecuteNonQuery(statements: Rds.UpdateDemos(
-                param: Rds.DemosParam().Initialized(true),
-                where: Rds.DemosWhere().Passphrase(demoModel.Passphrase)));
-            Libraries.Migrators.SiteSettingsMigrator.Migrate();
+            InitializeLinks(
+                context: context,
+                demoModel: demoModel,
+                idHash: idHash);
+            InitializePermissions(
+                context: context,
+                idHash: idHash);
+            Rds.ExecuteNonQuery(
+                context: context,
+                statements: Rds.UpdateDemos(
+                    param: Rds.DemosParam().Initialized(true),
+                    where: Rds.DemosWhere().Passphrase(demoModel.Passphrase)));
+            Libraries.Migrators.SiteSettingsMigrator.Migrate(context: context);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static void InitializeDepts(DemoModel demoModel, Dictionary<string, long> idHash)
+        private static void InitializeDepts(
+            IContext context, DemoModel demoModel, Dictionary<string, long> idHash)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Depts")
-                .ForEach(demoDefinition =>
-                    idHash.Add(demoDefinition.Id, Rds.ExecuteScalar_long(statements:
-                        Rds.InsertDepts(
-                            selectIdentity: true,
-                            param: Rds.DeptsParam()
-                                .TenantId(demoModel.TenantId)
-                                .DeptCode(demoDefinition.ClassA)
-                                .DeptName(demoDefinition.Title)
-                                .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel))))));
+                .ForEach(demoDefinition => idHash.Add(
+                    demoDefinition.Id, Rds.ExecuteScalar_response(
+                        context: context,
+                        selectIdentity: true,
+                        statements: new SqlStatement[]
+                        {
+                            Rds.InsertDepts(
+                                setIdentity: true,
+                                param: Rds.DeptsParam()
+                                    .TenantId(demoModel.TenantId)
+                                    .DeptCode(demoDefinition.ClassA)
+                                    .DeptName(demoDefinition.Title)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)))
+                        }).Identity.ToLong()));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
         private static void InitializeUsers(
-            DemoModel demoModel, Dictionary<string, long> idHash, string password)
+            IContext context, DemoModel demoModel, Dictionary<string, long> idHash, string password)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Users")
                 .ForEach(demoDefinition =>
                 {
-                    var loginId = LoginId(demoModel, demoDefinition.Id);
-                    idHash.Add(demoDefinition.Id, Rds.ExecuteScalar_long(statements: new SqlStatement[]
-                    {
-                        Rds.InsertUsers(
-                            selectIdentity: true,
-                            param: Rds.UsersParam()
-                                .TenantId(demoModel.TenantId)
-                                .LoginId(loginId)
-                                .Password(password)
-                                .Name(demoDefinition.Title)
-                                .DeptId(idHash.Get(demoDefinition.ParentId).ToInt())
-                                .Birthday(demoDefinition.ClassC.ToDateTime())
-                                .Gender(demoDefinition.ClassB)
-                                .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel))),
-                        Rds.InsertMailAddresses(
-                            param: Rds.MailAddressesParam()
-                                .OwnerId(raw: Def.Sql.Identity)
-                                .OwnerType("Users")
-                                .MailAddress(loginId + "@example.com"))
-                    }));
+                    var loginId = LoginId(
+                        demoModel: demoModel,
+                        userId: demoDefinition.Id);
+                    idHash.Add(demoDefinition.Id, Rds.ExecuteScalar_response(
+                        context: context,
+                        selectIdentity: true,
+                        statements: new SqlStatement[]
+                        {
+                            Rds.InsertUsers(
+                                setIdentity: true,
+                                param: Rds.UsersParam()
+                                    .TenantId(demoModel.TenantId)
+                                    .LoginId(loginId)
+                                    .Password(password)
+                                    .Name(demoDefinition.Title)
+                                    .Language(context.Language)
+                                    .DeptId(idHash.Get(demoDefinition.ParentId).ToInt())
+                                    .Birthday(demoDefinition.ClassC.ToDateTime())
+                                    .Gender(demoDefinition.ClassB)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))),
+                            Rds.InsertMailAddresses(
+                                param: Rds.MailAddressesParam()
+                                    .OwnerId(raw: Def.Sql.Identity)
+                                    .OwnerType("Users")
+                                    .MailAddress(loginId + "@example.com"))
+                        }).Identity.ToLong());
                 });
-        }
-
-        /// <summary>
-        /// Fixed:
-        /// </summary>
-        private static void InitializeSites(DemoModel demoModel, Dictionary<string, long> idHash)
-        {
-            Def.DemoDefinitionCollection
-                .Where(o => o.Type == "Sites" && o.ParentId == string.Empty)
-                .ForEach(o => InitializeSites(demoModel, idHash, o.Id));
-            new SiteCollection(where: Rds.SitesWhere().TenantId(demoModel.TenantId))
-                .ForEach(siteModel =>
-                {
-                    var fullText = siteModel.FullText(siteModel.SiteSettings);
-                    Rds.ExecuteNonQuery(statements: Rds.UpdateItems(
-                        param: Rds.ItemsParam()
-                            .SiteId(siteModel.SiteId)
-                            .Title(siteModel.Title.DisplayValue)
-                            .FullText(fullText, _using: fullText != null),
-                        where: Rds.ItemsWhere().ReferenceId(siteModel.SiteId),
-                        addUpdatorParam: false,
-                        addUpdatedTimeParam: false));
-                });
+            Rds.ExecuteNonQuery(
+                context: context,
+                statements: Rds.UpdateDemos(
+                    where: Rds.DemosWhere().TenantId(demoModel.TenantId),
+                    param: Rds.DemosParam()
+                        .LoginId(LoginId(
+                            demoModel: demoModel,
+                            userId: Def.DemoDefinitionCollection
+                                .Where(o => o.Language == context.Language)
+                                .Where(o => o.Type == "Users")
+                                .FirstOrDefault()?
+                                .Id))));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
         private static void InitializeSites(
-            DemoModel demoModel, Dictionary<string, long> idHash, string topId)
+            IContext context, DemoModel demoModel, Dictionary<string, long> idHash)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
+                .Where(o => o.Type == "Sites" && o.ParentId == string.Empty)
+                .ForEach(o => InitializeSites(
+                    context: context,
+                    demoModel: demoModel,
+                    idHash: idHash,
+                    topId: o.Id));
+            new SiteCollection(
+                context: context,
+                where: Rds.SitesWhere().TenantId(demoModel.TenantId))
+                .ForEach(siteModel =>
+                    {
+                        var fullText = siteModel.FullText(
+                            context: context, ss: siteModel.SiteSettings);
+                        Rds.ExecuteNonQuery(
+                            context: context,
+                            statements: Rds.UpdateItems(
+                                param: Rds.ItemsParam()
+                                    .SiteId(siteModel.SiteId)
+                                    .Title(siteModel.Title.DisplayValue)
+                                    .FullText(fullText, _using: fullText != null),
+                                where: Rds.ItemsWhere().ReferenceId(siteModel.SiteId),
+                                addUpdatorParam: false,
+                                addUpdatedTimeParam: false));
+                    });
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
+        private static void InitializeSites(
+            IContext context, DemoModel demoModel, Dictionary<string, long> idHash, string topId)
+        {
+            Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Sites")
                 .Where(o => o.Id == topId || o.ParentId == topId)
                 .ForEach(demoDefinition =>
-                    idHash.Add(demoDefinition.Id, Rds.ExecuteScalar_long(statements:
-                        new SqlStatement[]
-                        {
+                {
+                    var creator = idHash.Get(demoDefinition.Creator);
+                    var updator = idHash.Get(demoDefinition.Updator);
+                    context = context.CreateContext(
+                        tenantId: demoModel.TenantId,
+                        userId: updator.ToInt(),
+                        language: context.Language);
+                    idHash.Add(
+                        demoDefinition.Id, Rds.ExecuteScalar_response(
+                            context: context,
+                            selectIdentity: true,
+                            statements: new SqlStatement[]
+                            {
                             Rds.InsertItems(
-                                selectIdentity: true,
+                                setIdentity: true,
                                 param: Rds.ItemsParam()
                                     .ReferenceType("Sites")
-                                    .Creator(idHash.Get(demoDefinition.Creator))
-                                    .Updator(idHash.Get(demoDefinition.Updator))
-                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel)),
+                                    .Creator(creator)
+                                    .Updator(updator)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
                                 addUpdatorParam: false),
                             Rds.InsertSites(
-                                selectIdentity: true,
                                 param: Rds.SitesParam()
                                     .TenantId(demoModel.TenantId)
                                     .SiteId(raw: Def.Sql.Identity)
@@ -250,12 +361,17 @@ namespace Implem.Pleasanter.Models
                                         : 0)
                                     .InheritPermission(idHash, topId, demoDefinition.ParentId)
                                     .SiteSettings(demoDefinition.Body.Replace(idHash))
-                                    .Creator(idHash.Get(demoDefinition.Creator))
-                                    .Updator(idHash.Get(demoDefinition.Updator))
-                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel)),
+                                    .Creator(creator)
+                                    .Updator(updator)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
                                 addUpdatorParam: false)
-                        })));
+                            }).Identity.ToLong());
+                });
         }
 
         /// <summary>
@@ -276,184 +392,218 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static void InitializeIssues(
-            DemoModel demoModel, string parentId, Dictionary<string, long> idHash)
+            IContext context,
+            DemoModel demoModel,
+            string parentId,
+            Dictionary<string, long> idHash)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.ParentId == parentId)
                 .Where(o => o.Type == "Issues")
                 .ForEach(demoDefinition =>
                 {
-                    var issueId = Rds.ExecuteScalar_long(statements: new SqlStatement[]
-                    {
-                        Rds.InsertItems(
-                            selectIdentity: true,
-                            param: Rds.ItemsParam()
-                                .ReferenceType("Issues")
-                                .Creator(idHash.Get(demoDefinition.Creator))
-                                .Updator(idHash.Get(demoDefinition.Updator))
-                                .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                .UpdatedTime(demoDefinition.CreatedTime.DemoTime(demoModel)),
-                            addUpdatorParam: false),
-                        Rds.InsertIssues(
-                            selectIdentity: true,
-                            param: Rds.IssuesParam()
-                                .SiteId(idHash.Get(demoDefinition.ParentId))
-                                .IssueId(raw: Def.Sql.Identity)
-                                .Title(demoDefinition.Title)
-                                .Body(demoDefinition.Body.Replace(idHash))
-                                .StartTime(demoDefinition.StartTime.DemoTime(demoModel))
-                                .CompletionTime(demoDefinition.CompletionTime
-                                    .AddDays(1).DemoTime(demoModel))
-                                .WorkValue(demoDefinition.WorkValue)
-                                .ProgressRate(0)
-                                .Status(demoDefinition.Status)
-                                .Manager(idHash.Get(demoDefinition.Manager))
-                                .Owner(idHash.Get(demoDefinition.Owner))
-                                .ClassA(demoDefinition.ClassA.Replace(idHash))
-                                .ClassB(demoDefinition.ClassB.Replace(idHash))
-                                .ClassC(demoDefinition.ClassC.Replace(idHash))
-                                .ClassD(demoDefinition.ClassD.Replace(idHash))
-                                .ClassE(demoDefinition.ClassE.Replace(idHash))
-                                .ClassF(demoDefinition.ClassF.Replace(idHash))
-                                .ClassG(demoDefinition.ClassG.Replace(idHash))
-                                .ClassH(demoDefinition.ClassH.Replace(idHash))
-                                .ClassI(demoDefinition.ClassI.Replace(idHash))
-                                .ClassJ(demoDefinition.ClassJ.Replace(idHash))
-                                .ClassK(demoDefinition.ClassK.Replace(idHash))
-                                .ClassL(demoDefinition.ClassL.Replace(idHash))
-                                .ClassM(demoDefinition.ClassM.Replace(idHash))
-                                .ClassN(demoDefinition.ClassN.Replace(idHash))
-                                .ClassO(demoDefinition.ClassO.Replace(idHash))
-                                .ClassP(demoDefinition.ClassP.Replace(idHash))
-                                .ClassQ(demoDefinition.ClassQ.Replace(idHash))
-                                .ClassR(demoDefinition.ClassR.Replace(idHash))
-                                .ClassS(demoDefinition.ClassS.Replace(idHash))
-                                .ClassT(demoDefinition.ClassT.Replace(idHash))
-                                .ClassU(demoDefinition.ClassU.Replace(idHash))
-                                .ClassV(demoDefinition.ClassV.Replace(idHash))
-                                .ClassW(demoDefinition.ClassW.Replace(idHash))
-                                .ClassX(demoDefinition.ClassX.Replace(idHash))
-                                .ClassY(demoDefinition.ClassY.Replace(idHash))
-                                .ClassZ(demoDefinition.ClassZ.Replace(idHash))
-                                .NumA(demoDefinition.NumA)
-                                .NumB(demoDefinition.NumB)
-                                .NumC(demoDefinition.NumC)
-                                .NumD(demoDefinition.NumD)
-                                .NumE(demoDefinition.NumE)
-                                .NumF(demoDefinition.NumF)
-                                .NumG(demoDefinition.NumG)
-                                .NumH(demoDefinition.NumH)
-                                .NumI(demoDefinition.NumI)
-                                .NumJ(demoDefinition.NumJ)
-                                .NumK(demoDefinition.NumK)
-                                .NumL(demoDefinition.NumL)
-                                .NumM(demoDefinition.NumM)
-                                .NumN(demoDefinition.NumN)
-                                .NumO(demoDefinition.NumO)
-                                .NumP(demoDefinition.NumP)
-                                .NumQ(demoDefinition.NumQ)
-                                .NumR(demoDefinition.NumR)
-                                .NumS(demoDefinition.NumS)
-                                .NumT(demoDefinition.NumT)
-                                .NumU(demoDefinition.NumU)
-                                .NumV(demoDefinition.NumV)
-                                .NumW(demoDefinition.NumW)
-                                .NumX(demoDefinition.NumX)
-                                .NumY(demoDefinition.NumY)
-                                .NumZ(demoDefinition.NumZ)
-                                .DateA(demoDefinition.DateA)
-                                .DateB(demoDefinition.DateB)
-                                .DateC(demoDefinition.DateC)
-                                .DateD(demoDefinition.DateD)
-                                .DateE(demoDefinition.DateE)
-                                .DateF(demoDefinition.DateF)
-                                .DateG(demoDefinition.DateG)
-                                .DateH(demoDefinition.DateH)
-                                .DateI(demoDefinition.DateI)
-                                .DateJ(demoDefinition.DateJ)
-                                .DateK(demoDefinition.DateK)
-                                .DateL(demoDefinition.DateL)
-                                .DateM(demoDefinition.DateM)
-                                .DateN(demoDefinition.DateN)
-                                .DateO(demoDefinition.DateO)
-                                .DateP(demoDefinition.DateP)
-                                .DateQ(demoDefinition.DateQ)
-                                .DateR(demoDefinition.DateR)
-                                .DateS(demoDefinition.DateS)
-                                .DateT(demoDefinition.DateT)
-                                .DateU(demoDefinition.DateU)
-                                .DateV(demoDefinition.DateV)
-                                .DateW(demoDefinition.DateW)
-                                .DateX(demoDefinition.DateX)
-                                .DateY(demoDefinition.DateY)
-                                .DateZ(demoDefinition.DateZ)
-                                .DescriptionA(demoDefinition.DescriptionA)
-                                .DescriptionB(demoDefinition.DescriptionB)
-                                .DescriptionC(demoDefinition.DescriptionC)
-                                .DescriptionD(demoDefinition.DescriptionD)
-                                .DescriptionE(demoDefinition.DescriptionE)
-                                .DescriptionF(demoDefinition.DescriptionF)
-                                .DescriptionG(demoDefinition.DescriptionG)
-                                .DescriptionH(demoDefinition.DescriptionH)
-                                .DescriptionI(demoDefinition.DescriptionI)
-                                .DescriptionJ(demoDefinition.DescriptionJ)
-                                .DescriptionK(demoDefinition.DescriptionK)
-                                .DescriptionL(demoDefinition.DescriptionL)
-                                .DescriptionM(demoDefinition.DescriptionM)
-                                .DescriptionN(demoDefinition.DescriptionN)
-                                .DescriptionO(demoDefinition.DescriptionO)
-                                .DescriptionP(demoDefinition.DescriptionP)
-                                .DescriptionQ(demoDefinition.DescriptionQ)
-                                .DescriptionR(demoDefinition.DescriptionR)
-                                .DescriptionS(demoDefinition.DescriptionS)
-                                .DescriptionT(demoDefinition.DescriptionT)
-                                .DescriptionU(demoDefinition.DescriptionU)
-                                .DescriptionV(demoDefinition.DescriptionV)
-                                .DescriptionW(demoDefinition.DescriptionW)
-                                .DescriptionX(demoDefinition.DescriptionX)
-                                .DescriptionY(demoDefinition.DescriptionY)
-                                .DescriptionZ(demoDefinition.DescriptionZ)
-                                .CheckA(demoDefinition.CheckA)
-                                .CheckB(demoDefinition.CheckB)
-                                .CheckC(demoDefinition.CheckC)
-                                .CheckD(demoDefinition.CheckD)
-                                .CheckE(demoDefinition.CheckE)
-                                .CheckF(demoDefinition.CheckF)
-                                .CheckG(demoDefinition.CheckG)
-                                .CheckH(demoDefinition.CheckH)
-                                .CheckI(demoDefinition.CheckI)
-                                .CheckJ(demoDefinition.CheckJ)
-                                .CheckK(demoDefinition.CheckK)
-                                .CheckL(demoDefinition.CheckL)
-                                .CheckM(demoDefinition.CheckM)
-                                .CheckN(demoDefinition.CheckN)
-                                .CheckO(demoDefinition.CheckO)
-                                .CheckP(demoDefinition.CheckP)
-                                .CheckQ(demoDefinition.CheckQ)
-                                .CheckR(demoDefinition.CheckR)
-                                .CheckS(demoDefinition.CheckS)
-                                .CheckT(demoDefinition.CheckT)
-                                .CheckU(demoDefinition.CheckU)
-                                .CheckV(demoDefinition.CheckV)
-                                .CheckW(demoDefinition.CheckW)
-                                .CheckX(demoDefinition.CheckX)
-                                .CheckY(demoDefinition.CheckY)
-                                .CheckZ(demoDefinition.CheckZ)
-                                .Comments(Comments(demoModel, idHash, demoDefinition.Id))
-                                .Creator(idHash.Get(demoDefinition.Creator))
-                                .Updator(idHash.Get(demoDefinition.Updator))
-                                .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                .UpdatedTime(demoDefinition.CreatedTime.DemoTime(demoModel)),
-                            addUpdatorParam: false)
-                    });
+                    var creator = idHash.Get(demoDefinition.Creator);
+                    var updator = idHash.Get(demoDefinition.Updator);
+                    context = context.CreateContext(
+                        tenantId: demoModel.TenantId,
+                        userId: updator.ToInt(),
+                        language: context.Language);
+                    var issueId = Rds.ExecuteScalar_response(
+                        context: context,
+                        selectIdentity: true,
+                        statements: new SqlStatement[]
+                        {
+                            Rds.InsertItems(
+                                setIdentity: true,
+                                param: Rds.ItemsParam()
+                                    .ReferenceType("Issues")
+                                    .Creator(creator)
+                                    .Updator(updator)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
+                                addUpdatorParam: false),
+                            Rds.InsertIssues(
+                                param: Rds.IssuesParam()
+                                    .SiteId(idHash.Get(demoDefinition.ParentId))
+                                    .IssueId(raw: Def.Sql.Identity)
+                                    .Title(demoDefinition.Title)
+                                    .Body(demoDefinition.Body.Replace(idHash))
+                                    .StartTime(demoDefinition.StartTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .CompletionTime(demoDefinition.CompletionTime
+                                        .AddDays(1)
+                                        .DemoTime(
+                                            context: context,
+                                            demoModel: demoModel))
+                                    .WorkValue(demoDefinition.WorkValue)
+                                    .ProgressRate(0)
+                                    .Status(demoDefinition.Status)
+                                    .Manager(idHash.Get(demoDefinition.Manager))
+                                    .Owner(idHash.Get(demoDefinition.Owner))
+                                    .ClassA(demoDefinition.ClassA.Replace(idHash))
+                                    .ClassB(demoDefinition.ClassB.Replace(idHash))
+                                    .ClassC(demoDefinition.ClassC.Replace(idHash))
+                                    .ClassD(demoDefinition.ClassD.Replace(idHash))
+                                    .ClassE(demoDefinition.ClassE.Replace(idHash))
+                                    .ClassF(demoDefinition.ClassF.Replace(idHash))
+                                    .ClassG(demoDefinition.ClassG.Replace(idHash))
+                                    .ClassH(demoDefinition.ClassH.Replace(idHash))
+                                    .ClassI(demoDefinition.ClassI.Replace(idHash))
+                                    .ClassJ(demoDefinition.ClassJ.Replace(idHash))
+                                    .ClassK(demoDefinition.ClassK.Replace(idHash))
+                                    .ClassL(demoDefinition.ClassL.Replace(idHash))
+                                    .ClassM(demoDefinition.ClassM.Replace(idHash))
+                                    .ClassN(demoDefinition.ClassN.Replace(idHash))
+                                    .ClassO(demoDefinition.ClassO.Replace(idHash))
+                                    .ClassP(demoDefinition.ClassP.Replace(idHash))
+                                    .ClassQ(demoDefinition.ClassQ.Replace(idHash))
+                                    .ClassR(demoDefinition.ClassR.Replace(idHash))
+                                    .ClassS(demoDefinition.ClassS.Replace(idHash))
+                                    .ClassT(demoDefinition.ClassT.Replace(idHash))
+                                    .ClassU(demoDefinition.ClassU.Replace(idHash))
+                                    .ClassV(demoDefinition.ClassV.Replace(idHash))
+                                    .ClassW(demoDefinition.ClassW.Replace(idHash))
+                                    .ClassX(demoDefinition.ClassX.Replace(idHash))
+                                    .ClassY(demoDefinition.ClassY.Replace(idHash))
+                                    .ClassZ(demoDefinition.ClassZ.Replace(idHash))
+                                    .NumA(demoDefinition.NumA)
+                                    .NumB(demoDefinition.NumB)
+                                    .NumC(demoDefinition.NumC)
+                                    .NumD(demoDefinition.NumD)
+                                    .NumE(demoDefinition.NumE)
+                                    .NumF(demoDefinition.NumF)
+                                    .NumG(demoDefinition.NumG)
+                                    .NumH(demoDefinition.NumH)
+                                    .NumI(demoDefinition.NumI)
+                                    .NumJ(demoDefinition.NumJ)
+                                    .NumK(demoDefinition.NumK)
+                                    .NumL(demoDefinition.NumL)
+                                    .NumM(demoDefinition.NumM)
+                                    .NumN(demoDefinition.NumN)
+                                    .NumO(demoDefinition.NumO)
+                                    .NumP(demoDefinition.NumP)
+                                    .NumQ(demoDefinition.NumQ)
+                                    .NumR(demoDefinition.NumR)
+                                    .NumS(demoDefinition.NumS)
+                                    .NumT(demoDefinition.NumT)
+                                    .NumU(demoDefinition.NumU)
+                                    .NumV(demoDefinition.NumV)
+                                    .NumW(demoDefinition.NumW)
+                                    .NumX(demoDefinition.NumX)
+                                    .NumY(demoDefinition.NumY)
+                                    .NumZ(demoDefinition.NumZ)
+                                    .DateA(demoDefinition.DateA)
+                                    .DateB(demoDefinition.DateB)
+                                    .DateC(demoDefinition.DateC)
+                                    .DateD(demoDefinition.DateD)
+                                    .DateE(demoDefinition.DateE)
+                                    .DateF(demoDefinition.DateF)
+                                    .DateG(demoDefinition.DateG)
+                                    .DateH(demoDefinition.DateH)
+                                    .DateI(demoDefinition.DateI)
+                                    .DateJ(demoDefinition.DateJ)
+                                    .DateK(demoDefinition.DateK)
+                                    .DateL(demoDefinition.DateL)
+                                    .DateM(demoDefinition.DateM)
+                                    .DateN(demoDefinition.DateN)
+                                    .DateO(demoDefinition.DateO)
+                                    .DateP(demoDefinition.DateP)
+                                    .DateQ(demoDefinition.DateQ)
+                                    .DateR(demoDefinition.DateR)
+                                    .DateS(demoDefinition.DateS)
+                                    .DateT(demoDefinition.DateT)
+                                    .DateU(demoDefinition.DateU)
+                                    .DateV(demoDefinition.DateV)
+                                    .DateW(demoDefinition.DateW)
+                                    .DateX(demoDefinition.DateX)
+                                    .DateY(demoDefinition.DateY)
+                                    .DateZ(demoDefinition.DateZ)
+                                    .DescriptionA(demoDefinition.DescriptionA)
+                                    .DescriptionB(demoDefinition.DescriptionB)
+                                    .DescriptionC(demoDefinition.DescriptionC)
+                                    .DescriptionD(demoDefinition.DescriptionD)
+                                    .DescriptionE(demoDefinition.DescriptionE)
+                                    .DescriptionF(demoDefinition.DescriptionF)
+                                    .DescriptionG(demoDefinition.DescriptionG)
+                                    .DescriptionH(demoDefinition.DescriptionH)
+                                    .DescriptionI(demoDefinition.DescriptionI)
+                                    .DescriptionJ(demoDefinition.DescriptionJ)
+                                    .DescriptionK(demoDefinition.DescriptionK)
+                                    .DescriptionL(demoDefinition.DescriptionL)
+                                    .DescriptionM(demoDefinition.DescriptionM)
+                                    .DescriptionN(demoDefinition.DescriptionN)
+                                    .DescriptionO(demoDefinition.DescriptionO)
+                                    .DescriptionP(demoDefinition.DescriptionP)
+                                    .DescriptionQ(demoDefinition.DescriptionQ)
+                                    .DescriptionR(demoDefinition.DescriptionR)
+                                    .DescriptionS(demoDefinition.DescriptionS)
+                                    .DescriptionT(demoDefinition.DescriptionT)
+                                    .DescriptionU(demoDefinition.DescriptionU)
+                                    .DescriptionV(demoDefinition.DescriptionV)
+                                    .DescriptionW(demoDefinition.DescriptionW)
+                                    .DescriptionX(demoDefinition.DescriptionX)
+                                    .DescriptionY(demoDefinition.DescriptionY)
+                                    .DescriptionZ(demoDefinition.DescriptionZ)
+                                    .CheckA(demoDefinition.CheckA)
+                                    .CheckB(demoDefinition.CheckB)
+                                    .CheckC(demoDefinition.CheckC)
+                                    .CheckD(demoDefinition.CheckD)
+                                    .CheckE(demoDefinition.CheckE)
+                                    .CheckF(demoDefinition.CheckF)
+                                    .CheckG(demoDefinition.CheckG)
+                                    .CheckH(demoDefinition.CheckH)
+                                    .CheckI(demoDefinition.CheckI)
+                                    .CheckJ(demoDefinition.CheckJ)
+                                    .CheckK(demoDefinition.CheckK)
+                                    .CheckL(demoDefinition.CheckL)
+                                    .CheckM(demoDefinition.CheckM)
+                                    .CheckN(demoDefinition.CheckN)
+                                    .CheckO(demoDefinition.CheckO)
+                                    .CheckP(demoDefinition.CheckP)
+                                    .CheckQ(demoDefinition.CheckQ)
+                                    .CheckR(demoDefinition.CheckR)
+                                    .CheckS(demoDefinition.CheckS)
+                                    .CheckT(demoDefinition.CheckT)
+                                    .CheckU(demoDefinition.CheckU)
+                                    .CheckV(demoDefinition.CheckV)
+                                    .CheckW(demoDefinition.CheckW)
+                                    .CheckX(demoDefinition.CheckX)
+                                    .CheckY(demoDefinition.CheckY)
+                                    .CheckZ(demoDefinition.CheckZ)
+                                    .Comments(Comments(
+                                        context: context,
+                                        demoModel: demoModel,
+                                        idHash: idHash,
+                                        parentId: demoDefinition.Id))
+                                    .Creator(creator)
+                                    .Updator(updator)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
+                                addUpdatorParam: false)
+                        }).Identity.ToLong();
                     idHash.Add(demoDefinition.Id, issueId);
                     var siteModel = new SiteModel().Get(
+                        context: context,
                         where: Rds.SitesWhere().SiteId(idHash.Get(demoDefinition.ParentId)));
-                    var ss = siteModel.IssuesSiteSettings(issueId);
-                    var issueModel = new IssueModel(ss, issueId);
-                    var fullText = issueModel.FullText(ss);
-                    Rds.ExecuteNonQuery(statements:
-                        Rds.UpdateItems(
+                    var ss = siteModel.IssuesSiteSettings(context: context, referenceId: issueId);
+                    var issueModel = new IssueModel(
+                        context: context,
+                        ss: ss,
+                        issueId: issueId);
+                    var fullText = issueModel.FullText(context: context, ss: ss);
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.UpdateItems(
                             param: Rds.ItemsParam()
                                 .SiteId(issueModel.SiteId)
                                 .Title(issueModel.Title.DisplayValue)
@@ -469,20 +619,19 @@ namespace Implem.Pleasanter.Models
                         var startTime = issueModel.StartTime;
                         var progressRate = demoDefinition.ProgressRate;
                         var status = issueModel.Status.Value;
-                        var creator = issueModel.Creator.Id;
-                        var updator = issueModel.Updator.Id;
                         for (var d = 0; d < days -1; d++)
                         {
                             issueModel.VerUp = true;
-                            issueModel.Update(ss);
+                            issueModel.Update(context: context, ss: ss);
                             var recordingTime = d > 0
                                 ? startTime
                                     .AddDays(d)
                                     .AddHours(-6)
                                     .AddMinutes(new Random().Next(-360, +360))
                                 : issueModel.CreatedTime.Value;
-                            Rds.ExecuteNonQuery(statements:
-                                Rds.UpdateIssues(
+                            Rds.ExecuteNonQuery(
+                                context: context,
+                                statements: Rds.UpdateIssues(
                                     tableType: Sqls.TableTypes.History,
                                     addUpdatedTimeParam: false,
                                     addUpdatorParam: false,
@@ -502,8 +651,9 @@ namespace Implem.Pleasanter.Models
                                             where: Rds.IssuesWhere()
                                                 .IssueId(issueModel.IssueId)))));
                         }
-                        Rds.ExecuteNonQuery(statements:
-                            Rds.UpdateIssues(
+                        Rds.ExecuteNonQuery(
+                            context: context,
+                            statements: Rds.UpdateIssues(
                                 addUpdatorParam: false,
                                 addUpdatedTimeParam: false,
                                 param: Rds.IssuesParam()
@@ -511,8 +661,12 @@ namespace Implem.Pleasanter.Models
                                     .Status(status)
                                     .Creator(creator)
                                     .Updator(updator)
-                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel)),
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
                                 where: Rds.IssuesWhere()
                                     .IssueId(issueModel.IssueId)));
                     }
@@ -533,179 +687,209 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static void InitializeResults(
-            DemoModel demoModel, string parentId, Dictionary<string, long> idHash)
+            IContext context,
+            DemoModel demoModel,
+            string parentId,
+            Dictionary<string, long> idHash)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.ParentId == parentId)
                 .Where(o => o.Type == "Results")
                 .ForEach(demoDefinition =>
                 {
-                    var resultId = Rds.ExecuteScalar_long(statements: new SqlStatement[]
-                    {
-                        Rds.InsertItems(
-                            selectIdentity: true,
-                            param: Rds.ItemsParam()
-                                .ReferenceType("Results")
-                                .Creator(idHash.Get(demoDefinition.Creator))
-                                .Updator(idHash.Get(demoDefinition.Updator))
-                                .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel)),
-                            addUpdatorParam: false),
-                        Rds.InsertResults(
-                            selectIdentity: true,
-                            param: Rds.ResultsParam()
-                                .SiteId(idHash.Get(demoDefinition.ParentId))
-                                .ResultId(raw: Def.Sql.Identity)
-                                .Title(demoDefinition.Title)
-                                .Body(demoDefinition.Body.Replace(idHash))
-                                .Status(demoDefinition.Status)
-                                .Manager(idHash.Get(demoDefinition.Manager))
-                                .Owner(idHash.Get(demoDefinition.Owner))
-                                .ClassA(demoDefinition.ClassA.Replace(idHash))
-                                .ClassB(demoDefinition.ClassB.Replace(idHash))
-                                .ClassC(demoDefinition.ClassC.Replace(idHash))
-                                .ClassD(demoDefinition.ClassD.Replace(idHash))
-                                .ClassE(demoDefinition.ClassE.Replace(idHash))
-                                .ClassF(demoDefinition.ClassF.Replace(idHash))
-                                .ClassG(demoDefinition.ClassG.Replace(idHash))
-                                .ClassH(demoDefinition.ClassH.Replace(idHash))
-                                .ClassI(demoDefinition.ClassI.Replace(idHash))
-                                .ClassJ(demoDefinition.ClassJ.Replace(idHash))
-                                .ClassK(demoDefinition.ClassK.Replace(idHash))
-                                .ClassL(demoDefinition.ClassL.Replace(idHash))
-                                .ClassM(demoDefinition.ClassM.Replace(idHash))
-                                .ClassN(demoDefinition.ClassN.Replace(idHash))
-                                .ClassO(demoDefinition.ClassO.Replace(idHash))
-                                .ClassP(demoDefinition.ClassP.Replace(idHash))
-                                .ClassQ(demoDefinition.ClassQ.Replace(idHash))
-                                .ClassR(demoDefinition.ClassR.Replace(idHash))
-                                .ClassS(demoDefinition.ClassS.Replace(idHash))
-                                .ClassT(demoDefinition.ClassT.Replace(idHash))
-                                .ClassU(demoDefinition.ClassU.Replace(idHash))
-                                .ClassV(demoDefinition.ClassV.Replace(idHash))
-                                .ClassW(demoDefinition.ClassW.Replace(idHash))
-                                .ClassX(demoDefinition.ClassX.Replace(idHash))
-                                .ClassY(demoDefinition.ClassY.Replace(idHash))
-                                .ClassZ(demoDefinition.ClassZ.Replace(idHash))
-                                .NumA(demoDefinition.NumA)
-                                .NumB(demoDefinition.NumB)
-                                .NumC(demoDefinition.NumC)
-                                .NumD(demoDefinition.NumD)
-                                .NumE(demoDefinition.NumE)
-                                .NumF(demoDefinition.NumF)
-                                .NumG(demoDefinition.NumG)
-                                .NumH(demoDefinition.NumH)
-                                .NumI(demoDefinition.NumI)
-                                .NumJ(demoDefinition.NumJ)
-                                .NumK(demoDefinition.NumK)
-                                .NumL(demoDefinition.NumL)
-                                .NumM(demoDefinition.NumM)
-                                .NumN(demoDefinition.NumN)
-                                .NumO(demoDefinition.NumO)
-                                .NumP(demoDefinition.NumP)
-                                .NumQ(demoDefinition.NumQ)
-                                .NumR(demoDefinition.NumR)
-                                .NumS(demoDefinition.NumS)
-                                .NumT(demoDefinition.NumT)
-                                .NumU(demoDefinition.NumU)
-                                .NumV(demoDefinition.NumV)
-                                .NumW(demoDefinition.NumW)
-                                .NumX(demoDefinition.NumX)
-                                .NumY(demoDefinition.NumY)
-                                .NumZ(demoDefinition.NumZ)
-                                .DateA(demoDefinition.DateA)
-                                .DateB(demoDefinition.DateB)
-                                .DateC(demoDefinition.DateC)
-                                .DateD(demoDefinition.DateD)
-                                .DateE(demoDefinition.DateE)
-                                .DateF(demoDefinition.DateF)
-                                .DateG(demoDefinition.DateG)
-                                .DateH(demoDefinition.DateH)
-                                .DateI(demoDefinition.DateI)
-                                .DateJ(demoDefinition.DateJ)
-                                .DateK(demoDefinition.DateK)
-                                .DateL(demoDefinition.DateL)
-                                .DateM(demoDefinition.DateM)
-                                .DateN(demoDefinition.DateN)
-                                .DateO(demoDefinition.DateO)
-                                .DateP(demoDefinition.DateP)
-                                .DateQ(demoDefinition.DateQ)
-                                .DateR(demoDefinition.DateR)
-                                .DateS(demoDefinition.DateS)
-                                .DateT(demoDefinition.DateT)
-                                .DateU(demoDefinition.DateU)
-                                .DateV(demoDefinition.DateV)
-                                .DateW(demoDefinition.DateW)
-                                .DateX(demoDefinition.DateX)
-                                .DateY(demoDefinition.DateY)
-                                .DateZ(demoDefinition.DateZ)
-                                .DescriptionA(demoDefinition.DescriptionA)
-                                .DescriptionB(demoDefinition.DescriptionB)
-                                .DescriptionC(demoDefinition.DescriptionC)
-                                .DescriptionD(demoDefinition.DescriptionD)
-                                .DescriptionE(demoDefinition.DescriptionE)
-                                .DescriptionF(demoDefinition.DescriptionF)
-                                .DescriptionG(demoDefinition.DescriptionG)
-                                .DescriptionH(demoDefinition.DescriptionH)
-                                .DescriptionI(demoDefinition.DescriptionI)
-                                .DescriptionJ(demoDefinition.DescriptionJ)
-                                .DescriptionK(demoDefinition.DescriptionK)
-                                .DescriptionL(demoDefinition.DescriptionL)
-                                .DescriptionM(demoDefinition.DescriptionM)
-                                .DescriptionN(demoDefinition.DescriptionN)
-                                .DescriptionO(demoDefinition.DescriptionO)
-                                .DescriptionP(demoDefinition.DescriptionP)
-                                .DescriptionQ(demoDefinition.DescriptionQ)
-                                .DescriptionR(demoDefinition.DescriptionR)
-                                .DescriptionS(demoDefinition.DescriptionS)
-                                .DescriptionT(demoDefinition.DescriptionT)
-                                .DescriptionU(demoDefinition.DescriptionU)
-                                .DescriptionV(demoDefinition.DescriptionV)
-                                .DescriptionW(demoDefinition.DescriptionW)
-                                .DescriptionX(demoDefinition.DescriptionX)
-                                .DescriptionY(demoDefinition.DescriptionY)
-                                .DescriptionZ(demoDefinition.DescriptionZ)
-                                .CheckA(demoDefinition.CheckA)
-                                .CheckB(demoDefinition.CheckB)
-                                .CheckC(demoDefinition.CheckC)
-                                .CheckD(demoDefinition.CheckD)
-                                .CheckE(demoDefinition.CheckE)
-                                .CheckF(demoDefinition.CheckF)
-                                .CheckG(demoDefinition.CheckG)
-                                .CheckH(demoDefinition.CheckH)
-                                .CheckI(demoDefinition.CheckI)
-                                .CheckJ(demoDefinition.CheckJ)
-                                .CheckK(demoDefinition.CheckK)
-                                .CheckL(demoDefinition.CheckL)
-                                .CheckM(demoDefinition.CheckM)
-                                .CheckN(demoDefinition.CheckN)
-                                .CheckO(demoDefinition.CheckO)
-                                .CheckP(demoDefinition.CheckP)
-                                .CheckQ(demoDefinition.CheckQ)
-                                .CheckR(demoDefinition.CheckR)
-                                .CheckS(demoDefinition.CheckS)
-                                .CheckT(demoDefinition.CheckT)
-                                .CheckU(demoDefinition.CheckU)
-                                .CheckV(demoDefinition.CheckV)
-                                .CheckW(demoDefinition.CheckW)
-                                .CheckX(demoDefinition.CheckX)
-                                .CheckY(demoDefinition.CheckY)
-                                .CheckZ(demoDefinition.CheckZ)
-                                .Comments(Comments(demoModel, idHash, demoDefinition.Id))
-                                .Creator(idHash.Get(demoDefinition.Creator))
-                                .Updator(idHash.Get(demoDefinition.Updator))
-                                .CreatedTime(demoDefinition.CreatedTime.DemoTime(demoModel))
-                                .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(demoModel)),
-                            addUpdatorParam: false)
-                    });
+                    var creator = idHash.Get(demoDefinition.Creator);
+                    var updator = idHash.Get(demoDefinition.Updator);
+                    context = context.CreateContext(
+                        tenantId: demoModel.TenantId,
+                        userId: updator.ToInt(),
+                        language: context.Language);
+                    var resultId = Rds.ExecuteScalar_response(
+                        context: context,
+                        selectIdentity: true,
+                        statements: new SqlStatement[]
+                        {
+                            Rds.InsertItems(
+                                setIdentity: true,
+                                param: Rds.ItemsParam()
+                                    .ReferenceType("Results")
+                                    .Creator(creator)
+                                    .Updator(updator)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
+                                addUpdatorParam: false),
+                            Rds.InsertResults(
+                                param: Rds.ResultsParam()
+                                    .SiteId(idHash.Get(demoDefinition.ParentId))
+                                    .ResultId(raw: Def.Sql.Identity)
+                                    .Title(demoDefinition.Title)
+                                    .Body(demoDefinition.Body.Replace(idHash))
+                                    .Status(demoDefinition.Status)
+                                    .Manager(idHash.Get(demoDefinition.Manager))
+                                    .Owner(idHash.Get(demoDefinition.Owner))
+                                    .ClassA(demoDefinition.ClassA.Replace(idHash))
+                                    .ClassB(demoDefinition.ClassB.Replace(idHash))
+                                    .ClassC(demoDefinition.ClassC.Replace(idHash))
+                                    .ClassD(demoDefinition.ClassD.Replace(idHash))
+                                    .ClassE(demoDefinition.ClassE.Replace(idHash))
+                                    .ClassF(demoDefinition.ClassF.Replace(idHash))
+                                    .ClassG(demoDefinition.ClassG.Replace(idHash))
+                                    .ClassH(demoDefinition.ClassH.Replace(idHash))
+                                    .ClassI(demoDefinition.ClassI.Replace(idHash))
+                                    .ClassJ(demoDefinition.ClassJ.Replace(idHash))
+                                    .ClassK(demoDefinition.ClassK.Replace(idHash))
+                                    .ClassL(demoDefinition.ClassL.Replace(idHash))
+                                    .ClassM(demoDefinition.ClassM.Replace(idHash))
+                                    .ClassN(demoDefinition.ClassN.Replace(idHash))
+                                    .ClassO(demoDefinition.ClassO.Replace(idHash))
+                                    .ClassP(demoDefinition.ClassP.Replace(idHash))
+                                    .ClassQ(demoDefinition.ClassQ.Replace(idHash))
+                                    .ClassR(demoDefinition.ClassR.Replace(idHash))
+                                    .ClassS(demoDefinition.ClassS.Replace(idHash))
+                                    .ClassT(demoDefinition.ClassT.Replace(idHash))
+                                    .ClassU(demoDefinition.ClassU.Replace(idHash))
+                                    .ClassV(demoDefinition.ClassV.Replace(idHash))
+                                    .ClassW(demoDefinition.ClassW.Replace(idHash))
+                                    .ClassX(demoDefinition.ClassX.Replace(idHash))
+                                    .ClassY(demoDefinition.ClassY.Replace(idHash))
+                                    .ClassZ(demoDefinition.ClassZ.Replace(idHash))
+                                    .NumA(demoDefinition.NumA)
+                                    .NumB(demoDefinition.NumB)
+                                    .NumC(demoDefinition.NumC)
+                                    .NumD(demoDefinition.NumD)
+                                    .NumE(demoDefinition.NumE)
+                                    .NumF(demoDefinition.NumF)
+                                    .NumG(demoDefinition.NumG)
+                                    .NumH(demoDefinition.NumH)
+                                    .NumI(demoDefinition.NumI)
+                                    .NumJ(demoDefinition.NumJ)
+                                    .NumK(demoDefinition.NumK)
+                                    .NumL(demoDefinition.NumL)
+                                    .NumM(demoDefinition.NumM)
+                                    .NumN(demoDefinition.NumN)
+                                    .NumO(demoDefinition.NumO)
+                                    .NumP(demoDefinition.NumP)
+                                    .NumQ(demoDefinition.NumQ)
+                                    .NumR(demoDefinition.NumR)
+                                    .NumS(demoDefinition.NumS)
+                                    .NumT(demoDefinition.NumT)
+                                    .NumU(demoDefinition.NumU)
+                                    .NumV(demoDefinition.NumV)
+                                    .NumW(demoDefinition.NumW)
+                                    .NumX(demoDefinition.NumX)
+                                    .NumY(demoDefinition.NumY)
+                                    .NumZ(demoDefinition.NumZ)
+                                    .DateA(demoDefinition.DateA)
+                                    .DateB(demoDefinition.DateB)
+                                    .DateC(demoDefinition.DateC)
+                                    .DateD(demoDefinition.DateD)
+                                    .DateE(demoDefinition.DateE)
+                                    .DateF(demoDefinition.DateF)
+                                    .DateG(demoDefinition.DateG)
+                                    .DateH(demoDefinition.DateH)
+                                    .DateI(demoDefinition.DateI)
+                                    .DateJ(demoDefinition.DateJ)
+                                    .DateK(demoDefinition.DateK)
+                                    .DateL(demoDefinition.DateL)
+                                    .DateM(demoDefinition.DateM)
+                                    .DateN(demoDefinition.DateN)
+                                    .DateO(demoDefinition.DateO)
+                                    .DateP(demoDefinition.DateP)
+                                    .DateQ(demoDefinition.DateQ)
+                                    .DateR(demoDefinition.DateR)
+                                    .DateS(demoDefinition.DateS)
+                                    .DateT(demoDefinition.DateT)
+                                    .DateU(demoDefinition.DateU)
+                                    .DateV(demoDefinition.DateV)
+                                    .DateW(demoDefinition.DateW)
+                                    .DateX(demoDefinition.DateX)
+                                    .DateY(demoDefinition.DateY)
+                                    .DateZ(demoDefinition.DateZ)
+                                    .DescriptionA(demoDefinition.DescriptionA)
+                                    .DescriptionB(demoDefinition.DescriptionB)
+                                    .DescriptionC(demoDefinition.DescriptionC)
+                                    .DescriptionD(demoDefinition.DescriptionD)
+                                    .DescriptionE(demoDefinition.DescriptionE)
+                                    .DescriptionF(demoDefinition.DescriptionF)
+                                    .DescriptionG(demoDefinition.DescriptionG)
+                                    .DescriptionH(demoDefinition.DescriptionH)
+                                    .DescriptionI(demoDefinition.DescriptionI)
+                                    .DescriptionJ(demoDefinition.DescriptionJ)
+                                    .DescriptionK(demoDefinition.DescriptionK)
+                                    .DescriptionL(demoDefinition.DescriptionL)
+                                    .DescriptionM(demoDefinition.DescriptionM)
+                                    .DescriptionN(demoDefinition.DescriptionN)
+                                    .DescriptionO(demoDefinition.DescriptionO)
+                                    .DescriptionP(demoDefinition.DescriptionP)
+                                    .DescriptionQ(demoDefinition.DescriptionQ)
+                                    .DescriptionR(demoDefinition.DescriptionR)
+                                    .DescriptionS(demoDefinition.DescriptionS)
+                                    .DescriptionT(demoDefinition.DescriptionT)
+                                    .DescriptionU(demoDefinition.DescriptionU)
+                                    .DescriptionV(demoDefinition.DescriptionV)
+                                    .DescriptionW(demoDefinition.DescriptionW)
+                                    .DescriptionX(demoDefinition.DescriptionX)
+                                    .DescriptionY(demoDefinition.DescriptionY)
+                                    .DescriptionZ(demoDefinition.DescriptionZ)
+                                    .CheckA(demoDefinition.CheckA)
+                                    .CheckB(demoDefinition.CheckB)
+                                    .CheckC(demoDefinition.CheckC)
+                                    .CheckD(demoDefinition.CheckD)
+                                    .CheckE(demoDefinition.CheckE)
+                                    .CheckF(demoDefinition.CheckF)
+                                    .CheckG(demoDefinition.CheckG)
+                                    .CheckH(demoDefinition.CheckH)
+                                    .CheckI(demoDefinition.CheckI)
+                                    .CheckJ(demoDefinition.CheckJ)
+                                    .CheckK(demoDefinition.CheckK)
+                                    .CheckL(demoDefinition.CheckL)
+                                    .CheckM(demoDefinition.CheckM)
+                                    .CheckN(demoDefinition.CheckN)
+                                    .CheckO(demoDefinition.CheckO)
+                                    .CheckP(demoDefinition.CheckP)
+                                    .CheckQ(demoDefinition.CheckQ)
+                                    .CheckR(demoDefinition.CheckR)
+                                    .CheckS(demoDefinition.CheckS)
+                                    .CheckT(demoDefinition.CheckT)
+                                    .CheckU(demoDefinition.CheckU)
+                                    .CheckV(demoDefinition.CheckV)
+                                    .CheckW(demoDefinition.CheckW)
+                                    .CheckX(demoDefinition.CheckX)
+                                    .CheckY(demoDefinition.CheckY)
+                                    .CheckZ(demoDefinition.CheckZ)
+                                    .Comments(Comments(
+                                        context: context,
+                                        demoModel: demoModel,
+                                        idHash: idHash,
+                                        parentId: demoDefinition.Id))
+                                    .Creator(creator)
+                                    .Updator(updator)
+                                    .CreatedTime(demoDefinition.CreatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel))
+                                    .UpdatedTime(demoDefinition.UpdatedTime.DemoTime(
+                                        context: context,
+                                        demoModel: demoModel)),
+                                addUpdatorParam: false)
+                        }).Identity.ToLong();
                     idHash.Add(demoDefinition.Id, resultId);
                     var siteModel = new SiteModel().Get(
+                        context: context,
                         where: Rds.SitesWhere().SiteId(idHash.Get(demoDefinition.ParentId)));
-                    var ss = siteModel.ResultsSiteSettings(resultId);
-                    var resultModel = new ResultModel(ss, resultId);
-                    var fullText = resultModel.FullText(ss);
-                    Rds.ExecuteNonQuery(statements:
-                        Rds.UpdateItems(
+                    var ss = siteModel.ResultsSiteSettings(
+                        context: context, referenceId: resultId);
+                    var resultModel = new ResultModel(
+                        context: context,
+                        ss: ss,
+                        resultId: resultId);
+                    var fullText = resultModel.FullText(context: context, ss: ss);
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.UpdateItems(
                             param: Rds.ItemsParam()
                                 .SiteId(resultModel.SiteId)
                                 .Title(resultModel.Title.DisplayValue)
@@ -713,36 +897,46 @@ namespace Implem.Pleasanter.Models
                             where: Rds.ItemsWhere().ReferenceId(resultModel.ResultId),
                             addUpdatorParam: false,
                             addUpdatedTimeParam: false));
-                    Libraries.Search.Indexes.Create(ss, resultModel);
+                    Libraries.Search.Indexes.Create(
+                        context: context,
+                        ss: ss,
+                        resultModel: resultModel);
                 });
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static void InitializeLinks(DemoModel demoModel, Dictionary<string, long> idHash)
+        private static void InitializeLinks(
+            IContext context, DemoModel demoModel, Dictionary<string, long> idHash)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Sites")
                 .Where(o => o.ClassB.Trim() != string.Empty)
                 .ForEach(demoDefinition =>
-                    Rds.ExecuteNonQuery(statements:
-                        Rds.InsertLinks(param: Rds.LinksParam()
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.InsertLinks(param: Rds.LinksParam()
                             .DestinationId(idHash.Get(demoDefinition.ClassB))
                             .SourceId(idHash.Get(demoDefinition.Id)))));
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Sites")
                 .Where(o => o.ClassC.Trim() != string.Empty)
                 .ForEach(demoDefinition =>
-                    Rds.ExecuteNonQuery(statements:
-                        Rds.InsertLinks(param: Rds.LinksParam()
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.InsertLinks(param: Rds.LinksParam()
                             .DestinationId(idHash.Get(demoDefinition.ClassC))
                             .SourceId(idHash.Get(demoDefinition.Id)))));
             Def.DemoDefinitionCollection
-                .Where(o => o.ClassA.RegexExists("^#[A-Za-z0-9]+?#$"))
+                .Where(o => o.Language == context.Language)
+                .Where(o => o.ClassA.RegexExists("^#[A-Za-z0-9_]+?#$"))
                 .ForEach(demoDefinition =>
-                    Rds.ExecuteNonQuery(statements:
-                        Rds.InsertLinks(param: Rds.LinksParam()
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.InsertLinks(param: Rds.LinksParam()
                             .DestinationId(idHash.Get(demoDefinition.ClassA
                                 .Substring(1, demoDefinition.ClassA.Length - 2)))
                             .SourceId(idHash.Get(demoDefinition.Id)))));
@@ -751,25 +945,28 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static void InitializePermissions(Dictionary<string, long> idHash)
+        private static void InitializePermissions(IContext context, Dictionary<string, long> idHash)
         {
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Sites")
                 .Where(o => o.ParentId == string.Empty)
                 .Select(o => o.Id)
                 .ForEach(id =>
             {
-                Rds.ExecuteNonQuery(statements:
-                    Rds.InsertPermissions(
+                Rds.ExecuteNonQuery(
+                    context: context,
+                    statements: Rds.InsertPermissions(
                         param: Rds.PermissionsParam()
                             .ReferenceId(idHash.Get(id))
                             .DeptId(0)
-                            .UserId(idHash.Get("User1"))
+                            .UserId(idHash.Get(FirstUser(context: context)))
                             .PermissionType(Permissions.Manager())));
                 idHash.Where(o => o.Key.StartsWith("Dept")).Select(o => o.Value).ForEach(deptId =>
                 {
-                    Rds.ExecuteNonQuery(statements:
-                        Rds.InsertPermissions(
+                    Rds.ExecuteNonQuery(
+                        context: context,
+                        statements: Rds.InsertPermissions(
                             param: Rds.PermissionsParam()
                                 .ReferenceId(idHash.Get(id))
                                 .DeptId(deptId)
@@ -783,12 +980,14 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static string Comments(
+            IContext context,
             DemoModel demoModel,
             Dictionary<string, long> idHash,
             string parentId)
         {
             var comments = new Comments();
             Def.DemoDefinitionCollection
+                .Where(o => o.Language == context.Language)
                 .Where(o => o.Type == "Comments")
                 .Where(o => o.ParentId == parentId)
                 .Select((o, i) => new { DemoDefinition = o, Index = i })
@@ -796,7 +995,9 @@ namespace Implem.Pleasanter.Models
                     comments.Add(new Comment
                     {
                         CommentId = data.Index + 1,
-                        CreatedTime = data.DemoDefinition.CreatedTime.DemoTime(demoModel),
+                        CreatedTime = data.DemoDefinition.CreatedTime.DemoTime(
+                            context: context,
+                            demoModel: demoModel),
                         Creator = idHash.Get(data.DemoDefinition.Creator).ToInt(),
                         Body = data.DemoDefinition.Body.Replace(idHash)
                     }));
@@ -808,7 +1009,7 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         private static string Replace(this string self, Dictionary<string, long> idHash)
         {
-            foreach (var id in self.RegexValues("#[A-Za-z0-9]+?#").Distinct())
+            foreach (var id in self.RegexValues("#[A-Za-z0-9_]+?#").Distinct())
             {
                 self = self.Replace(
                     id, idHash.Get(id.ToString().Substring(1, id.Length - 2)).ToString());
@@ -837,9 +1038,9 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static DateTime DemoTime(this DateTime self, DemoModel demoModel)
+        private static DateTime DemoTime(this DateTime self, IContext context, DemoModel demoModel)
         {
-            return self.AddDays(demoModel.TimeLag).ToUniversal();
+            return self.AddDays(demoModel.TimeLag).ToUniversal(context: context);
         }
     }
 }

@@ -9,13 +9,10 @@ using System.Linq;
 using System.Reflection;
 namespace Implem.CodeDefiner
 {
-    internal class Starter
+    public class Starter
     {
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
-            // エンコードプロバイダーの登録が必要
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-
             var argList = args.Select(o => o.Trim());
             ValidateArgs(argList);
             var argHash = new TextData(argList.Skip(1).Join(string.Empty), '/', 1);

@@ -1,6 +1,7 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataTypes;
 using Implem.Pleasanter.Libraries.Models;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
 namespace Implem.Pleasanter.Models
@@ -16,6 +17,7 @@ namespace Implem.Pleasanter.Models
             Edit
         }
 
+        [NonSerialized] public IContext Context;
         [NonSerialized] public Databases.AccessStatuses AccessStatus = Databases.AccessStatuses.Initialized;
         [NonSerialized] public MethodTypes MethodType = MethodTypes.NotSet;
         [NonSerialized] public Versions.VerTypes VerType = Versions.VerTypes.Latest;
@@ -37,36 +39,36 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public string SavedTimestamp = string.Empty;
         [NonSerialized] public string SavedComments = "[]";
 
-        public bool Ver_Updated(Column column = null)
+        public bool Ver_Updated(IContext context, Column column = null)
         {
             return Ver != SavedVer &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != Ver);
+                column.GetDefaultInput(context: context).ToInt() != Ver);
         }
 
-        public bool Comments_Updated(Column column = null)
+        public bool Comments_Updated(IContext context, Column column = null)
         {
             return Comments.ToJson() != SavedComments && Comments.ToJson() != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Comments.ToJson());
+                column.GetDefaultInput(context: context).ToString() != Comments.ToJson());
         }
 
-        public bool Creator_Updated(Column column = null)
+        public bool Creator_Updated(IContext context, Column column = null)
         {
             return Creator.Id != SavedCreator &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != Creator.Id);
+                column.GetDefaultInput(context: context).ToInt() != Creator.Id);
         }
 
-        public bool Updator_Updated(Column column = null)
+        public bool Updator_Updated(IContext context, Column column = null)
         {
             return Updator.Id != SavedUpdator &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToInt() != Updator.Id);
+                column.GetDefaultInput(context: context).ToInt() != Updator.Id);
         }
     }
 
@@ -79,28 +81,28 @@ namespace Implem.Pleasanter.Models
         [NonSerialized] public string SavedTitle = string.Empty;
         [NonSerialized] public string SavedBody = string.Empty;
 
-        public bool SiteId_Updated(Column column = null)
+        public bool SiteId_Updated(IContext context, Column column = null)
         {
             return SiteId != SavedSiteId &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToLong() != SiteId);
+                column.GetDefaultInput(context: context).ToLong() != SiteId);
         }
 
-        public bool Title_Updated(Column column = null)
+        public bool Title_Updated(IContext context, Column column = null)
         {
             return Title.Value != SavedTitle && Title.Value != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Title.Value);
+                column.GetDefaultInput(context: context).ToString() != Title.Value);
         }
 
-        public bool Body_Updated(Column column = null)
+        public bool Body_Updated(IContext context, Column column = null)
         {
             return Body != SavedBody && Body != null &&
                 (column == null ||
                 column.DefaultInput.IsNullOrEmpty() ||
-                column.DefaultInput.ToString() != Body);
+                column.GetDefaultInput(context: context).ToString() != Body);
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using AspNetCoreCurrentRequestContext;
-using Implem.DefinitionAccessor;
+﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -21,6 +20,7 @@ namespace Implem.Pleasanter.Libraries.Settings
     {
         public int Id;
         public string Name;
+        public List<string> GridColumns;
         public bool? Incomplete;
         public bool? Own;
         public bool? NearCompletionTime;
@@ -29,6 +29,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         public Dictionary<string, string> ColumnFilterHash;
         public string Search;
         public Dictionary<string, SqlOrderBy.Types> ColumnSorterHash;
+        public string CalendarTimePeriod;
         public string CalendarFromTo;
         public DateTime? CalendarMonth;
         public string CrosstabGroupByX;
@@ -60,9 +61,9 @@ namespace Implem.Pleasanter.Libraries.Settings
         {
         }
 
-        public View(SiteSettings ss)
+        public View(IContext context, SiteSettings ss)
         {
-            SetByForm(ss);
+            SetByForm(context: context, ss: ss);
         }
 
         [OnDeserialized]
@@ -76,11 +77,20 @@ namespace Implem.Pleasanter.Libraries.Settings
         {
         }
 
+        public string GetCalendarTimePeriod(SiteSettings ss)
+        {
+            if (CalendarTimePeriod.IsNullOrEmpty())
+            {
+                CalendarTimePeriod = Definition(ss, "Calendar")?.Option1;
+            }
+            return CalendarTimePeriod;
+        }
+
         public string GetCalendarFromTo(SiteSettings ss)
         {
             if (CalendarFromTo.IsNullOrEmpty())
             {
-                CalendarFromTo = Definition(ss, "Calendar")?.Option1;
+                CalendarFromTo = Definition(ss, "Calendar")?.Option2;
             }
             return CalendarFromTo;
         }
@@ -95,9 +105,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             return GetCalendarFromTo(ss).Split_2nd('-');
         }
 
-        public string GetCrosstabGroupByX(SiteSettings ss)
+        public string GetCrosstabGroupByX(IContext context, SiteSettings ss)
         {
-            var options = ss.CrosstabGroupByXOptions();
+            var options = ss.CrosstabGroupByXOptions(context: context);
             if (CrosstabGroupByX.IsNullOrEmpty())
             {
                 CrosstabGroupByX = options.ContainsKey(Definition(ss, "Crosstab")?.Option1)
@@ -107,9 +117,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             return CrosstabGroupByX;
         }
 
-        public string GetCrosstabGroupByY(SiteSettings ss)
+        public string GetCrosstabGroupByY(IContext context, SiteSettings ss)
         {
-            var options = ss.CrosstabGroupByYOptions();
+            var options = ss.CrosstabGroupByYOptions(context: context);
             if (CrosstabGroupByY.IsNullOrEmpty())
             {
                 CrosstabGroupByY = options.ContainsKey(Definition(ss, "Crosstab")?.Option2)
@@ -185,9 +195,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             return TimeSeriesGroupBy;
         }
 
-        public string GetTimeSeriesAggregationType(SiteSettings ss)
+        public string GetTimeSeriesAggregationType(IContext context, SiteSettings ss)
         {
-            var options = ss.TimeSeriesAggregationTypeOptions();
+            var options = ss.TimeSeriesAggregationTypeOptions(context: context);
             if (TimeSeriesAggregateType.IsNullOrEmpty())
             {
                 TimeSeriesAggregateType = options.ContainsKey(Definition(ss, "TimeSeries")?.Option2)
@@ -209,9 +219,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             return TimeSeriesValue;
         }
 
-        public string GetKambanGroupByX(SiteSettings ss)
+        public string GetKambanGroupByX(IContext context, SiteSettings ss)
         {
-            var options = ss.KambanGroupByOptions();
+            var options = ss.KambanGroupByOptions(context: context);
             if (KambanGroupByX.IsNullOrEmpty())
             {
                 KambanGroupByX = options.ContainsKey(Definition(ss, "Kamban")?.Option1)
@@ -221,9 +231,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             return KambanGroupByX;
         }
 
-        public string GetKambanGroupByY(SiteSettings ss)
+        public string GetKambanGroupByY(IContext context, SiteSettings ss)
         {
-            var options = ss.KambanGroupByOptions();
+            var options = ss.KambanGroupByOptions(context: context);
             if (KambanGroupByY.IsNullOrEmpty())
             {
                 KambanGroupByY = options.ContainsKey(Definition(ss, "Kamban")?.Option2)
@@ -233,9 +243,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             return KambanGroupByY;
         }
 
-        public string GetKambanAggregationType(SiteSettings ss)
+        public string GetKambanAggregationType(IContext context, SiteSettings ss)
         {
-            var options = ss.KambanAggregationTypeOptions();
+            var options = ss.KambanAggregationTypeOptions(context: context);
             if (KambanAggregateType.IsNullOrEmpty())
             {
                 KambanAggregateType = options.ContainsKey(Definition(ss, "Kamban")?.Option3)
@@ -263,13 +273,15 @@ namespace Implem.Pleasanter.Libraries.Settings
                 o.Id == ss.ReferenceType + "_" + name);
         }
 
-        public void SetByForm(SiteSettings ss)
+        public void SetByForm(IContext context, SiteSettings ss)
         {
             var columnFilterPrefix = "ViewFilters__";
             var columnSorterPrefix = "ViewSorters__";
-            switch (Forms.Data("ControlId"))
+            switch (context.Forms.ControlId())
             {
                 case "ViewFilters_Reset":
+                    Id = 0;
+                    Name = null;
                     Incomplete = null;
                     Own = null;
                     NearCompletionTime = null;
@@ -281,128 +293,197 @@ namespace Implem.Pleasanter.Libraries.Settings
                 case "ViewSorters_Reset":
                     ColumnSorterHash = null;
                     break;
-            }
-
-
-            foreach (string controlId in Forms.Form().Keys)
-            {
-                switch (controlId)
-                {
-                    case "ViewName":
-                        Name = String(controlId);
-                        break;
-                    case "ViewFilters_Incomplete":
-                        Incomplete = Bool(controlId);
-                        break;
-                    case "ViewFilters_Own":
-                        Own = Bool(controlId);
-                        break;
-                    case "ViewFilters_NearCompletionTime":
-                        NearCompletionTime = Bool(controlId);
-                        break;
-                    case "ViewFilters_Delay":
-                        Delay = Bool(controlId);
-                        break;
-                    case "ViewFilters_Overdue":
-                        Overdue = Bool(controlId);
-                        break;
-                    case "ViewFilters_Search":
-                        Search = String(controlId);
-                        break;
-                    case "ViewSorters":
-                        SetSorters(ss);
-                        break;
-                    case "CalendarFromTo":
-                        CalendarFromTo = String(controlId);
-                        break;
-                    case "CalendarMonth":
-                        CalendarMonth = Time(controlId);
-                        break;
-                    case "CrosstabGroupByX":
-                        CrosstabGroupByX = String(controlId);
-                        break;
-                    case "CrosstabGroupByY":
-                        CrosstabGroupByY = String(controlId);
-                        break;
-                    case "CrosstabColumns":
-                        CrosstabColumns = String(controlId);
-                        break;
-                    case "CrosstabAggregateType":
-                        CrosstabAggregateType = String(controlId);
-                        break;
-                    case "CrosstabValue":
-                        CrosstabValue = String(controlId);
-                        break;
-                    case "CrosstabTimePeriod":
-                        CrosstabTimePeriod = String(controlId);
-                        break;
-                    case "CrosstabMonth":
-                        CrosstabMonth = Time(controlId);
-                        break;
-                    case "GanttGroupBy":
-                        GanttGroupBy = String(controlId);
-                        break;
-                    case "GanttSortBy":
-                        GanttSortBy = String(controlId);
-                        break;
-                    case "GanttPeriod":
-                        GanttPeriod = Forms.Int(controlId);
-                        break;
-                    case "GanttStartDate":
-                        GanttStartDate = Time(controlId).ToDateTime().ToUniversal();
-                        break;
-                    case "TimeSeriesGroupBy":
-                        TimeSeriesGroupBy = String(controlId);
-                        break;
-                    case "TimeSeriesAggregateType":
-                        TimeSeriesAggregateType = String(controlId);
-                        break;
-                    case "TimeSeriesValue":
-                        TimeSeriesValue = String(controlId);
-                        break;
-                    case "KambanGroupByX":
-                        KambanGroupByX = String(controlId);
-                        break;
-                    case "KambanGroupByY":
-                        KambanGroupByY = String(controlId);
-                        break;
-                    case "KambanAggregateType":
-                        KambanAggregateType = String(controlId);
-                        break;
-                    case "KambanValue":
-                        KambanValue = String(controlId);
-                        break;
-                    case "KambanColumns":
-                        KambanColumns = Forms.Int(controlId);
-                        break;
-                    case "KambanAggregationView":
-                        KambanAggregationView = Forms.Bool(controlId);
-                        break;
-                    default:
-                        if (controlId.StartsWith(columnFilterPrefix))
+                default:
+                    foreach (string controlId in context.Forms.Keys)
+                    {
+                        switch (controlId)
                         {
-                            AddColumnFilterHash(
-                                ss,
-                                controlId.Substring(columnFilterPrefix.Length),
-                                Forms.Data(controlId));
+                            case "ViewName":
+                                Name = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewGridColumnsAll":
+                                GridColumns = String(
+                                    context: context,
+                                    controlId: controlId).Deserialize<List<string>>();
+                                break;
+                            case "ViewFilters_Incomplete":
+                                Incomplete = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewFilters_Own":
+                                Own = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewFilters_NearCompletionTime":
+                                NearCompletionTime = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewFilters_Delay":
+                                Delay = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewFilters_Overdue":
+                                Overdue = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewFilters_Search":
+                                Search = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewSorters":
+                                SetSorters(
+                                    context: context,
+                                    ss: ss);
+                                break;
+                            case "CalendarTimePeriod":
+                                CalendarTimePeriod = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CalendarFromTo":
+                                CalendarFromTo = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CalendarMonth":
+                                CalendarMonth = Time(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabGroupByX":
+                                CrosstabGroupByX = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabGroupByY":
+                                CrosstabGroupByY = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabColumns":
+                                CrosstabColumns = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabAggregateType":
+                                CrosstabAggregateType = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabValue":
+                                CrosstabValue = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabTimePeriod":
+                                CrosstabTimePeriod = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "CrosstabMonth":
+                                CrosstabMonth = Time(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "GanttGroupBy":
+                                GanttGroupBy = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "GanttSortBy":
+                                GanttSortBy = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "GanttPeriod":
+                                GanttPeriod = context.Forms.Int(controlId);
+                                break;
+                            case "GanttStartDate":
+                                GanttStartDate = Time(
+                                    context: context,
+                                    controlId: controlId)
+                                        .ToDateTime()
+                                        .ToUniversal(context: context);
+                                break;
+                            case "TimeSeriesGroupBy":
+                                TimeSeriesGroupBy = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "TimeSeriesAggregateType":
+                                TimeSeriesAggregateType = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "TimeSeriesValue":
+                                TimeSeriesValue = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "KambanGroupByX":
+                                KambanGroupByX = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "KambanGroupByY":
+                                KambanGroupByY = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "KambanAggregateType":
+                                KambanAggregateType = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "KambanValue":
+                                KambanValue = String(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "KambanColumns":
+                                KambanColumns = context.Forms.Int(controlId);
+                                break;
+                            case "KambanAggregationView":
+                                KambanAggregationView = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            default:
+                                if (controlId.StartsWith(columnFilterPrefix))
+                                {
+                                    AddColumnFilterHash(
+                                        context: context,
+                                        ss: ss,
+                                        columnName: controlId.Substring(columnFilterPrefix.Length),
+                                        value: context.Forms.Data(controlId));
+                                }
+                                else if (controlId.StartsWith(columnSorterPrefix))
+                                {
+                                    AddColumnSorterHash(
+                                        context: context,
+                                        ss: ss,
+                                        columnName: controlId.Substring(columnSorterPrefix.Length),
+                                        value: OrderByType(context.Forms.Data(controlId)));
+                                }
+                                break;
                         }
-                        else if (controlId.StartsWith(columnSorterPrefix))
-                        {
-                            AddColumnSorterHash(
-                                ss,
-                                controlId.Substring(columnSorterPrefix.Length),
-                                OrderByType(Forms.Data(controlId)));
-                        }
-                        break;
-                }
+                    }
+                    KambanColumns = KambanColumns ?? Parameters.General.KambanColumns;
+                    break;
             }
-
-            KambanColumns = KambanColumns ?? Parameters.General.KambanColumns;
         }
 
-        private bool? Bool(string controlId)
+        private bool? Bool(IContext context, string controlId)
         {
-            var data = Forms.Bool(controlId);
+            var data = context.Forms.Bool(controlId);
             if (data)
             {
                 return true;
@@ -413,9 +494,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private DateTime? Time(string controlId)
+        private DateTime? Time(IContext context, string controlId)
         {
-            var data = Forms.DateTime(controlId);
+            var data = context.Forms.DateTime(controlId);
             if (data.InRange())
             {
                 return data;
@@ -426,9 +507,9 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private string String(string controlId)
+        private string String(IContext context, string controlId)
         {
-            var data = Forms.Data(controlId);
+            var data = context.Forms.Data(controlId);
             if (data != string.Empty)
             {
                 return data;
@@ -453,13 +534,14 @@ namespace Implem.Pleasanter.Libraries.Settings
                 : SqlOrderBy.Types.release;
         }
 
-        private void AddColumnFilterHash(SiteSettings ss, string columnName, string value)
+        private void AddColumnFilterHash(
+            IContext context, SiteSettings ss, string columnName, string value)
         {
             if (ColumnFilterHash == null)
             {
                 ColumnFilterHash = new Dictionary<string, string>();
             }
-            var column = ss.GetColumn(columnName);
+            var column = ss.GetColumn(context: context, columnName: columnName);
             if (column != null)
             {
                 if (value != string.Empty)
@@ -481,13 +563,13 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private void AddColumnSorterHash(
-            SiteSettings ss, string columnName, SqlOrderBy.Types value)
+            IContext context, SiteSettings ss, string columnName, SqlOrderBy.Types value)
         {
             if (ColumnSorterHash == null)
             {
                 ColumnSorterHash = new Dictionary<string, SqlOrderBy.Types>();
             }
-            var column = ss.GetColumn(columnName);
+            var column = ss.GetColumn(context: context, columnName: columnName);
             if (column != null)
             {
                 if (value != SqlOrderBy.Types.release)
@@ -511,10 +593,10 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private void SetSorters(SiteSettings ss)
+        private void SetSorters(IContext context, SiteSettings ss)
         {
             ColumnSorterHash = new Dictionary<string, SqlOrderBy.Types>();
-            Forms.List("ViewSorters").ForEach(data =>
+            context.Forms.List("ViewSorters").ForEach(data =>
             {
                 var columnName = data.Split_1st('&');
                 var type = OrderByType(data.Split_2nd('&'));
@@ -545,11 +627,15 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        public View GetRecordingData()
+        public View GetRecordingData(SiteSettings ss)
         {
             var view = new View();
             view.Id = Id;
             view.Name = Name;
+            if (GridColumns != null && GridColumns.Join() != ss.GridColumns.Join())
+            {
+                view.GridColumns = GridColumns;
+            }
             if (Incomplete == true)
             {
                 view.Incomplete = true;
@@ -585,6 +671,10 @@ namespace Implem.Pleasanter.Libraries.Settings
             if (!Search.IsNullOrEmpty())
             {
                 view.Search = Search;
+            }
+            if (!CalendarTimePeriod.IsNullOrEmpty())
+            {
+                view.CalendarTimePeriod = CalendarTimePeriod;
             }
             if (!CalendarFromTo.IsNullOrEmpty())
             {
@@ -662,112 +752,191 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public SqlWhereCollection Where(
+            IContext context,
             SiteSettings ss,
             SqlWhereCollection where = null,
             bool checkPermission = true)
         {
-            var tableName = ss.ReferenceType;
             if (where == null) where = new SqlWhereCollection();
-            SetGeneralsWhere(ss, where, tableName);
-            SetColumnsWhere(ss, where, tableName);
-            SetSearchWhere(ss, where, tableName);
-            Permissions.SetCanReadWhere(ss, where, checkPermission);
+            SetGeneralsWhere(context: context, ss: ss, where: where);
+            SetColumnsWhere(context: context, ss: ss, where: where);
+            SetSearchWhere(context: context, ss: ss, where: where);
+            Permissions.SetCanReadWhere(
+                context: context, ss: ss, where: where, checkPermission: checkPermission);
             return where;
         }
 
-        private void SetGeneralsWhere(SiteSettings ss, SqlWhereCollection where, string tableName)
+        private void SetGeneralsWhere(IContext context, SiteSettings ss, SqlWhereCollection where)
         {
-            if (Incomplete == true)
+            if (Incomplete == true && HasIncompleteColumns(
+                context: context,
+                ss: ss))
             {
                 where.Add(
-                    tableName: tableName,
+                    tableName: ss.ReferenceType,
                     columnBrackets: "[Status]".ToSingleArray(),
                     _operator: "<" + Parameters.General.CompletionCode);
             }
-            if (Own == true)
+            if (Own == true && HasOwnColumns(context, ss))
             {
                 where.Add(
-                    tableName: tableName,
+                    tableName: ss.ReferenceType,
                     columnBrackets: new string[] { "[Manager]", "[Owner]" },
                     name: "_U",
-                    value: Sessions.UserId());
+                    value: context.UserId);
             }
-            if (NearCompletionTime == true)
+            if (NearCompletionTime == true && HasNearCompletionTimeColumns(
+                context: context,
+                ss: ss))
             {
                 where.Add(
-                    tableName: tableName,
+                    tableName: ss.ReferenceType,
                     columnBrackets: "[CompletionTime]".ToSingleArray(),
                     _operator: " between '{0}' and '{1}'".Params(
-                        DateTime.Now.ToLocal().Date
+                        DateTime.Now.ToLocal(context: context).Date
                             .AddDays(ss.NearCompletionTimeBeforeDays.ToInt() * (-1)),
-                        DateTime.Now.ToLocal().Date
+                        DateTime.Now.ToLocal(context: context).Date
                             .AddDays(ss.NearCompletionTimeAfterDays.ToInt() + 1)
                             .AddMilliseconds(Parameters.Rds.MinimumTime * -1)
                             .ToString("yyyy/M/d H:m:s.fff")));
             }
-            if (Delay == true)
+            if (Delay == true && HasDelayColumns(
+                context: context,
+                ss: ss))
             {
                 where
                     .Add(
-                        tableName: tableName,
+                        tableName: ss.ReferenceType,
                         columnBrackets: "[Status]".ToSingleArray(),
                         name: "_U",
                         _operator: "<{0}".Params(Parameters.General.CompletionCode))
                     .Add(
-                        tableName: tableName,
+                        tableName: ss.ReferenceType,
                         columnBrackets: "[ProgressRate]".ToSingleArray(),
                         _operator: "<",
                         raw: Def.Sql.ProgressRateDelay
                             .Replace("#TableName#", ss.ReferenceType));
             }
-            if (Overdue == true)
+            if (Overdue == true && HasOverdueColumns(
+                context: context,
+                ss: ss))
             {
                 where
                     .Add(
-                        tableName: tableName,
+                        tableName: ss.ReferenceType,
                         columnBrackets: "[Status]".ToSingleArray(),
                         name: "_U",
                         _operator: "<{0}".Params(Parameters.General.CompletionCode))
                     .Add(
-                        tableName: tableName,
+                        tableName: ss.ReferenceType,
                         columnBrackets: "[CompletionTime]".ToSingleArray(),
                         _operator: "<getdate()");
             }
         }
 
-        private void SetColumnsWhere(SiteSettings ss, SqlWhereCollection where, string tableName)
+        public bool HasIncompleteColumns(IContext context, SiteSettings ss)
+        {
+            return ss.HasAllColumns(
+                context: context,
+                parts: new string[]
+                {
+                    "Status"
+                });
+        }
+
+        public bool HasOwnColumns(IContext context, SiteSettings ss)
+        {
+            return ss.HasAllColumns(
+                context: context,
+                parts: new string[]
+                {
+                    "Manager",
+                    "Owner"
+                });
+        }
+
+        public bool HasNearCompletionTimeColumns(IContext context, SiteSettings ss)
+        {
+            return ss.HasAllColumns(
+                context: context,
+                parts: new string[]
+                {
+                    "CompletionTime"
+                });
+        }
+
+        public bool HasDelayColumns(IContext context, SiteSettings ss)
+        {
+            return ss.HasAllColumns(
+                context: context,
+                parts: new string[]
+                {
+                    "Status",
+                    "ProgressRate",
+                    "CompletionTime"
+                });
+        }
+
+        public bool HasOverdueColumns(IContext context, SiteSettings ss)
+        {
+            return ss.HasAllColumns(
+                context: context,
+                parts: new string[]
+                {
+                    "Status",
+                    "CompletionTime"
+                });
+        }
+
+        private void SetColumnsWhere(IContext context, SiteSettings ss, SqlWhereCollection where)
         {
             var prefix = "ViewFilters_" + ss.ReferenceType + "_";
             var prefixLength = prefix.Length;
             ColumnFilterHash?
                 .Select(data => new
                 {
-                    Column = ss.GetColumn(data.Key),
+                    Column = ss.GetColumn(context: context, columnName: data.Key),
                     ColumnName = data.Key,
-                    Value = data.Value
+                    data.Value
                 })
                 .Where(o => o.Column != null)
                 .ForEach(data =>
                 {
                     if (data.ColumnName == "SiteTitle")
                     {
-                        CsNumericColumns(ss.GetColumn("SiteId"), data.Value, where);
+                        CsNumericColumns(
+                            column: ss.GetColumn(context: context, columnName: "SiteId"),
+                            value: data.Value,
+                            where: where);
                     }
                     else
                     {
                         switch (data.Column.TypeName.CsTypeSummary())
                         {
                             case Types.CsBool:
-                                CsBoolColumns(data.Column, data.Value, where);
+                                CsBoolColumns(
+                                    column: data.Column,
+                                    value: data.Value,
+                                    where: where);
                                 break;
                             case Types.CsNumeric:
-                                CsNumericColumns(data.Column, data.Value, where);
+                                CsNumericColumns(
+                                    column: data.Column,
+                                    value: data.Value,
+                                    where: where);
                                 break;
                             case Types.CsDateTime:
-                                CsDateTimeColumns(data.Column, data.Value, where);
+                                CsDateTimeColumns(
+                                    context: context,
+                                    column: data.Column,
+                                    value: data.Value,
+                                    where: where);
                                 break;
                             case Types.CsString:
-                                CsStringColumns(data.Column, data.Value, where);
+                                CsStringColumns(
+                                    column: data.Column,
+                                    value: data.Value,
+                                    where: where);
                                 break;
                         }
                     }
@@ -895,18 +1064,25 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private void CsDateTimeColumns(
-            Column column, string value, SqlWhereCollection where)
+            IContext context, Column column, string value, SqlWhereCollection where)
         {
             var param = value.Deserialize<List<string>>();
             if (param.Any())
             {
                 where.Add(or: new SqlWhereCollection(
-                    CsDateTimeColumnsWhere(column, param),
-                    CsDateTimeColumnsWhereNull(column, param)));
+                    CsDateTimeColumnsWhere(
+                        context: context,
+                        column: column,
+                        param: param),
+                    CsDateTimeColumnsWhereNull(
+                        context: context,
+                        column: column,
+                        param: param)));
             }
         }
 
-        private SqlWhere CsDateTimeColumnsWhere(Column column, List<string> param)
+        private SqlWhere CsDateTimeColumnsWhere(
+            IContext context, Column column, List<string> param)
         {
             return param.Any(o => o != "\t")
                 ? new SqlWhere(
@@ -914,14 +1090,15 @@ namespace Implem.Pleasanter.Libraries.Settings
                     raw: param.Select(range =>
                         "#TableBracket#.[{0}] between '{1}' and '{2}'".Params(
                             column.Name,
-                            range.Split_1st().ToDateTime().ToUniversal()
+                            range.Split_1st().ToDateTime().ToUniversal(context: context)
                                 .ToString("yyyy/M/d H:m:s"),
-                            range.Split_2nd().ToDateTime().ToUniversal()
+                            range.Split_2nd().ToDateTime().ToUniversal(context: context)
                                 .ToString("yyyy/M/d H:m:s.fff"))).Join(" or "))
                 : null;
         }
 
-        private SqlWhere CsDateTimeColumnsWhereNull(Column column, List<string> param)
+        private SqlWhere CsDateTimeColumnsWhereNull(
+            IContext context, Column column, List<string> param)
         {
             return param.Any(o => o == "\t")
                 ? new SqlWhere(or: new SqlWhereCollection(
@@ -933,9 +1110,9 @@ namespace Implem.Pleasanter.Libraries.Settings
                         tableName: column.TableName(),
                         columnBrackets: ("[" + column.Name + "]").ToSingleArray(),
                         _operator: " not between '{0}' and '{1}'".Params(
-                            Parameters.General.MinTime.ToUniversal()
+                            Parameters.General.MinTime.ToUniversal(context: context)
                                 .ToString("yyyy/M/d H:m:s"),
-                            Parameters.General.MaxTime.ToUniversal()
+                            Parameters.General.MaxTime.ToUniversal(context: context)
                                 .ToString("yyyy/M/d H:m:s")))))
                 : null;
         }
@@ -995,13 +1172,31 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public SqlOrderByCollection OrderBy(
-            SiteSettings ss, SqlOrderByCollection orderBy = null, int pageSize = 0)
+            IContext context,
+            SiteSettings ss,
+            SqlOrderByCollection orderBy = null,
+            int pageSize = 0)
         {
             orderBy = orderBy ?? new SqlOrderByCollection();
             if (ColumnSorterHash?.Any() == true)
             {
                 ColumnSorterHash?.ForEach(data =>
-                    orderBy.Add(ss.GetColumn(data.Key), data.Value));
+                {
+                    switch (data.Key)
+                    {
+                        case "ItemTitle":
+                            orderBy.Add(new SqlOrderBy(
+                                columnBracket: "[Title]",
+                                orderType: data.Value,
+                                tableName: "Items"));
+                            break;
+                        default:
+                            orderBy.Add(
+                                column: ss.GetColumn(context: context, columnName: data.Key),
+                                orderType: data.Value);
+                            break;
+                    }
+                });
             }
             return pageSize > 0 && orderBy?.Any() != true
                 ? new SqlOrderByCollection().Add(
@@ -1011,11 +1206,12 @@ namespace Implem.Pleasanter.Libraries.Settings
                 : orderBy;
         }
 
-        private void SetSearchWhere(SiteSettings ss, SqlWhereCollection where, string tableName)
+        private void SetSearchWhere(IContext context, SiteSettings ss, SqlWhereCollection where)
         {
             if (Search.IsNullOrEmpty()) return;
             var select = SearchIndexUtilities.Select(
-                searchType: ss.SearchType,
+                context: context,
+                ss: ss,
                 searchText: Search,
                 siteIdList: ss.AllowedIntegratedSites != null
                     ? ss.AllowedIntegratedSites
@@ -1026,7 +1222,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 {
                     case "Issues":
                         where.Add(
-                            tableName: tableName,
+                            tableName: ss.ReferenceType,
                             columnBrackets: "[IssueId]".ToSingleArray(),
                             name: "IssueId",
                             _operator: " in ",
@@ -1035,7 +1231,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                         break;
                     case "Results":
                         where.Add(
-                            tableName: tableName,
+                            tableName: ss.ReferenceType,
                             columnBrackets: "[ResultId]".ToSingleArray(),
                             name: "ResultId",
                             _operator: " in ",
@@ -1044,7 +1240,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                         break;
                     case "Wikis":
                         where.Add(
-                            tableName: tableName,
+                            tableName: ss.ReferenceType,
                             columnBrackets: "[WikiId]".ToSingleArray(),
                             name: "WikiId",
                             _operator: " in ",

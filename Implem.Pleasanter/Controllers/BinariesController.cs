@@ -1,27 +1,21 @@
 ﻿using Implem.Libraries.Utilities;
-using Implem.Pleasanter.Filters;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
+using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
 using System.Web;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
-
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class BinariesController : Controller
+    public class BinariesController
     {
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public ActionResult SiteImageThumbnail(string reference, long id)
+        public ActionResult SiteImageThumbnail(IContext context, string reference, long id)
         {
             if (reference.ToLower() == "items")
             {
-                var bytes = BinaryUtilities.SiteImageThumbnail(new SiteModel(id));
+                var bytes = BinaryUtilities.SiteImageThumbnail(
+                    context: context,
+                    siteModel: new SiteModel(context: context, siteId: id));
                 return new FileContentResult(bytes, "image/png");
             }
             else
@@ -30,13 +24,13 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public ActionResult SiteImageIcon(string reference, long id)
+        public ActionResult SiteImageIcon(IContext context, string reference, long id)
         {
             if (reference.ToLower() == "items")
             {
-                var bytes = BinaryUtilities.SiteImageIcon(new SiteModel(id));
+                var bytes = BinaryUtilities.SiteImageIcon(
+                    context: context,
+                    siteModel: new SiteModel(context: context, siteId: id));
                 return new FileContentResult(bytes, "image/png");
             }
             else
@@ -45,105 +39,133 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        [HttpPost]
-        public string UpdateSiteImage(string reference, long id)
+        public ActionResult TenantImageLogo(IContext context)
         {
-            var log = new SysLogModel();
+            var log = new SysLogModel(context: context);
+            var bytes = BinaryUtilities.TenantImageLogo(
+                context: context,
+                tenantModel: new TenantModel(
+                    context: context,
+                    ss: SiteSettingsUtilities.TenantsSiteSettings(context)));
+            log.Finish(
+                context: context,
+                responseSize: bytes.Length);
+            return new FileContentResult(bytes, "image/png");
+        }
+
+        public string UpdateSiteImage(IContext context, string reference, long id, IHttpPostedFile[] file)
+        {
+            var log = new SysLogModel(context: context);
             var json = reference.ToLower() == "items"
-                ? BinaryUtilities.UpdateSiteImage(new SiteModel(id))
+                ? BinaryUtilities.UpdateSiteImage(
+                    context: context,
+                    siteModel: new SiteModel(context: context, siteId: id))
                 : new ResponseCollection().ToJson();
-            log.Finish(0);
+            log.Finish(context: context);
             return json;
         }
 
-        [HttpDelete]
-        public string DeleteSiteImage(string reference, long id)
+        public string UpdateTenantImage(IContext context, IHttpPostedFile[] file)
         {
-            var log = new SysLogModel();
+            var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
+            var tenantModel = new TenantModel(context, ss).Get(context, ss);
+            var log = new SysLogModel(context: context);
+            var json = BinaryUtilities.UpdateTenantImage(
+                context: context,
+                tenantModel: tenantModel);
+            log.Finish(context: context);
+            return json;
+        }
+
+        public string DeleteSiteImage(IContext context, string reference, long id)
+        {
+            var log = new SysLogModel(context: context);
             var json = reference.ToLower() == "items"
-                ? BinaryUtilities.DeleteSiteImage(new SiteModel(id))
+                ? BinaryUtilities.DeleteSiteImage(
+                    context: context,
+                    siteModel: new SiteModel(context: context, siteId: id))
                 : new ResponseCollection().ToJson();
-            log.Finish(0);
+            log.Finish(context: context);
             return json;
         }
 
-        [HttpPost]
-        public string UploadImage(string reference, long id, ICollection<IFormFile> file)
+        public string DeleteTenantImage(IContext context)
         {
-            var log = new SysLogModel();
-            var json = BinaryUtilities.UploadImage(file, id);
-            log.Finish(json.Length);
+            var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
+            var tenantModel = new TenantModel(context, ss).Get(context, ss);
+            var log = new SysLogModel(context: context);
+            var json = BinaryUtilities.DeleteTenantImage(
+                context: context,
+                tenantModel: tenantModel);
+            log.Finish(context: context);
             return json;
         }
 
-        [HttpDelete]
-        public string DeleteImage(string reference, string guid)
+        public string UploadImage(IContext context, string reference, long id, IHttpPostedFile[] file)
         {
-            var log = new SysLogModel();
-            var json = BinaryUtilities.DeleteImage(guid);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = BinaryUtilities.UploadImage(
+                context: context,
+                id: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string MultiUpload(string reference, long id, ICollection<IFormFile> file)
+        public string DeleteImage(IContext context, string reference, string guid)
         {
-            var log = new SysLogModel();
-            var json = BinaryUtilities.MultiUpload(file, id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = BinaryUtilities.DeleteImage(context: context, guid: guid);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public FileContentResult Download(string reference, string guid)
+        public string MultiUpload(IContext context, string reference, long id, IHttpPostedFile[] file)
         {
-            var log = new SysLogModel();
-            var file = BinaryUtilities.Donwload(guid);
-            log.Finish(file?.FileContents.Length ?? 0);
+            var log = new SysLogModel(context: context);
+            var json = BinaryUtilities.MultiUpload(
+                context: context,
+                id: id);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public FileContentResult Download(IContext context, string reference, string guid)
+        {
+            var log = new SysLogModel(context: context);
+            var file = BinaryUtilities.Donwload(context: context, guid: guid);
+            log.Finish(context: context, responseSize: file?.FileContents.Length ?? 0);
             return file;
         }
 
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public FileContentResult DownloadTemp(string reference, string guid)
+        public FileContentResult DownloadTemp(IContext context, string reference, string guid)
         {
-            var log = new SysLogModel();
-            var file = BinaryUtilities.DownloadTemp(guid);
-            log.Finish(file?.FileContents.Length ?? 0);
+            var log = new SysLogModel(context: context);
+            var file = BinaryUtilities.DownloadTemp(context: context, guid: guid);
+            log.Finish(context: context, responseSize: file?.FileContents.Length ?? 0);
             return file;
         }
 
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public ActionResult Show(string reference, string guid)
+        public FileContentResult Show(IContext context, string reference, string guid)
         {
-            var log = new SysLogModel();
-            var file = BinaryUtilities.Donwload(guid);
-            log.Finish(file?.FileContents.Length ?? 0);
-            return file != null
-                ? File(file.FileContents, file.ContentType)
-                : null;
+            var log = new SysLogModel(context: context);
+            var file = BinaryUtilities.Donwload(context: context, guid: guid);
+            log.Finish(context: context, responseSize: file?.FileContents.Length ?? 0);
+            return file;
         }
 
-        [HttpGet]
-        [ResponseCache(Duration = int.MaxValue)]
-        public ActionResult ShowTemp(string reference, string guid)
+        public FileContentResult ShowTemp(IContext context, string reference, string guid)
         {
-            var log = new SysLogModel();
-            var file = BinaryUtilities.DownloadTemp(guid);
-            log.Finish(file?.FileContents.Length ?? 0);
-            return file != null
-                ? File(file.FileContents, file.ContentType)
-                : null;
+            var log = new SysLogModel(context: context);
+            var file = BinaryUtilities.DownloadTemp(context: context, guid: guid);
+            log.Finish(context: context, responseSize: file?.FileContents.Length ?? 0);
+            return file;
         }
 
-        [HttpPost]
-        public string DeleteTemp(string reference, long id)
+        public string DeleteTemp(IContext context, string reference, long id)
         {
-            var log = new SysLogModel();
-            var json = BinaryUtilities.DeleteTemp();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = BinaryUtilities.DeleteTemp(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json.ToString();
         }
     }

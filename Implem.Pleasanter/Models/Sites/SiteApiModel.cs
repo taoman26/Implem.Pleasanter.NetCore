@@ -14,10 +14,12 @@ namespace Implem.Pleasanter.Models
         public long? ParentId;
         public long? InheritPermission;
         public string SiteSettings;
+        public bool? Publish;
         public string Comments;
         public int? Creator;
         public int? Updator;
         public DateTime? CreatedTime;
+        public string ItemTitle;
         public bool? VerUp;
     }
 }

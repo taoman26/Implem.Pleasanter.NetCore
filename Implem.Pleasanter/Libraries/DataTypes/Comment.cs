@@ -1,9 +1,11 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Resources;
 using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Libraries.Server;
+using Implem.Pleasanter.Libraries.Settings;
 using System;
 namespace Implem.Pleasanter.Libraries.DataTypes
 {
@@ -22,6 +24,8 @@ namespace Implem.Pleasanter.Libraries.DataTypes
 
         public HtmlBuilder Html(
             HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
             bool allowEditing,
             bool allowImage,
             bool mobile,
@@ -40,11 +44,18 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     action?.Invoke();
                     hb
                         .P(css: "time", action: () => hb
-                            .Text(text: CreatedTimeDisplayValue()))
-                        .HtmlUser(Updator ?? Creator);
-                    if (CanEdit(allowEditing, readOnly))
+                            .Text(text: CreatedTimeDisplayValue(context: context)))
+                        .HtmlUser(
+                            context: context,
+                            id: Updator ?? Creator);
+                    if (CanEdit(
+                        context: context,
+                        ss: ss,
+                        allowEditing: allowEditing,
+                        readOnly: readOnly))
                     {
                         hb.MarkDown(
+                            context: context,
                             controlId: controlId,
                             text: Body,
                             allowImage: allowImage,
@@ -59,37 +70,44 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 });
         }
 
-        public string CreatedTimeDisplayValue()
+        public string CreatedTimeDisplayValue(IContext context)
         {
             return UpdatedTime == null
-                ? CreatedTime.ToLocal(Displays.Get("YmdahmFormat"))
+                ? CreatedTime.ToLocal(
+                    context: context,
+                    format: Displays.Get(
+                        context: context,
+                        id: "YmdahmFormat"))
                 : UpdatedTime
                     .ToDateTime()
-                    .ToLocal(Displays.Get("YmdahmFormat"))
-                        + " [" + Displays.CommentUpdated() + "]";
+                    .ToLocal(
+                        context: context,
+                        format: Displays.Get(
+                            context: context,
+                            id: "YmdahmFormat"))
+                                + $" [{Displays.CommentUpdated(context: context)}]";
         }
 
-        private bool CanEdit(bool allowEditing, bool readOnly)
+        private bool CanEdit(IContext context, SiteSettings ss, bool allowEditing, bool readOnly)
         {
-            return
-                allowEditing && !readOnly && Creator == Sessions.UserId();
+            return allowEditing && !readOnly && Creator == context.UserId;
         }
 
-        public void Update(string body)
+        public void Update(IContext context, SiteSettings ss, string body)
         {
             UpdatedTime = DateTime.Now;
-            Updator = Sessions.UserId();
+            Updator = context.UserId;
             Body = body;
             Updated = true;
         }
 
-        public Comment ToLocal()
+        public Comment ToLocal(IContext context)
         {
             return new Comment()
             {
                 CommentId = CommentId,
-                CreatedTime = CreatedTime.ToLocal(),
-                UpdatedTime = UpdatedTime?.ToLocal(),
+                CreatedTime = CreatedTime.ToLocal(context: context),
+                UpdatedTime = UpdatedTime?.ToLocal(context: context),
                 Creator = Creator,
                 Updator = Updator,
                 Body = Body

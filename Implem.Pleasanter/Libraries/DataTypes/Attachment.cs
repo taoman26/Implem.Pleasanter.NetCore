@@ -2,7 +2,7 @@
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
-using Implem.Pleasanter.Libraries.Server;
+using Implem.Pleasanter.Libraries.Requests;
 using System.Collections.Generic;
 using System.IO;
 namespace Implem.Pleasanter.Libraries.DataTypes
@@ -42,7 +42,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return strSize;
         }
 
-        public void WriteToLocal()
+        public void WriteToLocal(IContext context)
         {
             if (Added == true)
             {
@@ -60,7 +60,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public void SqlStatement(List<SqlStatement> statements, long referenceId)
+        public void SqlStatement(IContext context, List<SqlStatement> statements, long referenceId)
         {
             if (Added == true)
             {
@@ -69,7 +69,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 {
                     statements.Add(Rds.InsertBinaries(
                         param: Rds.BinariesParam()
-                            .TenantId(Sessions.TenantId())
+                            .TenantId(context.TenantId)
                             .ReferenceId(referenceId, _using: referenceId != 0)
                             .ReferenceId(raw: Def.Sql.Identity, _using: referenceId == 0)
                             .Guid(Guid)

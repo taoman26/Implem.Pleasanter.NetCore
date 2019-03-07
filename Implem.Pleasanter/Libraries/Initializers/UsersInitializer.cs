@@ -2,32 +2,40 @@
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.DataTypes;
+using Implem.Pleasanter.Libraries.Requests;
 using System;
 namespace Implem.Pleasanter.Libraries.Initializers
 {
     public static class UsersInitializer
     {
-        public static void Initialize()
+        public static void Initialize(IContext context)
         {
-            if (Rds.ExecuteScalar_int(statements:
-                Rds.SelectUsers(column: Rds.UsersColumn().UsersCount())) == 0)
+            if (Rds.ExecuteScalar_int(
+                context: context,
+                statements: Rds.SelectUsers(
+                    column: Rds.UsersColumn().UsersCount())) == 0)
             {
                 Create(
-                    1,
-                    "Administrator",
-                    "Administrator",
+                    context: context,
+                    tenantId: 1,
+                    loginId: "Administrator",
+                    name: "Administrator",
                     password: Parameters.Service.DefaultPassword.Sha512Cng(),
-                    passwordExpirationTime: new Time(DateTime.Now),
+                    passwordExpirationTime: new Time(
+                        context: context,
+                        value: DateTime.Now),
                     tenantManager: true);
                 Create(
-                    0,
-                    "Anonymouse",
-                    string.Empty,
+                    context: context,
+                    tenantId: 0,
+                    loginId: "Anonymous",
+                    name: string.Empty,
                     disabled: true);
             }
         }
 
         private static void Create(
+            IContext context, 
             int tenantId,
             string loginId,
             string name,
@@ -36,8 +44,9 @@ namespace Implem.Pleasanter.Libraries.Initializers
             Time passwordExpirationTime = null,
             bool tenantManager = false)
         {
-            Rds.ExecuteNonQuery(statements:
-                Rds.InsertUsers(
+            Rds.ExecuteNonQuery(
+                context: context,
+                statements: Rds.InsertUsers(
                     param: Rds.UsersParam()
                         .TenantId(tenantId)
                         .LoginId(loginId)

@@ -1,4 +1,7 @@
-﻿using Implem.Pleasanter.Libraries.General;
+﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.General;
+using Implem.Pleasanter.Libraries.Requests;
+using System.Linq;
 namespace Implem.Pleasanter.Libraries.Responses
 {
     public static class ApiResponses
@@ -8,24 +11,30 @@ namespace Implem.Pleasanter.Libraries.Responses
             return new ApiResponse(id, 200, message);
         }
 
-        public static ApiResponse Error(Error.Types type)
+        public static ApiResponse Error(IContext context, Error.Types type, params string[] data)
         {
-            return new ApiResponse(500, Displays.Get(type.ToString()));
+            return new ApiResponse(500, data?.Any() == true
+                ? Displays.Get(
+                    context: context,
+                    id: type.ToString()).Params(data)
+                : Displays.Get(
+                    context: context,
+                    id: type.ToString()));
         }
 
-        public static ApiResponse BadRequest()
+        public static ApiResponse BadRequest(IContext context)
         {
-            return new ApiResponse(400, Displays.BadRequest());
+            return new ApiResponse(400, Displays.BadRequest(context: context));
         }
 
-        public static ApiResponse Unauthorized()
+        public static ApiResponse Unauthorized(IContext context)
         {
-            return new ApiResponse(401, Displays.Unauthorized());
+            return new ApiResponse(401, Displays.Unauthorized(context: context));
         }
 
-        public static ApiResponse NotFound()
+        public static ApiResponse NotFound(IContext context)
         {
-            return new ApiResponse(404, Displays.NotFound());
+            return new ApiResponse(404, Displays.NotFound(context: context));
         }
     }
 }

@@ -26,25 +26,31 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Index(SiteSettings ss)
+        public static string Index(IContext context, SiteSettings ss)
         {
-            var invalid = GroupValidators.OnEntry(ss);
+            var invalid = GroupValidators.OnEntry(
+                context: context,
+                ss: ss);
             switch (invalid)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(invalid);
+                default: return HtmlTemplates.Error(context, invalid);
             }
             var hb = new HtmlBuilder();
-            var view = Views.GetBySession(ss);
-            var gridData = GetGridData(ss, view);
-            var viewMode = ViewModes.GetBySession(ss.SiteId);
+            var view = Views.GetBySession(context: context, ss: ss);
+            var gridData = GetGridData(context: context, ss: ss, view: view);
+            var viewMode = ViewModes.GetSessionData(
+                context: context,
+                siteId: ss.SiteId);
             return hb.Template(
+                context: context,
                 ss: ss,
+                view: view,
                 verType: Versions.VerTypes.Latest,
                 methodType: BaseModel.MethodTypes.Index,
                 referenceType: "Groups",
                 script: JavaScripts.ViewMode(viewMode),
-                title: Displays.Groups() + " - " + Displays.List(),
+                title: Displays.Groups(context: context) + " - " + Displays.List(context: context),
                 action: () =>
                 {
                     hb
@@ -52,102 +58,133 @@ namespace Implem.Pleasanter.Models
                             attributes: new HtmlAttributes()
                                 .Id("GroupForm")
                                 .Class("main-form")
-                                .Action(Locations.Action("Groups")),
+                                .Action(Locations.Action(
+                                    context: context,
+                                    controller: "Groups")),
                             action: () => hb
-                                .ViewFilters(ss: ss, view: view)
+                                .ViewFilters(context: context, ss: ss, view: view)
                                 .Aggregations(
+                                    context: context,
                                     ss: ss,
-                                    aggregations: gridData.Aggregations)
+                                    view: view)
                                 .Div(id: "ViewModeContainer", action: () => hb
                                     .Grid(
+                                        context: context,
                                         ss: ss,
                                         gridData: gridData,
                                         view: view))
                                 .MainCommands(
+                                    context: context,
                                     ss: ss,
                                     siteId: ss.SiteId,
                                     verType: Versions.VerTypes.Latest)
                                 .Div(css: "margin-bottom")
-                                .Hidden(controlId: "TableName", value: "Groups")
-                                .Hidden(controlId: "BaseUrl", value: Locations.BaseUrl())
+                                .Hidden(
+                                    controlId: "TableName",
+                                    value: "Groups")
+                                .Hidden(
+                                    controlId: "BaseUrl",
+                                    value: Locations.BaseUrl(context: context))
                                 .Hidden(
                                     controlId: "GridOffset",
                                     value: Parameters.General.GridPageSize.ToString()))
                         .Div(attributes: new HtmlAttributes()
                             .Id("ImportSettingsDialog")
                             .Class("dialog")
-                            .Title(Displays.Import()))
+                            .Title(Displays.Import(context: context)))
                         .Div(attributes: new HtmlAttributes()
                             .Id("ExportSettingsDialog")
                             .Class("dialog")
-                            .Title(Displays.ExportSettings()));
+                            .Title(Displays.ExportSettings(context: context)));
                 }).ToString();
         }
 
         private static string ViewModeTemplate(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
-            GridData gridData,
             View view,
             string viewMode,
-            Action viewModeBody)
+            Action viewModeBody,
+            Aggregations aggregations = null)
         {
-            var invalid = GroupValidators.OnEntry(ss);
+            var invalid = GroupValidators.OnEntry(
+                context: context,
+                ss: ss);
             switch (invalid)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(invalid);
+                default: return HtmlTemplates.Error(context, invalid);
             }
             return hb.Template(
+                context: context,
                 ss: ss,
+                view: view,
                 verType: Versions.VerTypes.Latest,
                 methodType: BaseModel.MethodTypes.Index,
                 siteId: ss.SiteId,
                 parentId: ss.ParentId,
                 referenceType: "Groups",
                 script: JavaScripts.ViewMode(viewMode),
-                userScript: ss.ViewModeScripts(Routes.Action()),
-                userStyle: ss.ViewModeStyles(Routes.Action()),
+                userScript: ss.ViewModeScripts(context: context),
+                userStyle: ss.ViewModeStyles(context: context),
                 action: () => hb
                     .Form(
                         attributes: new HtmlAttributes()
                             .Id("GroupsForm")
                             .Class("main-form")
-                            .Action(Locations.ItemAction(ss.SiteId)),
+                            .Action(Locations.Action(
+                                context: context,
+                                controller: context.Controller,
+                                id: ss.SiteId)),
                         action: () => hb
-                            .ViewSelector(ss: ss, view: view)
-                            .ViewFilters(ss: ss, view: view)
-                            .Aggregations(
+                            .ViewSelector(
+                                context: context,
                                 ss: ss,
-                                aggregations: gridData.Aggregations)
+                                view: view)
+                            .ViewFilters(
+                                context: context,
+                                ss: ss,
+                                view: view)
+                            .Aggregations(
+                                context: context,
+                                ss: ss,
+                                view: view)
                             .Div(id: "ViewModeContainer", action: () => viewModeBody())
                             .MainCommands(
+                                context: context,
                                 ss: ss,
                                 siteId: ss.SiteId,
-                                verType: Versions.VerTypes.Latest)
+                                verType: Versions.VerTypes.Latest,
+                                backButton: !context.Publish)
                             .Div(css: "margin-bottom")
-                            .Hidden(controlId: "TableName", value: "Groups")
-                            .Hidden(controlId: "BaseUrl", value: Locations.BaseUrl()))
-                    .MoveDialog(bulk: true)
+                            .Hidden(
+                                controlId: "TableName",
+                                value: "Groups")
+                            .Hidden(
+                                controlId: "BaseUrl",
+                                value: Locations.BaseUrl(context: context)))
+                    .MoveDialog(context: context, bulk: true)
                     .Div(attributes: new HtmlAttributes()
                         .Id("ExportSelectorDialog")
                         .Class("dialog")
-                        .Title(Displays.Export())))
+                        .Title(Displays.Export(context: context))))
                     .ToString();
         }
 
-        public static string IndexJson(SiteSettings ss)
+        public static string IndexJson(IContext context, SiteSettings ss)
         {
-            var view = Views.GetBySession(ss);
-            var gridData = GetGridData(ss, view);
+            var view = Views.GetBySession(context: context, ss: ss);
+            var gridData = GetGridData(context: context, ss: ss, view: view);
             return new ResponseCollection()
                 .ViewMode(
+                    context: context,
                     ss: ss,
                     view: view,
-                    gridData: gridData,
                     invoke: "setGrid",
                     body: new HtmlBuilder()
                         .Grid(
+                            context: context,
                             ss: ss,
                             gridData: gridData,
                             view: view))
@@ -157,91 +194,106 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static GridData GetGridData(SiteSettings ss, View view, int offset = 0)
+        private static GridData GetGridData(
+            IContext context, SiteSettings ss, View view, int offset = 0)
         {
             return new GridData(
+                context: context,
                 ss: ss,
                 view: view,
                 where: Rds.GroupsWhere()
-                    .TenantId(Sessions.TenantId())
+                    .TenantId(context.TenantId)
                     .GroupId_In(sub: Rds.SelectGroupMembers(
                         distinct: true,
                         column: Rds.GroupMembersColumn().GroupId(),
-                        where: Permissions.GroupMembersWhere()),
-                        _using: !Permissions.CanManageTenant()),
+                        where: Rds.GroupMembersWhere()
+                            .Add(raw: Permissions.DeptOrUser("GroupMembers"))),
+                        _using: !Permissions.CanManageTenant(context: context)),
                 offset: offset,
-                pageSize: ss.GridPageSize.ToInt(),
-                countRecord: true,
-                aggregations: ss.Aggregations);
+                pageSize: ss.GridPageSize.ToInt());
         }
 
         private static HtmlBuilder Grid(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             GridData gridData,
-            View view)
+            View view,
+            string action = "GridRows")
         {
             return hb
                 .Table(
                     attributes: new HtmlAttributes()
                         .Id("Grid")
-                        .Class("grid")
+                        .Class(ss.GridCss())
                         .DataValue("back", _using: ss?.IntegratedSites?.Any() == true)
-                        .DataAction("GridRows")
+                        .DataAction(action)
                         .DataMethod("post"),
                     action: () => hb
                         .GridRows(
+                            context: context,
                             ss: ss,
                             gridData: gridData,
-                            view: view))
+                            view: view,
+                            action: action))
                 .Hidden(
                     controlId: "GridOffset",
                     value: ss.GridNextOffset(
                         0,
                         gridData.DataRows.Count(),
-                        gridData.Aggregations.TotalCount)
+                        gridData.TotalCount)
                             .ToString())
-                .Button(
-                    controlId: "ViewSorter",
-                    controlCss: "hidden",
-                    action: "GridRows",
-                    method: "post")
                 .Button(
                     controlId: "ViewSorters_Reset",
                     controlCss: "hidden",
-                    action: "GridRows",
+                    action: action,
                     method: "post");
         }
 
         public static string GridRows(
+            IContext context,
             SiteSettings ss,
             ResponseCollection res = null,
             int offset = 0,
             bool clearCheck = false,
+            string action = "GridRows",
             Message message = null)
         {
-            var view = Views.GetBySession(ss);
-            var gridData = GetGridData(ss, view, offset: offset);
+            var view = Views.GetBySession(context: context, ss: ss);
+            var gridData = GetGridData(
+                context: context,
+                ss: ss,
+                view: view,
+                offset: offset);
             return (res ?? new ResponseCollection())
                 .Remove(".grid tr", _using: offset == 0)
                 .ClearFormData("GridCheckAll", _using: clearCheck)
                 .ClearFormData("GridUnCheckedItems", _using: clearCheck)
                 .ClearFormData("GridCheckedItems", _using: clearCheck)
                 .CloseDialog()
-                .ReplaceAll("#Aggregations", new HtmlBuilder().Aggregations(
-                    ss: ss,
-                    aggregations: gridData.Aggregations),
+                .ReplaceAll("#CopyDirectUrlToClipboard", new HtmlBuilder()
+                    .CopyDirectUrlToClipboard(
+                        context: context,
+                        view: view))
+                .ReplaceAll(
+                    "#Aggregations",
+                    new HtmlBuilder().Aggregations(
+                        context: context,
+                        ss: ss,
+                        view: view),
                     _using: offset == 0)
                 .Append("#Grid", new HtmlBuilder().GridRows(
+                    context: context,
                     ss: ss,
                     gridData: gridData,
                     view: view,
                     addHeader: offset == 0,
-                    clearCheck: clearCheck))
+                    clearCheck: clearCheck,
+                    action: action))
                 .Val("#GridOffset", ss.GridNextOffset(
                     offset,
                     gridData.DataRows.Count(),
-                    gridData.Aggregations.TotalCount))
+                    gridData.TotalCount))
                 .Paging("#Grid")
                 .Message(message)
                 .ToJson();
@@ -249,48 +301,60 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder GridRows(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             GridData gridData,
             View view,
             bool addHeader = true,
-            bool clearCheck = false)
+            bool clearCheck = false,
+            string action = "GridRows")
         {
-            var checkAll = clearCheck ? false : Forms.Bool("GridCheckAll");
-            var columns = ss.GetGridColumns(checkPermission: true);
+            var checkAll = clearCheck
+                ? false
+                : context.Forms.Bool("GridCheckAll");
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
             return hb
                 .THead(
                     _using: addHeader,
                     action: () => hb
                         .GridHeader(
+                            context: context,
                             columns: columns, 
                             view: view,
-                            checkAll: checkAll))
+                            checkAll: checkAll,
+                            action: action))
                 .TBody(action: () => gridData.TBody(
                     hb: hb,
+                    context: context,
                     ss: ss,
                     columns: columns,
                     checkAll: checkAll));
         }
 
-        private static SqlColumnCollection GridSqlColumnCollection(SiteSettings ss)
+        private static SqlColumnCollection GridSqlColumnCollection(
+            IContext context, SiteSettings ss)
         {
             var sqlColumnCollection = Rds.GroupsColumn();
             new List<string> { "GroupId", "Creator", "Updator" }
                 .Concat(ss.GridColumns)
                 .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks().Select(o => o.ColumnName))
+                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
                 .Concat(ss.TitleColumns)
                     .Distinct().ForEach(column =>
                         sqlColumnCollection.GroupsColumn(column));
             return sqlColumnCollection;
         }
 
-        private static SqlColumnCollection DefaultSqlColumns(SiteSettings ss)
+        private static SqlColumnCollection DefaultSqlColumns(
+            IContext context, SiteSettings ss)
         {
             var sqlColumnCollection = Rds.GroupsColumn();
             new List<string> { "GroupId", "Creator", "Updator" }
                 .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks().Select(o => o.ColumnName))
+                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
                 .Concat(ss.TitleColumns)
                     .Distinct().ForEach(column =>
                         sqlColumnCollection.GroupsColumn(column));
@@ -298,78 +362,204 @@ namespace Implem.Pleasanter.Models
         }
 
         public static HtmlBuilder TdValue(
-            this HtmlBuilder hb, SiteSettings ss, Column column, GroupModel groupModel)
+            this HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            Column column,
+            GroupModel groupModel)
         {
             if (!column.GridDesign.IsNullOrEmpty())
             {
                 return hb.TdCustomValue(
+                    context: context,
                     ss: ss,
                     gridDesign: column.GridDesign,
                     groupModel: groupModel);
             }
             else
             {
-                var mine = groupModel.Mine();
+                var mine = groupModel.Mine(context: context);
                 switch (column.Name)
                 {
                     case "GroupId":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.GroupId)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.GroupId)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "Ver":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.Ver)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.Ver)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "GroupName":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.GroupName)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.GroupName)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "Body":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.Body)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.Body)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "Comments":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.Comments)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.Comments)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "Creator":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.Creator)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.Creator)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "Updator":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.Updator)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.Updator)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "CreatedTime":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.CreatedTime)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.CreatedTime)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     case "UpdatedTime":
-                        return ss.ReadColumnAccessControls.Allowed(column, ss.PermissionType, mine)
-                            ? hb.Td(column: column, value: groupModel.UpdatedTime)
-                            : hb.Td(column: column, value: string.Empty);
+                        return ss.ReadColumnAccessControls.Allowed(
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            type: ss.PermissionType,
+                            mine: mine)
+                                ? hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: groupModel.UpdatedTime)
+                                : hb.Td(
+                                    context: context,
+                                    column: column,
+                                    value: string.Empty);
                     default: return hb;
                 }
             }
         }
 
         private static HtmlBuilder TdCustomValue(
-            this HtmlBuilder hb, SiteSettings ss, string gridDesign, GroupModel groupModel)
+            this HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            string gridDesign,
+            GroupModel groupModel)
         {
             ss.IncludedColumns(gridDesign).ForEach(column =>
             {
                 var value = string.Empty;
                 switch (column.Name)
                 {
-                    case "GroupId": value = groupModel.GroupId.GridText(column: column); break;
-                    case "Ver": value = groupModel.Ver.GridText(column: column); break;
-                    case "GroupName": value = groupModel.GroupName.GridText(column: column); break;
-                    case "Body": value = groupModel.Body.GridText(column: column); break;
-                    case "Comments": value = groupModel.Comments.GridText(column: column); break;
-                    case "Creator": value = groupModel.Creator.GridText(column: column); break;
-                    case "Updator": value = groupModel.Updator.GridText(column: column); break;
-                    case "CreatedTime": value = groupModel.CreatedTime.GridText(column: column); break;
-                    case "UpdatedTime": value = groupModel.UpdatedTime.GridText(column: column); break;
+                    case "GroupId": value = groupModel.GroupId.GridText(
+                        context: context,
+                        column: column); break;
+                    case "Ver": value = groupModel.Ver.GridText(
+                        context: context,
+                        column: column); break;
+                    case "GroupName": value = groupModel.GroupName.GridText(
+                        context: context,
+                        column: column); break;
+                    case "Body": value = groupModel.Body.GridText(
+                        context: context,
+                        column: column); break;
+                    case "Comments": value = groupModel.Comments.GridText(
+                        context: context,
+                        column: column); break;
+                    case "Creator": value = groupModel.Creator.GridText(
+                        context: context,
+                        column: column); break;
+                    case "Updator": value = groupModel.Updator.GridText(
+                        context: context,
+                        column: column); break;
+                    case "CreatedTime": value = groupModel.CreatedTime.GridText(
+                        context: context,
+                        column: column); break;
+                    case "UpdatedTime": value = groupModel.UpdatedTime.GridText(
+                        context: context,
+                        column: column); break;
                 }
                 gridDesign = gridDesign.Replace("[" + column.ColumnName + "]", value);
             });
@@ -378,47 +568,61 @@ namespace Implem.Pleasanter.Models
                     .Text(text: gridDesign)));
         }
 
-        public static string EditorNew(SiteSettings ss)
+        public static string EditorNew(IContext context, SiteSettings ss)
         {
-            return Editor(ss, new GroupModel(
-                SiteSettingsUtilities.GroupsSiteSettings(),
+            return Editor(context: context, ss: ss, groupModel: new GroupModel(
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 methodType: BaseModel.MethodTypes.New));
         }
 
-        public static string Editor(SiteSettings ss, int groupId, bool clearSessions)
+        public static string Editor(
+            IContext context, SiteSettings ss, int groupId, bool clearSessions)
         {
             var groupModel = new GroupModel(
-                SiteSettingsUtilities.GroupsSiteSettings(),
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
                 groupId: groupId,
                 clearSessions: clearSessions,
                 methodType: BaseModel.MethodTypes.Edit);
             groupModel.SwitchTargets = GetSwitchTargets(
-                SiteSettingsUtilities.GroupsSiteSettings(), groupModel.GroupId);
-            return Editor(ss, groupModel);
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
+                groupId: groupModel.GroupId);
+            return Editor(context: context, ss: ss, groupModel: groupModel);
         }
 
-        public static string Editor(SiteSettings ss, GroupModel groupModel)
+        public static string Editor(
+            IContext context, SiteSettings ss, GroupModel groupModel)
         {
-            var invalid = GroupValidators.OnEditing(ss, groupModel);
+            var invalid = GroupValidators.OnEditing(
+                context: context,
+                ss: ss,
+                groupModel: groupModel);
             switch (invalid)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(invalid);
+                default: return HtmlTemplates.Error(context, invalid);
             }
             var hb = new HtmlBuilder();
-            ss.SetColumnAccessControls(groupModel.Mine());
+            ss.SetColumnAccessControls(
+                context: context,
+                mine: groupModel.Mine(context: context));
             return hb.Template(
+                context: context,
                 ss: ss,
+                view: null,
                 verType: groupModel.VerType,
                 methodType: groupModel.MethodType,
                 referenceType: "Groups",
                 title: groupModel.MethodType == BaseModel.MethodTypes.New
-                    ? Displays.Groups() + " - " + Displays.New()
+                    ? Displays.Groups(context: context) + " - " + Displays.New(context: context)
                     : groupModel.Title.Value,
                 action: () =>
                 {
                     hb
                         .Editor(
+                            context: context,
                             ss: ss,
                             groupModel: groupModel)
                         .Hidden(controlId: "TableName", value: "Groups")
@@ -430,10 +634,11 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder Editor(
-            this HtmlBuilder hb, SiteSettings ss, GroupModel groupModel)
+            this HtmlBuilder hb, IContext context, SiteSettings ss, GroupModel groupModel)
         {
-            var commentsColumn = ss.GetColumn("Comments");
-            var commentsColumnPermissionType = commentsColumn.ColumnPermissionType();
+            var commentsColumn = ss.GetColumn(context: context, columnName: "Comments");
+            var commentsColumnPermissionType = commentsColumn
+                .ColumnPermissionType(context: context);
             var showComments = ss.ShowComments(commentsColumnPermissionType);
             var tabsCss = showComments ? null : "max";
             return hb.Div(id: "Editor", action: () => hb
@@ -442,27 +647,40 @@ namespace Implem.Pleasanter.Models
                         .Id("GroupForm")
                         .Class("main-form confirm-reload")
                         .Action(groupModel.GroupId != 0
-                            ? Locations.Action("Groups", groupModel.GroupId)
-                            : Locations.Action("Groups")),
+                            ? Locations.Action(
+                                context: context,
+                                controller: "Groups",
+                                id: groupModel.GroupId)
+                            : Locations.Action(
+                                context: context,
+                                controller: "Groups")),
                     action: () => hb
                         .RecordHeader(
+                            context: context,
                             ss: ss,
                             baseModel: groupModel,
                             tableName: "Groups")
                         .Div(
                             id: "EditorComments", action: () => hb
                                 .Comments(
+                                    context: context,
+                                    ss: ss,
                                     comments: groupModel.Comments,
                                     column: commentsColumn,
                                     verType: groupModel.VerType,
                                     columnPermissionType: commentsColumnPermissionType),
                             _using: showComments)
                         .Div(id: "EditorTabsContainer", css: tabsCss, action: () => hb
-                            .EditorTabs(groupModel: groupModel)
+                            .EditorTabs(
+                                context: context,
+                                groupModel: groupModel)
                             .FieldSetGeneral(
+                                context: context,
                                 ss: ss,
                                 groupModel: groupModel)
-                            .FieldSetMembers(groupModel: groupModel)
+                            .FieldSetMembers(
+                                context: context,
+                                groupModel: groupModel)
                             .FieldSet(
                                 attributes: new HtmlAttributes()
                                     .Id("FieldSetHistories")
@@ -470,6 +688,7 @@ namespace Implem.Pleasanter.Models
                                     .DataMethod("post"),
                                 _using: groupModel.MethodType != BaseModel.MethodTypes.New)
                             .MainCommands(
+                                context: context,
                                 ss: ss,
                                 siteId: 0,
                                 verType: groupModel.VerType,
@@ -479,9 +698,12 @@ namespace Implem.Pleasanter.Models
                                 deleteButton: true,
                                 extensions: () => hb
                                     .MainCommandExtensions(
+                                        context: context,
                                         groupModel: groupModel,
                                         ss: ss)))
-                        .Hidden(controlId: "BaseUrl", value: Locations.BaseUrl())
+                        .Hidden(
+                            controlId: "BaseUrl",
+                            value: Locations.BaseUrl(context: context))
                         .Hidden(
                             controlId: "MethodType",
                             value: groupModel.MethodType.ToString().ToLower())
@@ -493,117 +715,153 @@ namespace Implem.Pleasanter.Models
                             controlId: "SwitchTargets",
                             css: "always-send",
                             value: groupModel.SwitchTargets?.Join(),
-                            _using: !Request.IsAjax()))
-                .OutgoingMailsForm("Groups", groupModel.GroupId, groupModel.Ver)
-                .CopyDialog("Groups", groupModel.GroupId)
+                            _using: !context.Ajax))
+                .OutgoingMailsForm(
+                    context: context,
+                    ss: ss,
+                    referenceType: "Groups",
+                    referenceId: groupModel.GroupId,
+                    referenceVer: groupModel.Ver)
+                .CopyDialog(
+                    context: context,
+                    referenceType: "Groups",
+                    id: groupModel.GroupId)
                 .OutgoingMailDialog()
-                .EditorExtensions(groupModel: groupModel, ss: ss));
+                .EditorExtensions(
+                    context: context,
+                    groupModel: groupModel,
+                    ss: ss));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static HtmlBuilder EditorTabs(this HtmlBuilder hb, GroupModel groupModel)
+        private static HtmlBuilder EditorTabs(
+            this HtmlBuilder hb, IContext context, GroupModel groupModel)
         {
             return hb.Ul(id: "EditorTabs", action: () => hb
                 .Li(action: () => hb
                     .A(
                         href: "#FieldSetGeneral",
-                        text: Displays.General()))
+                        text: Displays.General(context: context)))
                 .Li(action: () => hb
                     .A(
                         href: "#FieldSetMembers",
-                        text: Displays.Members(),
+                        text: Displays.Members(context: context),
                         _using: groupModel.MethodType != BaseModel.MethodTypes.New))
                 .Li(
                     _using: groupModel.MethodType != BaseModel.MethodTypes.New,
                     action: () => hb
                         .A(
                             href: "#FieldSetHistories",
-                            text: Displays.ChangeHistoryList())));
+                            text: Displays.ChangeHistoryList(context: context))));
         }
 
         private static HtmlBuilder FieldSetGeneral(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             GroupModel groupModel)
         {
-            var mine = groupModel.Mine();
+            var mine = groupModel.Mine(context: context);
             return hb.FieldSet(id: "FieldSetGeneral", action: () => hb
                 .FieldSetGeneralColumns(
-                    ss: ss, groupModel: groupModel));
+                    context: context, ss: ss, groupModel: groupModel));
         }
 
         private static HtmlBuilder FieldSetGeneralColumns(
             this HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
             GroupModel groupModel,
             bool preview = false)
         {
-            ss.GetEditorColumns().ForEach(column =>
+            ss.GetEditorColumns(context: context).ForEach(column =>
             {
                 switch (column.Name)
                 {
                     case "GroupId":
                         hb.Field(
-                            ss,
-                            column,
-                            groupModel.MethodType,
-                            groupModel.GroupId.ToControl(ss, column),
-                            column.ColumnPermissionType(),
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            methodType: groupModel.MethodType,
+                            value: groupModel.GroupId
+                                .ToControl(context: context, ss: ss, column: column),
+                            columnPermissionType: column.ColumnPermissionType(context: context),
                             preview: preview);
                         break;
                     case "Ver":
                         hb.Field(
-                            ss,
-                            column,
-                            groupModel.MethodType,
-                            groupModel.Ver.ToControl(ss, column),
-                            column.ColumnPermissionType(),
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            methodType: groupModel.MethodType,
+                            value: groupModel.Ver
+                                .ToControl(context: context, ss: ss, column: column),
+                            columnPermissionType: column.ColumnPermissionType(context: context),
                             preview: preview);
                         break;
                     case "GroupName":
                         hb.Field(
-                            ss,
-                            column,
-                            groupModel.MethodType,
-                            groupModel.GroupName.ToControl(ss, column),
-                            column.ColumnPermissionType(),
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            methodType: groupModel.MethodType,
+                            value: groupModel.GroupName
+                                .ToControl(context: context, ss: ss, column: column),
+                            columnPermissionType: column.ColumnPermissionType(context: context),
                             preview: preview);
                         break;
                     case "Body":
                         hb.Field(
-                            ss,
-                            column,
-                            groupModel.MethodType,
-                            groupModel.Body.ToControl(ss, column),
-                            column.ColumnPermissionType(),
+                            context: context,
+                            ss: ss,
+                            column: column,
+                            methodType: groupModel.MethodType,
+                            value: groupModel.Body
+                                .ToControl(context: context, ss: ss, column: column),
+                            columnPermissionType: column.ColumnPermissionType(context: context),
                             preview: preview);
                         break;
                 }
             });
-            if (!preview) hb.VerUpCheckBox(groupModel);
+            if (!preview)
+            {
+                hb.VerUpCheckBox(
+                    context: context,
+                    ss: ss,
+                    baseModel: groupModel);
+            }
             return hb;
         }
 
         private static HtmlBuilder MainCommandExtensions(
-            this HtmlBuilder hb, SiteSettings ss, GroupModel groupModel)
+            this HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            GroupModel groupModel)
         {
             return hb;
         }
 
         private static HtmlBuilder EditorExtensions(
-            this HtmlBuilder hb, GroupModel groupModel, SiteSettings ss)
+            this HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            GroupModel groupModel)
         {
             return hb;
         }
 
-        public static string EditorJson(SiteSettings ss, int groupId)
+        public static string EditorJson(IContext context, SiteSettings ss, int groupId)
         {
-            return EditorResponse(ss, new GroupModel(ss, groupId)).ToJson();
+            return EditorResponse(context, ss, new GroupModel(
+                context, ss, groupId)).ToJson();
         }
 
         private static ResponseCollection EditorResponse(
+            IContext context,
             SiteSettings ss,
             GroupModel groupModel,
             Message message = null,
@@ -612,7 +870,7 @@ namespace Implem.Pleasanter.Models
             groupModel.MethodType = BaseModel.MethodTypes.Edit;
             return new GroupsResponseCollection(groupModel)
                 .Invoke("clearDialogs")
-                .ReplaceAll("#MainContainer", Editor(ss, groupModel))
+                .ReplaceAll("#MainContainer", Editor(context, ss, groupModel))
                 .Val("#SwitchTargets", switchTargets, _using: switchTargets != null)
                 .SetMemory("formChanged", false)
                 .Invoke("setCurrentIndex")
@@ -620,24 +878,31 @@ namespace Implem.Pleasanter.Models
                 .ClearFormData();
         }
 
-        private static List<int> GetSwitchTargets(SiteSettings ss, int groupId)
+        private static List<int> GetSwitchTargets(IContext context, SiteSettings ss, int groupId)
         {
-            var view = Views.GetBySession(ss);
-            var where = view.Where(ss: ss, where: Rds.GroupsWhere().TenantId(Sessions.TenantId()));
-            var join = ss.Join();
-            var switchTargets = Rds.ExecuteScalar_int(statements:
-                Rds.SelectGroups(
+            var view = Views.GetBySession(
+                context: context,
+                ss: ss,
+                setSession: false);
+            var where = view.Where(context: context, ss: ss, where: Rds.GroupsWhere().TenantId(context.TenantId));
+            var join = ss.Join(context: context);
+            var switchTargets = Rds.ExecuteScalar_int(
+                context: context,
+                statements: Rds.SelectGroups(
                     column: Rds.GroupsColumn().GroupsCount(),
                     join: join,
                     where: where)) <= Parameters.General.SwitchTargetsLimit
-                        ? Rds.ExecuteTable(statements: Rds.SelectGroups(
-                            column: Rds.GroupsColumn().GroupId(),
-                            join: join,
-                            where: where,
-                            orderBy: view.OrderBy(ss).Groups_UpdatedTime(SqlOrderBy.Types.desc)))
-                                .AsEnumerable()
-                                .Select(o => o["GroupId"].ToInt())
-                                .ToList()
+                        ? Rds.ExecuteTable(
+                            context: context,
+                            statements: Rds.SelectGroups(
+                                column: Rds.GroupsColumn().GroupId(),
+                                join: join,
+                                where: where,
+                                orderBy: view.OrderBy(context: context, ss: ss)
+                                    .Groups_UpdatedTime(SqlOrderBy.Types.desc)))
+                                        .AsEnumerable()
+                                        .Select(o => o["GroupId"].ToInt())
+                                        .ToList()
                         : new List<int>();
             if (!switchTargets.Contains(groupId))
             {
@@ -646,175 +911,293 @@ namespace Implem.Pleasanter.Models
             return switchTargets;
         }
 
-        public static string Create(SiteSettings ss)
+        public static ResponseCollection FieldResponse(
+            this GroupsResponseCollection res,
+            IContext context,
+            SiteSettings ss,
+            GroupModel groupModel)
         {
-            var groupModel = new GroupModel(ss, 0, setByForm: true);
-            var invalid = GroupValidators.OnCreating(ss, groupModel);
-            switch (invalid)
-            {
-                case Error.Types.None: break;
-                default: return invalid.MessageJson();
-            }
-            var error = groupModel.Create(ss);
-            if (error.Has())
-            {
-                return error.MessageJson();
-            }
-            Sessions.Set("Message", Messages.Created(groupModel.Title.Value));
-            return new ResponseCollection()
-                .SetMemory("formChanged", false)
-                .Href(Locations.Edit(
-                    controller: Routes.Controller(),
-                    id: ss.Columns.Any(o => o.Linking)
-                        ? Forms.Long("LinkId")
-                        : groupModel.GroupId))
-                .ToJson();
+            var mine = groupModel.Mine(context: context);
+            ss.EditorColumns
+                .Select(columnName => ss.GetColumn(context: context, columnName: columnName))
+                .Where(column => column != null)
+                .ForEach(column =>
+                {
+                    switch (column.Name)
+                    {
+                        case "TenantId":
+                            res.Val(
+                                "#Groups_TenantId",
+                                groupModel.TenantId.ToResponse(context: context, ss: ss, column: column));
+                            break;
+                        case "GroupId":
+                            res.Val(
+                                "#Groups_GroupId",
+                                groupModel.GroupId.ToResponse(context: context, ss: ss, column: column));
+                            break;
+                        case "GroupName":
+                            res.Val(
+                                "#Groups_GroupName",
+                                groupModel.GroupName.ToResponse(context: context, ss: ss, column: column));
+                            break;
+                        case "Body":
+                            res.Val(
+                                "#Groups_Body",
+                                groupModel.Body.ToResponse(context: context, ss: ss, column: column));
+                            break;
+                        default: break;
+                    }
+                });
+            return res;
         }
 
-        public static string Update(SiteSettings ss, int groupId)
+        public static string Create(IContext context, SiteSettings ss)
         {
-            var groupModel = new GroupModel(ss, groupId, setByForm: true);
-            var invalid = GroupValidators.OnUpdating(ss, groupModel);
+            var groupModel = new GroupModel(context, ss, 0, setByForm: true);
+            var invalid = GroupValidators.OnCreating(
+                context: context,
+                ss: ss,
+                groupModel: groupModel);
             switch (invalid)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson();
+                default: return invalid.MessageJson(context: context);
+            }
+            var error = groupModel.Create(context: context, ss: ss);
+            switch (error)
+            {
+                case Error.Types.None:
+                    SessionUtilities.Set(
+                        context: context,
+                        message: Messages.Created(
+                            context: context,
+                            data: groupModel.Title.Value));
+                    return new ResponseCollection()
+                        .Response("id", groupModel.GroupId.ToString())
+                        .SetMemory("formChanged", false)
+                        .Href(Locations.Edit(
+                            context: context,
+                            controller: context.Controller,
+                            id: ss.Columns.Any(o => o.Linking)
+                                ? context.Forms.Long("LinkId")
+                                : groupModel.GroupId))
+                        .ToJson();
+                default:
+                    return error.MessageJson(context: context);
+            }
+        }
+
+        public static string Update(IContext context, SiteSettings ss, int groupId)
+        {
+            var groupModel = new GroupModel(
+                context: context, ss: ss, groupId: groupId, setByForm: true);
+            var invalid = GroupValidators.OnUpdating(
+                context: context,
+                ss: ss,
+                groupModel: groupModel);
+            switch (invalid)
+            {
+                case Error.Types.None: break;
+                default: return invalid.MessageJson(context: context);
             }
             if (groupModel.AccessStatus != Databases.AccessStatuses.Selected)
             {
-                return Messages.ResponseDeleteConflicts().ToJson();
+                return Messages.ResponseDeleteConflicts(context: context).ToJson();
             }
-            var error = groupModel.Update(ss);
-            if (error.Has())
+            var error = groupModel.Update(context: context, ss: ss);
+            switch (error)
             {
-                return error == Error.Types.UpdateConflicts
-                    ? Messages.ResponseUpdateConflicts(groupModel.Updator.Name).ToJson()
-                    : new ResponseCollection().Message(error.Message()).ToJson();
-            }
-            else
-            {
-                var res = new GroupsResponseCollection(groupModel);
-                return ResponseByUpdate(res, ss, groupModel)
-                    .PrependComment(
-                        ss,
-                        ss.GetColumn("Comments"),
-                        groupModel.Comments,
-                        groupModel.VerType)
-                    .ToJson();
+                case Error.Types.None:
+                    var res = new GroupsResponseCollection(groupModel);
+                    return ResponseByUpdate(res, context, ss, groupModel)
+                        .PrependComment(
+                            context: context,
+                            ss: ss,
+                            column: ss.GetColumn(context: context, columnName: "Comments"),
+                            comments: groupModel.Comments,
+                            verType: groupModel.VerType)
+                        .ToJson();
+                case Error.Types.UpdateConflicts:
+                    return Messages.ResponseUpdateConflicts(
+                        context: context,
+                        data: groupModel.Updator.Name)
+                            .ToJson();
+                default:
+                    return error.MessageJson(context: context);
             }
         }
 
         private static ResponseCollection ResponseByUpdate(
             GroupsResponseCollection res,
+            IContext context,
             SiteSettings ss,
             GroupModel groupModel)
         {
-            return res
-                .Ver()
-                .Timestamp()
-                .Val("#VerUp", false)
-                .Disabled("#VerUp", false)
-                .Html("#HeaderTitle", groupModel.Title.Value)
-                .Html("#RecordInfo", new HtmlBuilder().RecordInfo(
-                    baseModel: groupModel, tableName: "Groups"))
-                .SetMemory("formChanged", false)
-                .Message(Messages.Updated(groupModel.Title.Value))
-                .Comment(
-                    ss,
-                    ss.GetColumn("Comments"),
-                    groupModel.Comments,
-                    groupModel.DeleteCommentId)
-                .ClearFormData();
-        }
-
-        public static string Delete(SiteSettings ss, int groupId)
-        {
-            var groupModel = new GroupModel(ss, groupId);
-            var invalid = GroupValidators.OnDeleting(ss, groupModel);
-            switch (invalid)
+            if (context.Forms.Bool("IsDialogEditorForm"))
             {
-                case Error.Types.None: break;
-                default: return invalid.MessageJson();
-            }
-            var error = groupModel.Delete(ss);
-            if (error.Has())
-            {
-                return error.MessageJson();
+                var view = Views.GetBySession(
+                    context: context,
+                    ss: ss,
+                    setSession: false);
+                var gridData = new GridData(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    where: Rds.GroupsWhere().GroupId(groupModel.GroupId));
+                var columns = ss.GetGridColumns(
+                    context: context,
+                    checkPermission: true);
+                return res
+                    .ReplaceAll(
+                        $"[data-id=\"{groupModel.GroupId}\"]",
+                        gridData.TBody(
+                            hb: new HtmlBuilder(),
+                            context: context,
+                            ss: ss,
+                            columns: columns,
+                            checkAll: false))
+                    .CloseDialog()
+                    .Message(Messages.Updated(
+                        context: context,
+                        data: groupModel.Title.DisplayValue));
             }
             else
             {
-                Sessions.Set("Message", Messages.Deleted(groupModel.Title.Value));
-                var res = new GroupsResponseCollection(groupModel);
-                res
+                return res
+                    .Ver(context: context, ss: ss)
+                    .Timestamp(context: context, ss: ss)
+                    .FieldResponse(context: context, ss: ss, groupModel: groupModel)
+                    .Val("#VerUp", false)
+                    .Disabled("#VerUp", false)
+                    .Html("#HeaderTitle", groupModel.Title.Value)
+                    .Html("#RecordInfo", new HtmlBuilder().RecordInfo(
+                        context: context,
+                        baseModel: groupModel,
+                        tableName: "Groups"))
                     .SetMemory("formChanged", false)
-                    .Href(Locations.Index("Groups"));
-                return res.ToJson();
+                    .Message(Messages.Updated(
+                        context: context,
+                        data: groupModel.Title.Value))
+                    .Comment(
+                        context: context,
+                        ss: ss,
+                        column: ss.GetColumn(context: context, columnName: "Comments"),
+                        comments: groupModel.Comments,
+                        deleteCommentId: groupModel.DeleteCommentId)
+                    .ClearFormData();
             }
         }
 
-        public static string Restore(SiteSettings ss, int groupId)
+        public static string Delete(IContext context, SiteSettings ss, int groupId)
         {
-            var groupModel = new GroupModel();
-            var invalid = GroupValidators.OnRestoring();
+            var groupModel = new GroupModel(context, ss, groupId);
+            var invalid = GroupValidators.OnDeleting(
+                context: context,
+                ss: ss,
+                groupModel: groupModel);
             switch (invalid)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson();
+                default: return invalid.MessageJson(context: context);
             }
-            var error = groupModel.Restore(ss, groupId);
-            if (error.Has())
+            var error = groupModel.Delete(context: context, ss: ss);
+            switch (error)
             {
-                return error.MessageJson();
-            }
-            else
-            {
-                var res = new GroupsResponseCollection(groupModel);
-                return res.ToJson();
+                case Error.Types.None:
+                    SessionUtilities.Set(
+                        context: context,
+                        message: Messages.Deleted(
+                            context: context,
+                            data: groupModel.Title.Value));
+                    var res = new GroupsResponseCollection(groupModel);
+                    res
+                        .SetMemory("formChanged", false)
+                        .Href(Locations.Index(
+                            context: context,
+                            controller: "Groups"));
+                    return res.ToJson();
+                default:
+                    return error.MessageJson(context: context);
             }
         }
 
-        public static string Histories(SiteSettings ss, int groupId)
+        public static string Histories(
+            IContext context, SiteSettings ss, int groupId, Message message = null)
         {
-            var groupModel = new GroupModel(ss, groupId);
-            ss.SetColumnAccessControls(groupModel.Mine());
-            var columns = ss.GetHistoryColumns(checkPermission: true);
-            if (!ss.CanRead())
+            var groupModel = new GroupModel(context: context, ss: ss, groupId: groupId);
+            ss.SetColumnAccessControls(
+                context: context,
+                mine: groupModel.Mine(context: context));
+            var columns = ss.GetHistoryColumns(context: context, checkPermission: true);
+            if (!context.CanRead(ss: ss))
             {
-                return Error.Types.HasNotPermission.MessageJson();
+                return Error.Types.HasNotPermission.MessageJson(context: context);
             }
             var hb = new HtmlBuilder();
-            hb.Table(
-                attributes: new HtmlAttributes().Class("grid"),
-                action: () => hb
-                    .THead(action: () => hb
-                        .GridHeader(
-                            columns: columns,
-                            sort: false,
-                            checkRow: false))
-                    .TBody(action: () =>
-                        new GroupCollection(
-                            ss: ss,
-                            column: HistoryColumn(columns),
-                            where: Rds.GroupsWhere().GroupId(groupModel.GroupId),
-                            orderBy: Rds.GroupsOrderBy().Ver(SqlOrderBy.Types.desc),
-                            tableType: Sqls.TableTypes.NormalAndHistory)
-                                .ForEach(groupModelHistory => hb
-                                    .Tr(
-                                        attributes: new HtmlAttributes()
-                                            .Class("grid-row history not-link")
-                                            .DataAction("History")
-                                            .DataMethod("post")
-                                            .DataVer(groupModelHistory.Ver)
-                                            .DataLatest(1, _using:
-                                                groupModelHistory.Ver == groupModel.Ver),
-                                        action: () => columns
-                                            .ForEach(column => hb
-                                                .TdValue(
-                                                    ss: ss,
-                                                    column: column,
-                                                    groupModel: groupModelHistory))))));
+            hb
+                .HistoryCommands(context: context, ss: ss)
+                .Table(
+                    attributes: new HtmlAttributes().Class("grid history"),
+                    action: () => hb
+                        .THead(action: () => hb
+                            .GridHeader(
+                                context: context,
+                                columns: columns,
+                                sort: false,
+                                checkRow: true))
+                        .TBody(action: () => hb
+                            .HistoriesTableBody(
+                                context: context,
+                                ss: ss,
+                                columns: columns,
+                                groupModel: groupModel)));
             return new GroupsResponseCollection(groupModel)
-                .Html("#FieldSetHistories", hb).ToJson();
+                .Html("#FieldSetHistories", hb)
+                .Message(message)
+                .ToJson();
+        }
+
+        private static void HistoriesTableBody(
+            this HtmlBuilder hb,
+            IContext context,
+            SiteSettings ss,
+            List<Column> columns,
+            GroupModel groupModel)
+        {
+            new GroupCollection(
+                context: context,
+                ss: ss,
+                column: HistoryColumn(columns),
+                where: Rds.GroupsWhere().GroupId(groupModel.GroupId),
+                orderBy: Rds.GroupsOrderBy().Ver(SqlOrderBy.Types.desc),
+                tableType: Sqls.TableTypes.NormalAndHistory)
+                    .ForEach(groupModelHistory => hb
+                        .Tr(
+                            attributes: new HtmlAttributes()
+                                .Class("grid-row")
+                                .DataAction("History")
+                                .DataMethod("post")
+                                .DataVer(groupModelHistory.Ver)
+                                .DataLatest(1, _using:
+                                    groupModelHistory.Ver == groupModel.Ver),
+                            action: () =>
+                            {
+                                hb.Td(
+                                    css: "grid-check-td",
+                                    action: () => hb
+                                        .CheckBox(
+                                            controlCss: "grid-check",
+                                            _checked: false,
+                                            dataId: groupModelHistory.Ver.ToString(),
+                                            _using: groupModelHistory.Ver < groupModel.Ver));
+                                columns
+                                    .ForEach(column => hb
+                                        .TdValue(
+                                            context: context,
+                                            ss: ss,
+                                            column: column,
+                                            groupModel: groupModelHistory));
+                            }));
         }
 
         private static SqlColumnCollection HistoryColumn(List<Column> columns)
@@ -826,47 +1209,55 @@ namespace Implem.Pleasanter.Models
             return sqlColumn;
         }
 
-        public static string History(SiteSettings ss, int groupId)
+        public static string History(IContext context, SiteSettings ss, int groupId)
         {
-            var groupModel = new GroupModel(ss, groupId);
-            ss.SetColumnAccessControls(groupModel.Mine());
+            var groupModel = new GroupModel(context: context, ss: ss, groupId: groupId);
+            ss.SetColumnAccessControls(
+                context: context,
+                mine: groupModel.Mine(context: context));
             groupModel.Get(
-                ss, 
+                context: context,
+                ss: ss,
                 where: Rds.GroupsWhere()
                     .GroupId(groupModel.GroupId)
-                    .Ver(Forms.Int("Ver")),
+                    .Ver(context.Forms.Int("Ver")),
                 tableType: Sqls.TableTypes.NormalAndHistory);
-            groupModel.VerType = Forms.Bool("Latest")
+            groupModel.VerType = context.Forms.Bool("Latest")
                 ? Versions.VerTypes.Latest
                 : Versions.VerTypes.History;
-            return EditorResponse(ss, groupModel).ToJson();
+            return EditorResponse(context, ss, groupModel).ToJson();
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string GridRows()
+        public static string GridRows(IContext context)
         {
             return GridRows(
-                SiteSettingsUtilities.GroupsSiteSettings(),
-                offset: DataViewGrid.Offset());
+                context: context,
+                ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
+                offset: DataViewGrid.Offset(context: context));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static HtmlBuilder FieldSetMembers(this HtmlBuilder hb, GroupModel groupModel)
+        public static HtmlBuilder FieldSetMembers(
+            this HtmlBuilder hb, IContext context, GroupModel groupModel)
         {
             if (groupModel.MethodType == BaseModel.MethodTypes.New) return hb;
             return hb.FieldSet(id: "FieldSetMembers", action: () => hb
-                .CurrentMembers(groupModel)
-                .SelectableMembers());
+                .CurrentMembers(
+                    context: context,
+                    groupModel: groupModel)
+                .SelectableMembers(context: context));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static HtmlBuilder CurrentMembers(this HtmlBuilder hb, GroupModel groupModel)
+        public static HtmlBuilder CurrentMembers(
+            this HtmlBuilder hb, IContext context, GroupModel groupModel)
         {
             return hb.FieldSelectable(
                 controlId: "CurrentMembers",
@@ -874,8 +1265,10 @@ namespace Implem.Pleasanter.Models
                 controlContainerCss: "container-selectable",
                 controlWrapperCss: " h300",
                 controlCss: " always-send send-all",
-                labelText: Displays.CurrentMembers(),
-                listItemCollection: CurrentMembers(groupModel),
+                labelText: Displays.CurrentMembers(context: context),
+                listItemCollection: CurrentMembers(
+                    context: context,
+                    groupModel: groupModel),
                 selectedValueCollection: null,
                 commandOptionPositionIsTop: true,
                 commandOptionAction: () => hb
@@ -883,18 +1276,18 @@ namespace Implem.Pleasanter.Models
                         .Button(
                             controlId: "GeneralUser",
                             controlCss: "button-icon post",
-                            text: Displays.GeneralUser(),
+                            text: Displays.GeneralUser(context: context),
                             onClick: "$p.setGroup($(this));",
                             icon: "ui-icon-person")
                         .Button(
                             controlId: "Manager",
                             controlCss: "button-icon post",
-                            text: Displays.Manager(),
+                            text: Displays.Manager(context: context),
                             onClick: "$p.setGroup($(this));",
                             icon: "ui-icon-person")
                         .Button(
                             controlCss: "button-icon post",
-                            text: Displays.Delete(),
+                            text: Displays.Delete(context: context),
                             onClick: "$p.deleteSelected($(this));",
                             icon: "ui-icon-circle-triangle-e",
                             action: "SelectableMembers",
@@ -904,11 +1297,13 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static Dictionary<string, ControlData> CurrentMembers(GroupModel groupModel)
+        private static Dictionary<string, ControlData> CurrentMembers(
+            IContext context, GroupModel groupModel)
         {
             var data = new Dictionary<string, ControlData>();
-            Rds.ExecuteTable(statements:
-                Rds.SelectGroupMembers(
+            Rds.ExecuteTable(
+                context: context,
+                statements: Rds.SelectGroupMembers(
                     column: Rds.GroupMembersColumn()
                         .DeptId()
                         .UserId()
@@ -922,40 +1317,44 @@ namespace Implem.Pleasanter.Models
                         .GroupId(groupModel.GroupId)))
                             .AsEnumerable()
                             .ForEach(dataRow =>
-                                data.AddMember(dataRow));
+                                data.AddMember(
+                                    context: context,
+                                    dataRow: dataRow));
             return data;
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string SelectableMembersJson()
+        public static string SelectableMembersJson(IContext context)
         {
             return new ResponseCollection().Html(
                 "#SelectableMembers",
                 new HtmlBuilder().SelectableItems(
-                    listItemCollection: SelectableMembers()))
-                        .ToJson();
+                    listItemCollection: SelectableMembers(
+                        context: context)))
+                            .ToJson();
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static HtmlBuilder SelectableMembers(this HtmlBuilder hb)
+        private static HtmlBuilder SelectableMembers(
+            this HtmlBuilder hb, IContext context)
         {
             return hb.FieldSelectable(
                 controlId: "SelectableMembers",
                 fieldCss: "field-vertical",
                 controlContainerCss: "container-selectable",
                 controlWrapperCss: " h300",
-                labelText: Displays.SelectableMembers(),
-                listItemCollection: SelectableMembers(),
+                labelText: Displays.SelectableMembers(context: context),
+                listItemCollection: SelectableMembers(context: context),
                 commandOptionPositionIsTop: true,
                 commandOptionAction: () => hb
                     .Div(css: "command-left", action: () => hb
                         .Button(
                             controlCss: "button-icon post",
-                            text: Displays.Add(),
+                            text: Displays.Add(context: context),
                             onClick: "$p.addSelected($(this), $('#CurrentMembers'));",
                             icon: "ui-icon-circle-triangle-w",
                             action: "SelectableMembers",
@@ -964,7 +1363,7 @@ namespace Implem.Pleasanter.Models
                         .TextBox(
                             controlId: "SearchMemberText",
                             controlCss: " always-send auto-postback w100",
-                            placeholder: Displays.Search(),
+                            placeholder: Displays.Search(context: context),
                             action: "SelectableMembers",
                             method: "post")));
         }
@@ -972,79 +1371,83 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static Dictionary<string, ControlData> SelectableMembers()
+        private static Dictionary<string, ControlData> SelectableMembers(IContext context)
         {
             var data = new Dictionary<string, ControlData>();
-            var searchText = Forms.Data("SearchMemberText");
+            var searchText = context.Forms.Data("SearchMemberText");
             if (!searchText.IsNullOrEmpty())
             {
-                var currentMembers = Forms.List("CurrentMembersAll");
-                Rds.ExecuteTable(statements: new SqlStatement[]
-                {
-                    Rds.SelectDepts(
-                        column: Rds.DeptsColumn()
-                            .DeptId()
-                            .DeptCode()
-                            .Add("0 as [UserId]")
-                            .Add("'' as [UserCode]")
-                            .Add("0 as [IsUser]"),
-                        where: Rds.DeptsWhere()
-                            .TenantId(Sessions.TenantId())
-                            .DeptId_In(
-                                currentMembers?
-                                    .Where(o => o.StartsWith("Dept,"))
-                                    .Select(o => o.Split_2nd().ToInt()),
-                                negative: true)
-                            .SqlWhereLike(
-                                name: "SearchText",
-                                searchText: searchText,
-                                clauseCollection: new List<string>()
-                                {
-                                    Rds.Depts_DeptCode_WhereLike(),
-                                    Rds.Depts_DeptName_WhereLike()
-                                })),
-                    Rds.SelectUsers(
-                        unionType: Sqls.UnionTypes.Union,
-                        column: Rds.UsersColumn()
-                            .Add("0 as [DeptId]")
-                            .Add("'' as [DeptCode]")
-                            .UserId()
-                            .UserCode()
-                            .Add("1 as [IsUser]"),
-                        join: Rds.UsersJoin()
-                            .Add(new SqlJoin(
-                                tableBracket: "[Depts]",
-                                joinType: SqlJoin.JoinTypes.LeftOuter,
-                                joinExpression: "[Users].[DeptId]=[Depts].[DeptId]")),
-                        where: Rds.UsersWhere()
-                            .TenantId(Sessions.TenantId())
-                            .UserId_In(
-                                currentMembers?
-                                    .Where(o => o.StartsWith("User,"))
-                                    .Select(o => o.Split_2nd().ToInt()),
-                                negative: true)
-                            .SqlWhereLike(
-                                name: "SearchText",
-                                searchText: searchText,
-                                clauseCollection: new List<string>()
-                                {
-                                    Rds.Users_LoginId_WhereLike(),
-                                    Rds.Users_Name_WhereLike(),
-                                    Rds.Users_UserCode_WhereLike(),
-                                    Rds.Users_Body_WhereLike(),
-                                    Rds.Depts_DeptCode_WhereLike(),
-                                    Rds.Depts_DeptName_WhereLike(),
-                                    Rds.Depts_Body_WhereLike()
-                                })
-                            .Users_Disabled(0))
-                })
-                    .AsEnumerable()
-                    .OrderBy(o => o["IsUser"])
-                    .ThenBy(o => o["DeptCode"])
-                    .ThenBy(o => o["DeptId"])
-                    .ThenBy(o => o["UserCode"])
-                    .ForEach(dataRow =>
-                        data.AddMember(dataRow));
+                var currentMembers = context.Forms.List("CurrentMembersAll");
+                Rds.ExecuteTable(
+                    context: context,
+                    statements: new SqlStatement[]
+                    {
+                        Rds.SelectDepts(
+                            column: Rds.DeptsColumn()
+                                .DeptId()
+                                .DeptCode()
+                                .Add("0 as [UserId]")
+                                .Add("'' as [UserCode]")
+                                .Add("0 as [IsUser]"),
+                            where: Rds.DeptsWhere()
+                                .TenantId(context.TenantId)
+                                .DeptId_In(
+                                    currentMembers?
+                                        .Where(o => o.StartsWith("Dept,"))
+                                        .Select(o => o.Split_2nd().ToInt()),
+                                    negative: true)
+                                .SqlWhereLike(
+                                    name: "SearchText",
+                                    searchText: searchText,
+                                    clauseCollection: new List<string>()
+                                    {
+                                        Rds.Depts_DeptCode_WhereLike(),
+                                        Rds.Depts_DeptName_WhereLike()
+                                    })),
+                        Rds.SelectUsers(
+                            unionType: Sqls.UnionTypes.Union,
+                            column: Rds.UsersColumn()
+                                .Add("0 as [DeptId]")
+                                .Add("'' as [DeptCode]")
+                                .UserId()
+                                .UserCode()
+                                .Add("1 as [IsUser]"),
+                            join: Rds.UsersJoin()
+                                .Add(new SqlJoin(
+                                    tableBracket: "[Depts]",
+                                    joinType: SqlJoin.JoinTypes.LeftOuter,
+                                    joinExpression: "[Users].[DeptId]=[Depts].[DeptId]")),
+                            where: Rds.UsersWhere()
+                                .TenantId(context.TenantId)
+                                .UserId_In(
+                                    currentMembers?
+                                        .Where(o => o.StartsWith("User,"))
+                                        .Select(o => o.Split_2nd().ToInt()),
+                                    negative: true)
+                                .SqlWhereLike(
+                                    name: "SearchText",
+                                    searchText: searchText,
+                                    clauseCollection: new List<string>()
+                                    {
+                                        Rds.Users_LoginId_WhereLike(),
+                                        Rds.Users_Name_WhereLike(),
+                                        Rds.Users_UserCode_WhereLike(),
+                                        Rds.Users_Body_WhereLike(),
+                                        Rds.Depts_DeptCode_WhereLike(),
+                                        Rds.Depts_DeptName_WhereLike(),
+                                        Rds.Depts_Body_WhereLike()
+                                    })
+                                .Users_Disabled(0))
+                    })
+                        .AsEnumerable()
+                        .OrderBy(dataRow => dataRow.Bool("IsUser"))
+                        .ThenBy(dataRow => dataRow.String("DeptCode"))
+                        .ThenBy(dataRow => dataRow.Int("DeptId"))
+                        .ThenBy(dataRow => dataRow.String("UserCode"))
+                        .ForEach(dataRow =>
+                            data.AddMember(
+                                context: context,
+                                dataRow: dataRow));
             }
             return data;
         }
@@ -1052,28 +1455,122 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static void AddMember(this Dictionary<string, ControlData> data, DataRow dataRow)
+        private static void AddMember(
+            this Dictionary<string, ControlData> data, IContext context, DataRow dataRow)
         {
-            var deptId = dataRow["DeptId"].ToInt();
-            var userId = dataRow["UserId"].ToInt();
+            var deptId = dataRow.Int("DeptId");
+            var userId = dataRow.Int("UserId");
             var admin = dataRow.Table.Columns.Contains("Admin")
-                ? dataRow["Admin"].ToBool()
+                ? dataRow.Bool("Admin")
                 : false;
             var manager = admin
-                ? "(" + Displays.Manager() + ")"
+                ? $"({Displays.Manager(context: context)})"
                 : string.Empty;
             if (deptId > 0)
             {
                 data.Add(
-                    "Dept," + deptId.ToString() + "," + admin,
-                    new ControlData(SiteInfo.Dept(deptId)?.Name + manager));
+                    $"Dept,{deptId.ToString()}," + admin,
+                    new ControlData(SiteInfo.Dept(
+                        tenantId: context.TenantId,
+                        deptId: deptId)?.Name + manager));
             }
             else if (userId > 0)
             {
                 data.Add(
-                    "User," + userId.ToString() + "," + admin,
-                    new ControlData(SiteInfo.UserName(userId) + manager));
+                    $"User,{userId.ToString()}," + admin,
+                    new ControlData(SiteInfo.UserName(
+                        context: context,
+                        userId: userId) + manager));
             }
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
+        public static System.Web.Mvc.ContentResult GetByApi(IContext context, SiteSettings ss)
+        {
+            var api = context.RequestDataString.Deserialize<Api>();
+            if (api == null)
+            {
+                return ApiResults.Get(ApiResponses.BadRequest(context: context));
+            }
+            var view = api?.View ?? new View();
+            var siteId = view.ColumnFilterHash
+                ?.Where(f => f.Key == "SiteId")
+                ?.Select(f => f.Value)
+                ?.FirstOrDefault()?.ToLong();
+            var userId = view.ColumnFilterHash
+                ?.Where(f => f.Key == "UserId")
+                ?.Select(f => f.Value)
+                ?.FirstOrDefault()?.ToLong();
+            var siteModel = siteId.HasValue ? new SiteModel(context, siteId.Value) : null;
+            if (siteModel != null)
+            {
+                if (siteModel.AccessStatus != Databases.AccessStatuses.Selected)
+                {
+                    return ApiResults.Get(ApiResponses.NotFound(context: context));
+                }
+                var invalid = SiteValidators.OnReading(
+                    context,
+                    siteModel.SitesSiteSettings(context, siteId.Value),
+                    siteModel);
+                switch (invalid)
+                {
+                    case Error.Types.None: break;
+                    default: return ApiResults.Error(
+                        context: context,
+                        type: invalid);
+                }
+            }
+            var siteGroups = siteModel != null
+                ? SiteInfo.SiteGroups(context, siteModel.InheritPermission)?
+                .Where(o => !SiteInfo.User(context, o).Disabled).ToArray()
+                : null;
+            var pageSize = Parameters.Api.PageSize;
+            var groupCollection = new GroupCollection(
+                context: context,
+                ss: ss,
+                where: view.Where(context: context, ss: ss)
+                .Groups_TenantId(context.TenantId)
+                .SqlWhereLike(
+                    name: "SearchText",
+                    searchText: view.ColumnFilterHash
+                    ?.Where(f => f.Key == "SearchText")
+                    ?.Select(f => f.Value)
+                    ?.FirstOrDefault(),
+                    clauseCollection: new List<string>()
+                    {
+                        Rds.Groups_GroupId_WhereLike(),
+                        Rds.Groups_GroupName_WhereLike(),
+                        Rds.Groups_Body_WhereLike()
+                    })
+                .Add(
+                    tableName: "Groups",
+                    subLeft: Rds.SelectGroupMembers(
+                    column: Rds.GroupMembersColumn().GroupMembersCount(),
+                    where: Rds.GroupMembersWhere().UserId(userId).GroupId(raw: "[Groups].[GroupId]").Add(raw: "[Groups].[GroupId]>0")),
+                    _operator: ">0",
+                    _using: userId.HasValue),
+                orderBy: view.OrderBy(context: context, ss: ss, pageSize: pageSize),
+                offset: api.Offset,
+                pageSize: pageSize,
+                countRecord: true);
+            var groups = siteGroups == null
+                ? groupCollection
+                : groupCollection.Join(siteGroups, c => c.GroupId, s => s, (c, s) => c);
+            return ApiResults.Get(new
+            {
+                StatusCode = 200,
+                Response = new
+                {
+                    Offset = api.Offset,
+                    PageSize = pageSize,
+                    TotalCount = groups.Count(),
+                    Data = groups.Select(o => o.GetByApi(
+                        context: context,
+                        ss: ss))
+                }
+            }.ToJson());
         }
     }
 }

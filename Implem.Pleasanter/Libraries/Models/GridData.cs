@@ -3,6 +3,7 @@ using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
 using System.Collections.Generic;
@@ -14,79 +15,71 @@ namespace Implem.Pleasanter.Libraries.Models
     {
         public Databases.AccessStatuses AccessStatus = Databases.AccessStatuses.Initialized;
         public IEnumerable<DataRow> DataRows;
-        public Aggregations Aggregations = new Aggregations();
+        public int TotalCount;
 
         public GridData(
+            IContext context,
             SiteSettings ss,
             View view,
             SqlColumnCollection column = null,
+            SqlJoinCollection join = null,
             SqlWhereCollection where = null,
-            Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             int top = 0,
             int offset = 0,
-            int pageSize = 0,
-            bool countRecord = false,
-            IEnumerable<Aggregation> aggregations = null)
+            int pageSize = 0)
         {
             Get(
+                context: context,
                 ss: ss,
                 view: view,
                 column: column,
+                join: join,
                 where: where,
-                tableType: tableType,
                 top: top,
                 offset: offset,
-                pageSize: pageSize,
-                countRecord: countRecord,
-                aggregations: aggregations);
+                pageSize: pageSize);
         }
 
         private void Get(
+            IContext context,
             SiteSettings ss,
             View view,
             SqlColumnCollection column = null,
+            SqlJoinCollection join = null,
             SqlWhereCollection where = null,
-            Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             int top = 0,
             int offset = 0,
             int pageSize = 0,
-            bool history = false,
-            bool countRecord = false,
-            IEnumerable<Aggregation> aggregations = null)
+            bool history = false)
         {
-            column = column ?? SqlColumnCollection(ss, GridColumns(ss));
-            var join = ss.Join(withColumn: true);
-            where = view.Where(ss: ss, where: where);
-            var orderBy = view.OrderBy(ss: ss, pageSize: pageSize);
+            column = column ?? SqlColumnCollection(ss, GridColumns(
+                context: context,
+                view: view,
+                ss: ss));
+            join = join ?? ss.Join(context: context, withColumn: true);
+            where = view.Where(context: context, ss: ss, where: where);
+            var orderBy = view.OrderBy(context: context, ss: ss, pageSize: pageSize);
             var statements = new List<SqlStatement>
             {
                 Rds.Select(
                     tableName: ss.ReferenceType,
+                    tableType: ss.TableType,
                     dataTableName: "Main",
                     column: column,
                     join: join,
                     where: where,
                     orderBy: orderBy,
-                    tableType: tableType,
                     top: top,
                     offset: offset,
                     pageSize: pageSize,
-                    countRecord: countRecord)
+                    countRecord: true)
             };
-            if (aggregations != null)
-            {
-                SetAggregations(
-                    ss: ss,
-                    aggregations: aggregations,
-                    join: join,
-                    where: where,
-                    statements: statements);
-            }
             var dataSet = Rds.ExecuteDataSet(
+                context: context,
                 transactional: false,
                 statements: statements.ToArray());
-            Aggregations.Set(dataSet, aggregations, ss);
             DataRows = dataSet.Tables["Main"].AsEnumerable();
+            TotalCount = Rds.Count(dataSet);
             ss.SetChoiceHash(DataRows);
         }
 
@@ -100,22 +93,28 @@ namespace Implem.Pleasanter.Libraries.Models
                 .ToArray());
         }
 
-        private static List<Column> GridColumns(SiteSettings ss)
+        private static List<Column> GridColumns(IContext context, SiteSettings ss, View view)
         {
-            var columns = ss.GetGridColumns(checkPermission: true).ToList();
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true).ToList();
             columns
                 .GroupBy(o => o.SiteId)
                 .Select(o => o.First())
                 .ToList()
                 .ForEach(o => AddDefaultColumns(
+                    context: context,
+                    ss: ss,
+                    currentSs: o.SiteSettings,
                     tableAlias: o.Joined
                         ? o.TableAlias + ","
                         : string.Empty,
-                    ss: ss,
-                    currentSs: o.SiteSettings,
                     columns: columns));
             columns = columns
-                .Concat(ss.IncludedColumns().Select(o => ss.GetColumn(o)))
+                .Concat(ss.IncludedColumns().Select(columnName => ss.GetColumn(
+                    context: context,
+                    columnName: columnName)))
                 .ToList();
             return columns
                 .Where(o => o != null)
@@ -123,53 +122,40 @@ namespace Implem.Pleasanter.Libraries.Models
         }
 
         private static void AddDefaultColumns(
-            string tableAlias, SiteSettings ss, SiteSettings currentSs, List<Column> columns)
+            IContext context,
+            SiteSettings ss,
+            SiteSettings currentSs,
+            string tableAlias, List<Column> columns)
         {
             if (currentSs.ColumnHash.ContainsKey("SiteId"))
             {
-                columns.Add(ss.GetColumn(tableAlias + "SiteId"));
+                columns.Add(ss.GetColumn(
+                    context: context,
+                    columnName: tableAlias + "SiteId"));
             }
             currentSs.TitleColumns
                 .Where(o => currentSs.ColumnHash.ContainsKey(o))
                 .ForEach(name =>
-                    columns.Add(ss.GetColumn(tableAlias + name)));
-            columns.Add(ss.GetColumn(tableAlias + Rds.IdColumn(currentSs.ReferenceType)));
-            columns.Add(ss.GetColumn(tableAlias + "Creator"));
-            columns.Add(ss.GetColumn(tableAlias + "Updator"));
+                    columns.Add(ss.GetColumn(
+                        context: context,
+                        columnName: tableAlias + name)));
+            columns.Add(ss.GetColumn(
+                context: context,
+                columnName: tableAlias + Rds.IdColumn(currentSs.ReferenceType)));
+            columns.Add(ss.GetColumn(
+                context: context,
+                columnName: tableAlias + "Creator"));
+            columns.Add(ss.GetColumn(
+                context: context,
+                columnName: tableAlias + "Updator"));
         }
 
-        private static void SetAggregations(
+        public HtmlBuilder TBody(
+            HtmlBuilder hb,
+            IContext context,
             SiteSettings ss,
-            IEnumerable<Aggregation> aggregations,
-            SqlJoinCollection join,
-            SqlWhereCollection where,
-            List<SqlStatement> statements)
-        {
-            switch (ss.ReferenceType)
-            {
-                case "Depts":
-                    statements.AddRange(Rds.DeptsAggregations(aggregations, join, where));
-                    break;
-                case "Groups":
-                    statements.AddRange(Rds.GroupsAggregations(aggregations, join, where));
-                    break;
-                case "Users":
-                    statements.AddRange(Rds.UsersAggregations(aggregations, join, where));
-                    break;
-                case "Issues":
-                    statements.AddRange(Rds.IssuesAggregations(aggregations, join, where));
-                    break;
-                case "Results":
-                    statements.AddRange(Rds.ResultsAggregations(aggregations, join, where));
-                    break;
-                case "Wikis":
-                    statements.AddRange(Rds.WikisAggregations(aggregations, join, where));
-                    break;
-            }
-        }
-
-        public void TBody(
-            HtmlBuilder hb, SiteSettings ss, IEnumerable<Column> columns, bool checkAll)
+            IEnumerable<Column> columns,
+            bool checkAll)
         {
             var idColumn = Rds.IdColumn(ss.ReferenceType);
             DataRows.ForEach(dataRow =>
@@ -186,9 +172,11 @@ namespace Implem.Pleasanter.Libraries.Models
                                 controlCss: "grid-check",
                                 _checked: checkAll,
                                 dataId: dataId));
+                        var tenants = new Dictionary<string, TenantModel>();
                         var depts = new Dictionary<string, DeptModel>();
                         var groups = new Dictionary<string, GroupModel>();
                         var users = new Dictionary<string, UserModel>();
+                        var sites = new Dictionary<string, SiteModel>();
                         var issues = new Dictionary<string, IssueModel>();
                         var results = new Dictionary<string, ResultModel>();
                         var wikis = new Dictionary<string, WikiModel>();
@@ -197,13 +185,32 @@ namespace Implem.Pleasanter.Libraries.Models
                             var key = column.TableName();
                             switch (column.SiteSettings?.ReferenceType)
                             {
+                                case "Tenants":
+                                    if (!tenants.ContainsKey(key))
+                                    {
+                                        tenants.Add(key, new TenantModel(
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
+                                    }
+                                    hb.TdValue(
+                                        context: context,
+                                        ss: column.SiteSettings,
+                                        column: column,
+                                        tenantModel: tenants.Get(key));
+                                    break;
                                 case "Depts":
                                     if (!depts.ContainsKey(key))
                                     {
                                         depts.Add(key, new DeptModel(
-                                            column.SiteSettings, dataRow, column.TableAlias));
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
                                     }
                                     hb.TdValue(
+                                        context: context,
                                         ss: column.SiteSettings,
                                         column: column,
                                         deptModel: depts.Get(key));
@@ -212,9 +219,13 @@ namespace Implem.Pleasanter.Libraries.Models
                                     if (!groups.ContainsKey(key))
                                     {
                                         groups.Add(key, new GroupModel(
-                                            column.SiteSettings, dataRow, column.TableAlias));
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
                                     }
                                     hb.TdValue(
+                                        context: context,
                                         ss: column.SiteSettings,
                                         column: column,
                                         groupModel: groups.Get(key));
@@ -223,20 +234,42 @@ namespace Implem.Pleasanter.Libraries.Models
                                     if (!users.ContainsKey(key))
                                     {
                                         users.Add(key, new UserModel(
-                                            column.SiteSettings, dataRow, column.TableAlias));
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
                                     }
                                     hb.TdValue(
+                                        context: context,
                                         ss: column.SiteSettings,
                                         column: column,
                                         userModel: users.Get(key));
+                                    break;
+                                case "Sites":
+                                    if (!sites.ContainsKey(key))
+                                    {
+                                        sites.Add(key, new SiteModel(
+                                            context: context,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
+                                    }
+                                    hb.TdValue(
+                                        context: context,
+                                        ss: column.SiteSettings,
+                                        column: column,
+                                        siteModel: sites.Get(key));
                                     break;
                                 case "Issues":
                                     if (!issues.ContainsKey(key))
                                     {
                                         issues.Add(key, new IssueModel(
-                                            column.SiteSettings, dataRow, column.TableAlias));
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
                                     }
                                     hb.TdValue(
+                                        context: context,
                                         ss: column.SiteSettings,
                                         column: column,
                                         issueModel: issues.Get(key));
@@ -245,9 +278,13 @@ namespace Implem.Pleasanter.Libraries.Models
                                     if (!results.ContainsKey(key))
                                     {
                                         results.Add(key, new ResultModel(
-                                            column.SiteSettings, dataRow, column.TableAlias));
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
                                     }
                                     hb.TdValue(
+                                        context: context,
                                         ss: column.SiteSettings,
                                         column: column,
                                         resultModel: results.Get(key));
@@ -256,9 +293,13 @@ namespace Implem.Pleasanter.Libraries.Models
                                     if (!wikis.ContainsKey(key))
                                     {
                                         wikis.Add(key, new WikiModel(
-                                            column.SiteSettings, dataRow, column.TableAlias));
+                                            context: context,
+                                            ss: column.SiteSettings,
+                                            dataRow: dataRow,
+                                            tableAlias: column.TableAlias));
                                     }
                                     hb.TdValue(
+                                        context: context,
                                         ss: column.SiteSettings,
                                         column: column,
                                         wikiModel: wikis.Get(key));
@@ -267,6 +308,7 @@ namespace Implem.Pleasanter.Libraries.Models
                         });
                     });
             });
+            return hb;
         }
     }
 }

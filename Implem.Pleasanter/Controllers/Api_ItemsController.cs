@@ -1,46 +1,48 @@
-﻿using Implem.Pleasanter.Filters;
+﻿using Implem.Pleasanter.Libraries.Requests;
+using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [AllowAnonymous]
-    [CheckApiAuthentication]
-    public class Api_ItemsController : Controller
+    public class Api_ItemsController
     {
-        [HttpPost]
-        public ContentResult Get(long id)
+        public ContentResult Get(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var result = new ItemModel(id).GetByApi();
-            log.Finish(result.Content.Length);
+            var log = new SysLogModel(context: context);
+            var result = context.Authenticated
+                ? new ItemModel(context: context, referenceId: id).GetByApi(context: context)
+                : ApiResults.Unauthorized(context: context);
+            log.Finish(context: context, responseSize: result.Content.Length);
             return result;
         }
 
-        [HttpPost]
-        public ContentResult Create(long id)
+        public ContentResult Create(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var result = new ItemModel(id).CreateByApi();
-            log.Finish(result.Content.Length);
+            var log = new SysLogModel(context: context);
+            var result = context.Authenticated
+                ? new ItemModel(context: context, referenceId: id).CreateByApi(context: context)
+                : ApiResults.Unauthorized(context: context);
+            log.Finish(context: context, responseSize: result.Content.Length);
             return result;
         }
 
-        [HttpPost]
-        public ContentResult Update(long id)
+        public ContentResult Update(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var result = new ItemModel(id).UpdateByApi();
-            log.Finish(result.Content.Length);
+            var log = new SysLogModel(context: context);
+            var result = context.Authenticated
+                ? new ItemModel(context: context, referenceId: id).UpdateByApi(context: context)
+                : ApiResults.Unauthorized(context: context);
+            log.Finish(context: context, responseSize: result.Content.Length);
             return result;
         }
 
-        [HttpPost]
-        public ContentResult Delete(long id)
+        public ContentResult Delete(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var result = new ItemModel(id).DeleteByApi();
-            log.Finish(result.Content.Length);
+            var log = new SysLogModel(context: context);
+            var result = context.Authenticated
+                ? new ItemModel(context: context, referenceId: id).DeleteByApi(context: context)
+                : ApiResults.Unauthorized(context: context);
+            log.Finish(context: context, responseSize: result.Content.Length);
             return result;
         }
     }

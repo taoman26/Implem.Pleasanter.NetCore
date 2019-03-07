@@ -1,659 +1,678 @@
-﻿using Implem.Pleasanter.Filters;
+﻿using Implem.Pleasanter.Libraries.Requests;
+using Implem.Pleasanter.Libraries.Responses;
 using Implem.Pleasanter.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using System.Web;
+using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    [Authorize]
-    [CheckContract]
-    [RefleshSiteInfo]
-    public class ItemsController : Controller
+    public class ItemsController
     {
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Index(long id = 0)
+        public string Index(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).Index();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).Index(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).IndexJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).IndexJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Calendar(long id = 0)
+        public string TrashBox(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).Calendar();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).TrashBox(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).CalendarJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).TrashBoxJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Crosstab(long id = 0)
+        public string Calendar(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).Crosstab();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).Calendar(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).CrosstabJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).CalendarJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Gantt(long id = 0)
+        public string Crosstab(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).Gantt();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).Crosstab(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).GanttJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).CrosstabJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult BurnDown(long id = 0)
+        public string Gantt(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).BurnDown();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).Gantt(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).BurnDownJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).GanttJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult TimeSeries(long id = 0)
+        public string BurnDown(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).TimeSeries();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).BurnDown(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).TimeSeriesJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).BurnDownJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Kamban(long id = 0)
+        public string TimeSeries(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).Kamban();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).TimeSeries(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).KambanJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).TimeSeriesJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult ImageLib(long id = 0)
+        public string Kamban(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).ImageLib();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).Kamban(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).ImageLibJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).KambanJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult New(long id = 0)
+        public string ImageLib(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).New();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).ImageLib(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).NewJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).ImageLibJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Edit(long id)
+        public string New(IContext context, long id = 0)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = new ItemModel(id).Editor();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).New(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = new ItemModel(id).EditorJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).NewJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [HttpPost]
-        public string Import(long id)
+        public string Edit(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Import();
-            log.Finish(json.Length);
+            if (!context.Ajax)
+            {
+                var log = new SysLogModel(context: context);
+                var html = new ItemModel(context: context, referenceId: id).Editor(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
+            }
+            else
+            {
+                var log = new SysLogModel(context: context);
+                var json = new ItemModel(context: context, referenceId: id).EditorJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
+            }
+        }
+
+        public string LinkTable(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).LinkTable(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string OpenExportSelectorDialog(long id)
+        public string Import(IContext context, long id, IHttpPostedFile[] file)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).OpenExportSelectorDialog();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Import(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpGet]
-        public ActionResult Export(long id)
+        public string OpenExportSelectorDialog(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var responseFile = new ItemModel(id).Export();
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).OpenExportSelectorDialog(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public FileContentResult Export(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var responseFile = new ItemModel(context: context, referenceId: id).Export(context: context);
             if (responseFile != null)
             {
-                log.Finish(responseFile.Length);
+                log.Finish(context: context, responseSize: responseFile.Length);
                 return responseFile.ToFile();
             }
             else
             {
-                log.Finish(0);
+                log.Finish(context: context);
                 return null;
             }
         }
 
-        [HttpGet]
-        public ActionResult ExportCrosstab(long id)
+        public FileContentResult ExportCrosstab(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var responseFile = new ItemModel(id).ExportCrosstab();
+            var log = new SysLogModel(context: context);
+            var responseFile = new ItemModel(context: context, referenceId: id).ExportCrosstab(context: context);
             if (responseFile != null)
             {
-                log.Finish(responseFile.Length);
+                log.Finish(context: context, responseSize: responseFile.Length);
                 return responseFile.ToFile();
             }
             else
             {
-                log.Finish(0);
+                log.Finish(context: context);
                 return null;
             }
         }
 
-        [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
-        public ActionResult Search()
+        public string Search(IContext context)
         {
-            if (!Libraries.Requests.Request.IsAjaxRequest(Request))
+            if (!context.Ajax)
             {
-                var log = new SysLogModel();
-                var html = SearchIndexUtilities.Search();
-                ViewBag.HtmlBody = html;
-                log.Finish(html.Length);
-                return View();
+                var log = new SysLogModel(context: context);
+                var html = SearchIndexUtilities.Search(context: context);
+                log.Finish(context: context, responseSize: html.Length);
+                return html;
             }
             else
             {
-                var log = new SysLogModel();
-                var json = SearchIndexUtilities.SearchJson();
-                log.Finish(json.Length);
-                return Content(json);
+                var log = new SysLogModel(context: context);
+                var json = SearchIndexUtilities.SearchJson(context: context);
+                log.Finish(context: context, responseSize: json.Length);
+                return json;
             }
         }
 
-        [HttpPost]
-        public ActionResult SearchDropDown(long id = 0)
+        public string SearchDropDown(IContext context, long id = 0)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).SearchDropDown();
-            log.Finish(json.Length);
-            return Content(json);
-        }
-
-        [HttpPost]
-        public ActionResult SelectSearchDropDown(long id = 0)
-        {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).SelectSearchDropDown();
-            log.Finish(json.Length);
-            return Content(json);
-        }
-
-        [HttpPost]
-        public string GridRows(long id)
-        {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).GridRows();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).SearchDropDown(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string ImageLibNext(long id)
+        public string SelectSearchDropDown(IContext context, long id = 0)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).ImageLibNext();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).SelectSearchDropDown(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Create(long id)
+        public string GridRows(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Create();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).GridRows(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string PreviewTemplate(long id)
+        public string TrashBoxGridRows(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = SiteUtilities.PreviewTemplate();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).TrashBoxGridRows(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Templates(long id)
+        public string ImageLibNext(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Templates();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).ImageLibNext(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string CreateByTemplate(long id)
+        public string Create(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).CreateByTemplate();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Create(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string SiteMenu(long id)
+        public string PreviewTemplate(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).SiteMenu();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = SiteUtilities.PreviewTemplate(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string Update(long id)
+        public string Templates(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Update();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Templates(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Copy(long id)
+        public string CreateByTemplate(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Copy();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).CreateByTemplate(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpGet]
-        public string MoveTargets(long id)
+        public string SiteMenu(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).MoveTargets();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).SiteMenu(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string Move(long id)
+        public string Update(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Move();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Update(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string MoveSiteMenu(long id)
+        public string Copy(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = SiteUtilities.MoveSiteMenu(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Copy(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string CreateLink(long id)
+        public string MoveTargets(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = SiteUtilities.CreateLink(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).MoveTargets(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string SortSiteMenu(long id)
+        public string Move(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = SiteUtilities.SortSiteMenu(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Move(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string BulkMove(long id)
+        public string MoveSiteMenu(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).BulkMove();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = SiteUtilities.MoveSiteMenu(context: context, id: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpDelete]
-        public string Delete(long id)
+        public string CreateLink(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Delete();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = SiteUtilities.CreateLink(context: context, id: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpDelete]
-        public string BulkDelete(long id)
+        public string SortSiteMenu(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).BulkDelete();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = SiteUtilities.SortSiteMenu(context: context, siteId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpDelete]
-        public string DeleteComment(long id)
+        public string BulkMove(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).DeleteComment();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).BulkMove(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Restore(long id)
+        public string Delete(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel().Restore(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Delete(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string EditSeparateSettings(long id)
+        public string BulkDelete(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).EditSeparateSettings();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).BulkDelete(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string Separate(long id)
+        public string DeleteComment(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Separate();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).DeleteComment(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [AcceptVerbs(HttpVerbs.Put, HttpVerbs.Post, HttpVerbs.Delete)]
-        public string SetSiteSettings(long id)
+        public string DeleteHistory(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new SiteModel(id).SetSiteSettings();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).DeleteHistory(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Histories(long id)
+        public string PhysicalDelete(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).Histories();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).PhysicalDelete(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string History(long id)
+        public string Restore(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).History();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Restore(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string Permissions(long id)
+        public string RestoreFromHistory(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.Permission(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).RestoreFromHistory(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string SearchPermissionElements(long id)
+        public string EditSeparateSettings(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.SearchPermissionElements(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).EditSeparateSettings(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [AcceptVerbs(HttpVerbs.Post, HttpVerbs.Delete)]
-        public string SetPermissions(long id)
+        public string Separate(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.SetPermissions(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Separate(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string OpenPermissionsDialog(long id)
+        public string SetSiteSettings(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.OpenPermissionsDialog(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new SiteModel(context: context, siteId: id)
+                .SetSiteSettings(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string PermissionForCreating(long id)
+        public string RebuildSearchIndexes(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.PermissionForCreating(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = SearchIndexUtilities.RebuildSearchIndexes(
+                context: context,
+                siteModel: new SiteModel(
+                    context: context,
+                    siteId: id));
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [AcceptVerbs(HttpVerbs.Post, HttpVerbs.Delete)]
-        public string SetPermissionForCreating(long id)
+        public string Histories(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.SetPermissionForCreating(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).Histories(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string OpenPermissionForCreatingDialog(long id)
+        public string History(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.OpenPermissionForCreatingDialog(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).History(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string ColumnAccessControl(long id)
+        public string Permissions(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.ColumnAccessControl(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.Permission(context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string SetColumnAccessControl(long id)
+        public string SearchPermissionElements(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.SetColumnAccessControl(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.SearchPermissionElements(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string OpenColumnAccessControlDialog(long id)
+        public string SetPermissions(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = PermissionUtilities.OpenColumnAccessControlDialog(id);
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.SetPermissions(context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPost]
-        public string BurnDownRecordDetails(long id)
+        public string OpenPermissionsDialog(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).BurnDownRecordDetailsJson();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.OpenPermissionsDialog(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        public string UpdateByCalendar(long id)
+        public string PermissionForCreating(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).UpdateByCalendar();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.PermissionForCreating(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        public string UpdateByKamban(long id)
+        public string SetPermissionForCreating(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).UpdateByKamban();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.SetPermissionForCreating(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string SynchronizeTitles(long id)
+        public string OpenPermissionForCreatingDialog(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).SynchronizeTitles();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.OpenPermissionForCreatingDialog(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string SynchronizeSummaries(long id)
+        public string ColumnAccessControl(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).SynchronizeSummaries();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.ColumnAccessControl(context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
 
-        [HttpPut]
-        public string SynchronizeFormulas(long id)
+        public string SetColumnAccessControl(IContext context, long id)
         {
-            var log = new SysLogModel();
-            var json = new ItemModel(id).SynchronizeFormulas();
-            log.Finish(json.Length);
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.SetColumnAccessControl(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string OpenColumnAccessControlDialog(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.OpenColumnAccessControlDialog(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string SearchColumnAccessControl(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = PermissionUtilities.SearchColumnAccessControl(
+                context: context, referenceId: id);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string BurnDownRecordDetails(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).BurnDownRecordDetailsJson(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string UpdateByCalendar(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).UpdateByCalendar(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string UpdateByKamban(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).UpdateByKamban(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string SynchronizeTitles(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).SynchronizeTitles(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string SynchronizeSummaries(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).SynchronizeSummaries(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string SynchronizeFormulas(IContext context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).SynchronizeFormulas(context: context);
+            log.Finish(context: context, responseSize: json.Length);
             return json;
         }
     }

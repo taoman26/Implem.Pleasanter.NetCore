@@ -2,6 +2,7 @@
 using Implem.Pleasanter.Interfaces;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Data;
 namespace Implem.Pleasanter.Libraries.DataTypes
@@ -10,49 +11,48 @@ namespace Implem.Pleasanter.Libraries.DataTypes
     {
         public int TenantId;
         public int Id;
+        public string Code;
         public string Name;
 
-        public Dept(int tenantId, int id, string name)
+        public Dept()
         {
-            TenantId = tenantId;
-            Id = id;
-            Name = name;
         }
 
         public Dept(DataRow dataRow)
         {
-            TenantId = dataRow["TenantId"].ToInt();
-            Id = dataRow["DeptId"].ToInt();
-            Name = dataRow["DeptName"].ToString();
+            TenantId = dataRow.Int("TenantId");
+            Id = dataRow.Int("DeptId");
+            Code = dataRow.String("DeptCode");
+            Name = dataRow.String("DeptName");
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
             return Id.ToString();
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
             return Id.ToString();
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
             return hb.Td(action: () => hb
                 .Text(text: Name));
         }
 
-        public string GridText(Column column)
+        public string GridText(IContext context, Column column)
         {
             return Name;
         }
 
-        public string ToExport(Column column, ExportColumn exportColumn = null)
+        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
         {
             return Name;
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return Id == 0;
         }

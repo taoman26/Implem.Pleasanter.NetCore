@@ -26,32 +26,29 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static SqlInsert Insert(
-            Dictionary<long, long> link, bool selectIdentity = false)
+        public static SqlInsert Insert(Dictionary<long, long> link, bool setIdentity = false)
         {
             return Rds.InsertLinks(
                 param: Rds.LinksParam()
                     .DestinationId()
                     .SourceId(),
                 select: Rds.Raw(link.Select(o => "select @_U,@_U,{0},{1} "
-                    .Params(
-                        o.Key.ToString(),
-                        selectIdentity
-                            ? Def.Sql.Identity
-                            : o.Value.ToString()))
-                                .Join("union ") + ";\n"),
+                    .Params(o.Key.ToString(), setIdentity
+                        ? Def.Sql.Identity
+                        : o.Value.ToString()))
+                            .Join("union ") + ";\n"),
                 _using: link.Count > 0);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static HtmlBuilder LinkDialog(this HtmlBuilder hb)
+        public static HtmlBuilder LinkDialog(this HtmlBuilder hb, IContext context)
         {
             return hb.Div(attributes: new HtmlAttributes()
                 .Id("LinkDialog")
                 .Class("dialog")
-                .Title(Displays.Links()));
+                .Title(Displays.Links(context: context)));
         }
     }
 }

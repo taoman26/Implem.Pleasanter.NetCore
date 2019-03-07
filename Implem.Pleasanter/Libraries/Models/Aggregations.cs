@@ -1,6 +1,7 @@
 ﻿using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.DataTypes;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Collections.Generic;
 using System.Data;
@@ -13,12 +14,29 @@ namespace Implem.Pleasanter.Libraries.Models
         public int OverdueCount;
         public IEnumerable<Aggregation> AggregationCollection;
 
-        public void Set(
-            DataSet dataSet,
-            IEnumerable<Aggregation> aggregationCollection,
-            SiteSettings ss = null)
+        public Aggregations(IContext context, SiteSettings ss, View view)
         {
-            AggregationCollection = aggregationCollection;
+            Set(
+                context: context,
+                ss: ss,
+                dataSet: Rds.ExecuteDataSet(
+                    context: context,
+                    statements: Rds.Aggregations(
+                        ss: ss,
+                        join: ss.Join(
+                            context: context,
+                            withColumn: true),
+                        where: view.Where(
+                            context: context,
+                            ss: ss)).ToArray()));
+        }
+
+        private void Set(
+            IContext context,
+            SiteSettings ss,
+            DataSet dataSet)
+        {
+            AggregationCollection = ss.Aggregations;
             TotalCount = Rds.Count(dataSet);
             if (dataSet.Tables.Contains("OverdueCount") &&
                 dataSet.Tables["OverdueCount"].Rows.Count == 1)
@@ -30,7 +48,8 @@ namespace Implem.Pleasanter.Libraries.Models
                 .Where(o => dataSet.Tables.Contains("Aggregation" + o.Index))
                 .ForEach(data =>
                 {
-                    var groupByColumn = ss?.GetColumn(data.Aggregation.GroupBy);
+                    var groupByColumn = ss?.GetColumn(
+                        context: context, columnName: data.Aggregation.GroupBy);
                     dataSet.Tables["Aggregation" + data.Index]
                         .AsEnumerable()
                         .ForEach(dataRow =>

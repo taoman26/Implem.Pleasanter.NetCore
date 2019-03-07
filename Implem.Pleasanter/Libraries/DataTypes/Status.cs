@@ -8,6 +8,7 @@ using Implem.Pleasanter.Libraries.HtmlParts;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
 using System.Data;
+using Implem.Pleasanter.Libraries.Requests;
 namespace Implem.Pleasanter.Libraries.DataTypes
 {
     [Serializable]
@@ -29,14 +30,16 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             Value = value;
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
             return Value.ToString();
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
-            return Value.ToString();
+            return column.EditorReadOnly != true
+                ? Value.ToString()
+                : column.Choice(ToString()).Text;
         }
 
         public override string ToString()
@@ -44,7 +47,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Value.ToString();
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
             var choice = column.Choice(Value.ToString());
             return hb.Td(action: () => hb
@@ -65,32 +68,37 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Value < Parameters.General.CompletionCode;
         }
 
-        public string GridText(Column column)
+        public string GridText(IContext context, Column column)
         {
             return column.Choice(ToString()).TextMini;
         }
 
-        public string ToExport(Column column, ExportColumn exportColumn = null)
+        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
         {
             return Value == 0 && !column.ChoiceHash.ContainsKey(ToString())
                 ? null
-                : column.ChoicePart(ToString(), exportColumn?.Type ?? ExportColumn.Types.Text);
+                : column.ChoicePart(
+                    context: context,
+                    selectedValue: ToString(),
+                    type: exportColumn?.Type ?? ExportColumn.Types.Text);
         }
 
         public string ToNotice(
+            IContext context,
             int saved,
             Column column,
             bool updated,
             bool update)
         {
             return column.Choice(Value.ToString()).Text.ToNoticeLine(
-                column.Choice(saved.ToString()).Text,
-                column,
-                updated,
-                update);
+                context: context,
+                saved: column.Choice(saved.ToString()).Text,
+                column: column,
+                updated: updated,
+                update: update);
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return Value == 0;
         }

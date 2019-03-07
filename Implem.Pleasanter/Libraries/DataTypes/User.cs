@@ -9,6 +9,8 @@ using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
 using System.Data;
+using Implem.Pleasanter.Libraries.Requests;
+using Implem.Pleasanter.Libraries.Security;
 namespace Implem.Pleasanter.Libraries.DataTypes
 {
     [Serializable]
@@ -17,8 +19,10 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         public int TenantId;
         public int Id;
         public int DeptId;
+        public Dept Dept;
         public string LoginId;
         public string Name;
+        public string UserCode;
         public bool TenantManager;
         public bool ServiceManager;
         public bool Disabled;
@@ -33,18 +37,20 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         {
         }
 
-        public User(int userId)
+        public User(IContext context, int userId)
         {
             if (userId != 0 && userId != 2)
             {
-                var dataTable = Rds.ExecuteTable(statements:
-                    Rds.SelectUsers(
+                var dataTable = Rds.ExecuteTable(
+                    context: context,
+                    statements: Rds.SelectUsers(
                         column: Rds.UsersColumn()
                             .TenantId()
                             .UserId()
                             .DeptId()
                             .LoginId()
                             .Name()
+                            .UserCode()
                             .TenantManager()
                             .ServiceManager()
                             .Disabled(),
@@ -52,37 +58,46 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                             .UserId(userId)));
                 if (dataTable.Rows.Count == 1)
                 {
-                    Set(dataTable.Rows[0]);
+                    Set(
+                        context: context,
+                        dataRow: dataTable.Rows[0]);
                 }
                 else
                 {
-                    SetAnonymouse();
+                    SetAnonymous();
                 }
             }
             else
             {
-                SetAnonymouse();
+                SetAnonymous();
             }
         }
 
-        public User(DataRow dataRow)
+        public User(IContext context, DataRow dataRow)
         {
-            Set(dataRow);
+            Set(
+                context: context,
+                dataRow: dataRow);
         }
 
-        private void Set(DataRow dataRow)
+        private void Set(IContext context, DataRow dataRow)
         {
             TenantId = dataRow.Int("TenantId");
             Id = dataRow.Int("UserId");
             DeptId = dataRow.Int("DeptId");
+            Dept = SiteInfo.Dept(
+                tenantId: TenantId,
+                deptId: DeptId);
             LoginId = dataRow.String("LoginId");
             Name = dataRow.String("Name");
-            TenantManager = dataRow.Bool("TenantManager");
+            UserCode = dataRow.String("UserCode");
+            TenantManager = dataRow.Bool("TenantManager")
+                || Permissions.PrivilegedUsers(loginId: dataRow.String("LoginId"));
             ServiceManager = dataRow.Bool("ServiceManager");
             Disabled = dataRow.Bool("Disabled");
         }
 
-        private void SetAnonymouse()
+        private void SetAnonymous()
         {
             TenantId = 0;
             Id = UserTypes.Anonymous.ToInt();
@@ -92,49 +107,67 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             ServiceManager = false;
         }
 
-        public string ToControl(SiteSettings ss, Column column)
+        public string ToControl(IContext context, SiteSettings ss, Column column)
         {
             return Id.ToString();
         }
 
-        public string ToResponse()
+        public string ToResponse(IContext context, SiteSettings ss, Column column)
         {
-            return Id.ToString();
+            return column.EditorReadOnly != true
+                ? Id.ToString()
+                : SiteInfo.UserName(
+                    context: context,
+                    userId: Id);
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
         {
             return Id != UserTypes.Anonymous.ToInt()
                 ? hb.Td(action: () => hb
-                    .HtmlUser(Id))
+                    .HtmlUser(
+                        context: context,
+                        text: column.ChoiceHash.Get(Id.ToString())?.Text
+                            ?? SiteInfo.UserName(
+                                context: context,
+                                userId: Id)))
                 : hb.Td(action: () => { });
         }
 
-        public string GridText(Column column)
+        public string GridText(IContext context, Column column)
         {
             return Id != UserTypes.Anonymous.ToInt()
-                ? SiteInfo.UserName(Id)
+                ? SiteInfo.UserName(
+                    context: context,
+                    userId: Id)
                 : string.Empty;
         }
 
-        public string ToExport(Column column, ExportColumn exportColumn = null)
+        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
         {
             return !Anonymous()
-                ? column.ChoicePart(Id.ToString(), exportColumn?.Type ?? ExportColumn.Types.Text)
+                ? column.ChoicePart(
+                    context: context,
+                    selectedValue: Id.ToString(),
+                    type: exportColumn?.Type ?? ExportColumn.Types.Text)
                 : string.Empty;
         }
 
         public string ToNotice(
+            IContext context,
             int saved,
             Column column,
             bool updated,
             bool update)
         {
             return Name.ToNoticeLine(
-                SiteInfo.User(saved).Name,
-                column,
-                updated,
-                update);
+                context: context,
+                saved: SiteInfo.User(
+                    context: context,
+                    userId: saved).Name,
+                column: column,
+                updated: updated,
+                update: update);
         }
 
         public bool Anonymous()
@@ -142,7 +175,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Id == UserTypes.Anonymous.ToInt();
         }
 
-        public bool InitialValue()
+        public bool InitialValue(IContext context)
         {
             return Id == 0;
         }

@@ -1,7 +1,7 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
-using Implem.Pleasanter.Libraries.Server;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,12 +15,12 @@ namespace Implem.Pleasanter.Libraries.Settings
             Off = 2
         }
 
-        public static Dictionary<string, string> CheckFilterTypeOptions()
+        public static Dictionary<string, string> CheckFilterTypeOptions(IContext context)
         {
             return new Dictionary<string, string>
             {
-                { CheckFilterTypes.On.ToInt().ToString(), Displays.On() },
-                { CheckFilterTypes.Off.ToInt().ToString(), Displays.Off() }
+                { CheckFilterTypes.On.ToInt().ToString(), Displays.On(context: context) },
+                { CheckFilterTypes.Off.ToInt().ToString(), Displays.Off(context: context) }
             };
         }
 
@@ -30,22 +30,25 @@ namespace Implem.Pleasanter.Libraries.Settings
             OnAndOff = 2
         }
 
-        public static Dictionary<string, string> CheckFilterControlTypeOptions()
+        public static Dictionary<string, string> CheckFilterControlTypeOptions(IContext context)
         {
             return new Dictionary<string, string>
             {
-                { CheckFilterControlTypes.OnOnly.ToInt().ToString(), Displays.OnOnly() },
-                { CheckFilterControlTypes.OnAndOff.ToInt().ToString(), Displays.OnAndOff() }
+                { CheckFilterControlTypes.OnOnly.ToInt().ToString(), Displays.OnOnly(context: context) },
+                { CheckFilterControlTypes.OnAndOff.ToInt().ToString(), Displays.OnAndOff(context: context) }
             };
         }
 
         public static IEnumerable<ColumnDefinition> GridDefinitions(
-            this Dictionary<string, ColumnDefinition> definitions, bool enableOnly = false)
+            this Dictionary<string, ColumnDefinition> definitions,
+            IContext context,
+            bool enableOnly = false)
         {
             return definitions.Values
                 .Where(o => o.GridColumn > 0)
                 .Where(o => o.GridEnabled || !enableOnly)
-                .Where(o => Contract.Attachments() || o.ControlType != "Attachments")
+                .Where(o => context.ContractSettings.Attachments()
+                    || o.ControlType != "Attachments")
                 .OrderBy(o => o.GridColumn);
         }
 
@@ -59,14 +62,17 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static IEnumerable<ColumnDefinition> EditorDefinitions(
-            this Dictionary<string, ColumnDefinition> definitions, bool enableOnly = false)
+            this Dictionary<string, ColumnDefinition> definitions,
+            IContext context,
+            bool enableOnly = false)
         {
             return definitions.Values
-                .Where(o => o.EditorColumn)
+                .Where(o => o.EditorColumn > 0)
                 .Where(o => o.EditorEnabled || !enableOnly)
                 .Where(o => !o.NotEditorSettings)
-                .Where(o => Contract.Attachments() || o.ControlType != "Attachments")
-                .OrderBy(o => o.No);
+                .Where(o => context.ContractSettings.Attachments()
+                    || o.ControlType != "Attachments")
+                .OrderBy(o => o.EditorColumn);
         }
 
         public static IEnumerable<ColumnDefinition> TitleDefinitions(
@@ -79,22 +85,28 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static IEnumerable<ColumnDefinition> LinkDefinitions(
-            this Dictionary<string, ColumnDefinition> definitions, bool enableOnly = false)
+            this Dictionary<string, ColumnDefinition> definitions,
+            IContext context,
+            bool enableOnly = false)
         {
             return definitions.Values
                 .Where(o => o.LinkColumn > 0)
                 .Where(o => o.LinkEnabled || !enableOnly)
-                .Where(o => Contract.Attachments() || o.ControlType != "Attachments")
+                .Where(o => context.ContractSettings.Attachments()
+                    || o.ControlType != "Attachments")
                 .OrderBy(o => o.LinkColumn);
         }
 
         public static IEnumerable<ColumnDefinition> HistoryDefinitions(
-            this Dictionary<string, ColumnDefinition> definitions, bool enableOnly = false)
+            this Dictionary<string, ColumnDefinition> definitions,
+            IContext context,
+            bool enableOnly = false)
         {
             return definitions.Values
                 .Where(o => o.HistoryColumn > 0)
                 .Where(o => o.HistoryEnabled || !enableOnly)
-                .Where(o => Contract.Attachments() || o.ControlType != "Attachments")
+                .Where(o => context.ContractSettings.Attachments()
+                    || o.ControlType != "Attachments")
                 .OrderBy(o => o.HistoryColumn);
         }
 
@@ -102,7 +114,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             this Dictionary<string, ColumnDefinition> definitions)
         {
             return definitions.Values
-                .Where(o => o.EditorColumn || o.ColumnName == "Comments")
+                .Where(o => o.EditorColumn > 0 || o.ColumnName == "Comments")
                 .Where(o => !o.NotEditorSettings)
                 .Where(o => !o.Unique)
                 .Where(o => o.ControlType != "Attachment")
@@ -120,47 +132,73 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static Dictionary<string, ControlData> SelectableOptions(
-            SiteSettings ss, IEnumerable<string> columns, string labelType = null)
+            IContext context,
+            SiteSettings ss,
+            IEnumerable<string> columns,
+            string labelType = null,
+            List<string> order = null)
         {
             return columns
                 .Distinct()
                 .ToDictionary(
                     columnName => columnName,
                     columnName => SelectableOptionsControlData(
-                        ss: ss.GetJoinedSs(columnName),
+                        context: context,
+                        ss: ss?.GetJoinedSs(columnName),
                         columnName: columnName,
-                        labelType: labelType));
+                        labelType: labelType,
+                        order: order?.IndexOf(columnName)));
         }
 
         public static Dictionary<string, ControlData> SelectableSourceOptions(
-            SiteSettings ss, IEnumerable<string> columns, string labelType = null)
+            IContext context,
+            SiteSettings ss,
+            IEnumerable<string> columns,
+            string labelType = null,
+            List<string> order = null)
         {
             return columns.ToDictionary(
                 columnName => columnName,
                 columnName => SelectableOptionsControlData(
+                    context: context,
                     ss: ss,
                     columnName: columnName,
-                    labelType: labelType));
+                    labelType: labelType,
+                    order: order?.IndexOf(columnName)));
         }
 
         private static ControlData SelectableOptionsControlData(
-            SiteSettings ss, string columnName, string labelType)
+            IContext context,
+            SiteSettings ss,
+            string columnName,
+            string labelType,
+            int? order = null)
         {
-            var column = ss.GetColumn(columnName.Split(',').Last());
-            var labelText = column.LabelText;
-            var labelTextDefault = column.LabelTextDefault;
-            switch (labelType)
+            var column = ss?.GetColumn(
+                context: context,
+                columnName: columnName.Split(',').Last());
+            if (column != null)
             {
-                case "Grid":
-                    labelTextDefault += $" ({labelText})";
-                    labelText = column.GridLabelText;
-                    break;
+                var labelText = column.LabelText;
+                var labelTextDefault = column.LabelTextDefault;
+                switch (labelType)
+                {
+                    case "Grid":
+                        labelTextDefault += $" ({labelText})";
+                        labelText = column.GridLabelText;
+                        break;
+                }
+                return new ControlData(
+                    text: $"[{ss.Title}] " + Displays.Get(
+                        context: context,
+                        id: labelText),
+                    title: labelTextDefault,
+                    order: order);
             }
-            return column != null
-                ? new ControlData(
-                    text: "[" + ss.Title + "] " + Displays.Get(labelText),
-                    title: labelTextDefault)
-                : new ControlData(string.Empty);
+            else
+            {
+                return new ControlData(string.Empty);
+            }
         }
 
         public static string ChangeCommand(string controlId)

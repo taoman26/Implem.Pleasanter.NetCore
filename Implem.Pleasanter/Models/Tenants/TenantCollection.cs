@@ -26,6 +26,8 @@ namespace Implem.Pleasanter.Models
         public int TotalCount;
 
         public TenantCollection(
+            IContext context,
+            SiteSettings ss,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -41,7 +43,8 @@ namespace Implem.Pleasanter.Models
         {
             if (get)
             {
-                Set(Get(
+                Set(context, ss, Get(
+                    context: context,
                     column: column,
                     join: join,
                     where: where,
@@ -56,18 +59,18 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public TenantCollection(IEnumerable<DataRow> dataRows)
+        public TenantCollection(IContext context,SiteSettings ss, IEnumerable<DataRow> dataRows)
         {
-            Set(dataRows);
+            Set(context, ss, dataRows);
         }
 
-        private TenantCollection Set(IEnumerable<DataRow> dataRows)
+        private TenantCollection Set(IContext context, SiteSettings ss, IEnumerable<DataRow> dataRows)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new TenantModel(dataRow));
+                    Add(new TenantModel(context, ss, dataRow));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -79,6 +82,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private IEnumerable<DataRow> Get(
+            IContext context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -109,6 +113,7 @@ namespace Implem.Pleasanter.Models
                     countRecord: countRecord)
             };
             var dataSet = Rds.ExecuteDataSet(
+                context: context,
                 transactional: false,
                 statements: statements.ToArray());
             TotalCount = Rds.Count(dataSet);
