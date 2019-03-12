@@ -179,6 +179,10 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
                 {
                     SessionGuid = sessionGuid;
                 }
+                else
+                {
+                    SetSessionData("SessionGuid", SessionGuid);
+                }
             }
         }
 

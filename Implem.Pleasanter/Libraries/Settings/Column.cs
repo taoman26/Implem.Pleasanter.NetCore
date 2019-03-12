@@ -495,7 +495,8 @@ namespace Implem.Pleasanter.Libraries.Settings
         public string Display(
             IContext context, decimal value, bool unit = false, bool format = true)
         {
-            return (!Format.IsNullOrEmpty() && format
+            var formatted =
+                (!Format.IsNullOrEmpty() && format
                 ? value.ToString(
                     Format + (Format == "C" && DecimalPlaces.ToInt() == 0
                         ? string.Empty
@@ -505,6 +506,16 @@ namespace Implem.Pleasanter.Libraries.Settings
                     ? value.ToString("0", "0")
                     : DisplayValue(value))
                         + (unit ? Unit : string.Empty);
+            if(format && Format == "C")
+            {
+                formatted =
+                    value.ToString(DecimalPlaces.ToInt() == 0
+                        ? "0"
+                        : $"0.{string.Empty.PadRight(DecimalPlaces.ToInt(), '0')}",
+                        context.CultureInfo());
+                formatted = $"{(char)165}{formatted}";
+            }
+            return formatted;
         }
 
         private string DisplayValue(decimal value)

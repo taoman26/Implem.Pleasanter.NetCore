@@ -38,7 +38,7 @@ namespace Implem.Pleasanter.NetCore
 
         public void ConfigureServices(IServiceCollection services)
         {
-
+            services.AddDistributedMemoryCache();
             services.AddMvc().AddSessionStateTempDataProvider();
             services.AddSession();
 
@@ -54,12 +54,6 @@ namespace Implem.Pleasanter.NetCore
                     }
                 });
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o => o.LoginPath = new PathString("/users/login"));
-
-            services.Configure<CookiePolicyOptions>(options =>
-            {
-                options.CheckConsentNeeded = context => true;
-                options.MinimumSameSitePolicy = SameSiteMode.None;
-            });
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
@@ -71,7 +65,6 @@ namespace Implem.Pleasanter.NetCore
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
-            app.UseCookiePolicy();
             app.UseSession();
             app.UseAuthentication();
 
