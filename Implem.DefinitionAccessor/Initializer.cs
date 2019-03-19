@@ -265,7 +265,7 @@ namespace Implem.DefinitionAccessor
             var parts = new DirectoryInfo(
                 Assembly.GetEntryAssembly().Location).FullName.Split(Path.DirectorySeparatorChar);
             return new DirectoryInfo(Path.Combine(
-                parts.TakeWhile(part => !part.StartsWith("Implem.CodeDefiner.")).Join(Path.DirectorySeparatorChar.ToString()),
+                parts.TakeWhile(part => !part.StartsWith("Implem.CodeDefiner")).Join(Path.DirectorySeparatorChar.ToString()),
                 "Implem.Pleasanter"))
                     .FullName;
         }

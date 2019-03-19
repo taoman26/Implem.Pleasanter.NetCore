@@ -15,6 +15,7 @@ Windwos 版の README のコピーは[こちら](README_Pleasanter.md)です。
 クロスプラットフォーム beta 版のセットアップモジュールはまだありません。  
 ソースコードからビルドしてください。  
 開発/ビルドは Windows で行います。  
+Linux でビルド/実行する場合は、下記「Linux だけでビルド/実行する」を参照してください。
 
 ## 開発/ビルド環境を構成する（Windows）
 * Visual Studio 2017 [[download](https://visualstudio.microsoft.com/ja/downloads/)]
@@ -56,8 +57,21 @@ Visual Studio からクロスプラットフォーム（.NET Core）実行環境
 * SQL Server 2017 [[download](https://www.microsoft.com/ja-jp/sql-server/sql-server-downloads)]
 
 ## 実行環境を構築する（Linuxの場合）
-* .NET Core 2.2 [[download](https://dotnet.microsoft.com/download)]
+* .NET Core 2.2 [[download](https://dotnet.microsoft.com/download)]  または [[パッケージ管理システム]([https://dotnet.microsoft.com/download/linux-package-manager/rhel/sdk-2.2.105)]
 * SQL Server 2017 [[download](https://www.microsoft.com/ja-jp/sql-server/sql-server-downloads)] または [[パッケージ管理システム](https://docs.microsoft.com/ja-jp/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-linux-2017)]
+
+* GDI+ のインストール
+
+参考：  
+CentOS
+```
+yum install -y epel-release
+yum install -y libgdiplus
+```
+Ubuntu
+```
+apt-get install -y libgdiplus
+```
 
 ## SQL Server を構成する
 
@@ -85,6 +99,17 @@ dotnet Implem.Pleasanter.dll
 ```
 http://localhost:5000/
 ```
+
+## Linux だけでビルド/実行する
+
+1. 上記「実行環境を構築する（Linuxの場合）」で .NET Core と SQL Server をインストールします。
+1. ダウンロードしたプリザンターのソースファイル一式を Linux 上にコピーします。
+1. ソースファイルの中の cmdnetcore ディレクトリへ移動します。
+1. ```build.sh``` を実行しビルドを行います。
+1. ```codedefiner.sh``` を実行し SQL Server を構成します。
+1. ```pleasanter.sh``` を実行しプリザンターを実行します。
+1. ブラウザで ```http://localhost:5000/``` へアクセスします。
+
 ## デバッグする
 
 ## issue を立てる
