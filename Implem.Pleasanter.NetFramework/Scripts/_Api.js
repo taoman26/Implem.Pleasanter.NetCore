@@ -1,5 +1,5 @@
 ﻿$p.apiUrl = function (id, action) {
-    return $('#ApplicationPath').val() + 'api_items/' + id + '/' + action;
+    return $('#ApplicationPath').val() + 'api/items/' + id + '/' + action;
 }
 
 $p.apiGet = function (args) {
@@ -19,7 +19,14 @@ $p.apiDelete = function (args) {
 }
 
 $p.apiExec = function (url, args) {
-    $.post(url, JSON.stringify(args.data), "json")
+    $.ajax({
+        url: url,
+        type: 'post',
+        cache: false,
+        data: JSON.stringify(args.data),
+        contentType: 'application/json',
+        dataType: 'json'
+    })
         .done(args.done)
         .fail(args.fail)
         .always(args.always);

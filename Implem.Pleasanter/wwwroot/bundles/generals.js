@@ -101,7 +101,7 @@ $p.multiUpload = function (url, data, $control, statusBar) {
     }
 }
 $p.apiUrl = function (id, action) {
-    return $('#ApplicationPath').val() + 'api_items/' + id + '/' + action;
+    return $('#ApplicationPath').val() + 'api/items/' + id + '/' + action;
 }
 
 $p.apiGet = function (args) {
@@ -121,7 +121,14 @@ $p.apiDelete = function (args) {
 }
 
 $p.apiExec = function (url, args) {
-    $.post(url, JSON.stringify(args.data), "json")
+    $.ajax({
+        url: url,
+        type: 'post',
+        cache: false,
+        data: JSON.stringify(args.data),
+        contentType: 'application/json',
+        dataType: 'json'
+    })
         .done(args.done)
         .fail(args.fail)
         .always(args.always);
@@ -3696,12 +3703,13 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
             param.View.ColumnSorterHash = new Object();
             param.View.ColumnSorterHash['ItemTitle'] = 0;
             var urlpath = $('#ApplicationPath').val() +
-                'api_items/' + escape((siteid - 0)) + '/get';
+                'api/items/' + escape((siteid - 0)) + '/get';
             $.ajax({
                 type: 'POST',
                 url: urlpath,
                 dataType: 'json',
                 data: JSON.stringify(param),
+                contentType: 'application/json',
                 scriptCharset: 'utf-8',
                 async: false
             }).done(function (json) {
