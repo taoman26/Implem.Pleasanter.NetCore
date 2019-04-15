@@ -2,7 +2,6 @@ using Implem.Pleasanter.NetCore.Libraries.Requests;
 using Implem.Pleasanter.NetCore.Libraries.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 namespace Implem.Pleasanter.NetCore.Controllers
 {
     [AllowAnonymous]
@@ -15,7 +14,7 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.ResourcesController();
             var result = controller.Scripts(context: context);
-            return result.ToHttpResponse(request: Request);
+            return result.ToRecourceContentResult(request: Request);
         }
 
         [HttpGet]
@@ -25,7 +24,7 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.ResourcesController();
             var result = controller.Styles(context: context);
-            return result.ToHttpResponse(request: Request);
+            return result.ToRecourceContentResult(request: Request);
         }
     }
 }

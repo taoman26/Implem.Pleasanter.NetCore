@@ -8,7 +8,7 @@
 技術概要資料(PDF)は[こちら](docs/20190308.pdf)です。
 
 ## 製品版の README
-Windwos 版の README のコピーは[こちら](README_Pleasanter.md)です。  
+Windows 版の README のコピーは[こちら](README_PLEASANTER.md)です。  
 製品版のリポジトリは[こちら](https://github.com/Implem/Implem.Pleasanter)です。
 
 ## ダウンロード

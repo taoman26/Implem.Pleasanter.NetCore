@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-
 namespace Implem.Pleasanter.Libraries.DataSources
 {
     public static class Saml
@@ -39,16 +38,13 @@ namespace Implem.Pleasanter.Libraries.DataSources
             {
                 return;
             }
-
             var statements = new List<SqlStatement>();
-
             var param = Rds.UsersParam()
                 .TenantId(tenantId)
                 .LoginId(loginId)
                 .Name(name)
                 .TenantManager(tenantManager)
                 .SynchronizedTime(synchronizedTime);
-
             statements.Add(Rds.UpdateOrInsertUsers(
                 param: param,
                 where: Rds.UsersWhere().TenantId(tenantId).LoginId(loginId),
@@ -71,26 +67,29 @@ namespace Implem.Pleasanter.Libraries.DataSources
                         .MailAddress(mailAddress)));
             }
             statements.Add(StatusUtilities.UpdateStatus(
-                tenantId: tenantId, type: StatusUtilities.Types.UsersUpdated));
+                tenantId: tenantId,
+                type: StatusUtilities.Types.UsersUpdated));
             Rds.ExecuteNonQuery(
                 context: context,
                 transactional: true,
                 statements: statements.ToArray());
         }
-        
+
         public static void RegisterSamlConfiguration(IContext context)
         {
             if (Parameters.Authentication.Provider != "SAML") { return; }
             var createdContext = context.CreateContext(request: false, sessionStatus: false, sessionData: false, user: false);
-            foreach (var tenant in new TenantCollection(createdContext, SiteSettingsUtilities.TenantsSiteSettings(createdContext)))
+            foreach (var tenant in new TenantCollection(
+                context: createdContext,
+                ss: SiteSettingsUtilities.TenantsSiteSettings(createdContext)))
             {
-                SetIdpConfiguration(createdContext, tenant.TenantId);
+                SetIdpConfiguration(context: createdContext, tenantId: tenant.TenantId);
             }
         }
 
         public static string SetIdpConfiguration(IContext context, int tenantId)
         {
-            var contractSettings = TenantUtilities.GetContractSettings(context, tenantId);
+            var contractSettings = TenantUtilities.GetContractSettings(context: context, tenantId: tenantId);
             if (contractSettings == null
                 || contractSettings.SamlCompanyCode.IsNullOrEmpty()
                 || contractSettings.SamlLoginUrl.IsNullOrEmpty()
@@ -98,7 +97,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             {
                 return null;
             }
-            if(!FindCert(context, contractSettings.SamlThumbprint))
+            if (!FindCert(context: context, findValue: contractSettings.SamlThumbprint))
             {
                 return null;
             }
@@ -118,8 +117,8 @@ namespace Implem.Pleasanter.Libraries.DataSources
                         var provider = section.IdentityProviders.FirstOrDefault(p => p.EntityId == idp);
                         if (provider != null)
                         {
-                            string signOnUrl = provider.SignOnUrl.ToString();
-                            string findValue = provider.SigningCertificate.FindValue;
+                            var signOnUrl = provider.SignOnUrl.ToString();
+                            var findValue = provider.SigningCertificate.FindValue;
                             if (signOnUrl == contractSettings.SamlLoginUrl
                                 && findValue == contractSettings.SamlThumbprint)
                             {
@@ -127,37 +126,47 @@ namespace Implem.Pleasanter.Libraries.DataSources
                             }
                             else
                             {
-
                                 newProvider = provider;
                                 newCert = provider.SigningCertificate;
-
-                                WriteIdPSettings(contractSettings?.SamlLoginUrl, contractSettings?.SamlThumbprint, idp, newProvider, newCert);
+                                WriteIdPSettings(
+                                    samlLoginUrl: contractSettings?.SamlLoginUrl,
+                                    samlThumbprint: contractSettings?.SamlThumbprint,
+                                    idp: idp,
+                                    newProvider: newProvider,
+                                    newCert: newCert);
                                 try
                                 {
                                     var spOptions = new SPOptions(SustainsysSaml2Section.Current);
                                     var options = new Options(spOptions);
                                     SustainsysSaml2Section.Current.IdentityProviders.RegisterIdentityProviders(options);
                                     SustainsysSaml2Section.Current.Federations.RegisterFederations(options);
-
                                     var optionsFromConfiguration = typeof(Options).GetField("optionsFromConfiguration",
                                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
                                     optionsFromConfiguration.SetValue(null, new Lazy<Options>(() => options, true));
-
                                 }
                                 catch
                                 {
-                                    WriteIdPSettings(signOnUrl, findValue, idp, newProvider, newCert);
+                                    WriteIdPSettings(
+                                        samlLoginUrl: signOnUrl,
+                                        samlThumbprint: findValue,
+                                        idp: idp,
+                                        newProvider: newProvider,
+                                        newCert: newCert);
                                     throw;
                                 }
-
                             }
                         }
                         else
                         {
                             newProvider = new IdentityProviderElement();
                             newCert = new CertificateElement();
-                            WriteIdPSettings(contractSettings?.SamlLoginUrl, contractSettings?.SamlThumbprint, idp, newProvider, newCert);
-                            AddIdP(section, newProvider);
+                            WriteIdPSettings(
+                                samlLoginUrl: contractSettings?.SamlLoginUrl,
+                                samlThumbprint: contractSettings?.SamlThumbprint,
+                                idp: idp,
+                                newProvider: newProvider,
+                                newCert: newCert);
+                            AddIdP(section: section, newProvider: newProvider);
                         }
                     }
                     finally
@@ -167,9 +176,9 @@ namespace Implem.Pleasanter.Libraries.DataSources
                 }
                 return $"~/Saml2/SignIn?idp={idp}";
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                new SysLogModel(context, e);
+                new SysLogModel(context: context, e: e);
                 return null;
             }
         }
@@ -215,7 +224,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
                 var certs = store.Certificates.Find(X509FindType.FindByThumbprint, findValue, false);
                 if (certs.Count != 1)
                 {
-                    new SysLogModel(context, $"Invalid SAML certificate. (Thumbrint={findValue})");
+                    new SysLogModel(context: context, errorMessage: $"Invalid SAML certificate. (Thumbrint={findValue})");
                     return false;
                 }
             }
