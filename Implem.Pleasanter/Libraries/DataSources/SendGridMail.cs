@@ -66,6 +66,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
                     sendGridMessage.PlainTextContent = Body;
                     var client = new SendGridClient(Parameters.Mail.ApiKey);
                     var response = client.SendEmailAsync(sendGridMessage);
+                    response.Wait();
                 }
                 catch (Exception e)
                 {

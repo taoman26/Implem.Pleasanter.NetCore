@@ -87,7 +87,6 @@ namespace Implem.Pleasanter.Libraries.DataSources
                     new SysLogModel(Context, e);
                 }
             });
-
         }
     }
 }

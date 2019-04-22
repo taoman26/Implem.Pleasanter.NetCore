@@ -285,7 +285,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             var accountDisabled = 2;
             return
                 !ldap.LdapExcludeAccountDisabled ||
-                (entry.getAttribute("UserAccountControl")?.ToLong() & accountDisabled) == 0;
+                (entry.getAttribute("UserAccountControl")?.StringValue.ToLong() & accountDisabled) == 0;
         }
 
         private static LdapConnection LdapConnection(
