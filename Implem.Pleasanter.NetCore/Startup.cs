@@ -90,6 +90,7 @@ namespace Implem.Pleasanter.NetCore
             });
 
             app.Use(async (context, next) => await Invoke(context, next));
+            app.UseSessionMiddleware();
 
             app.UseMvc(routes =>
             {
@@ -151,8 +152,6 @@ namespace Implem.Pleasanter.NetCore
                 );
 
             });
-
-            app.UseSessionMiddleware();
         }
 
         private static ContextImplement ApplicationStartContext()
@@ -180,7 +179,7 @@ namespace Implem.Pleasanter.NetCore
             }
             try
             {
-                await next();
+                await next.Invoke();
             }
             catch (Exception error)
             {
@@ -258,7 +257,6 @@ namespace Implem.Pleasanter.NetCore
                     case "~/reminderschedules/remind":
                         break;
                     default:
-                        new SysLogModel(context: context).Finish(context: context);
                         break;
                 }
             }

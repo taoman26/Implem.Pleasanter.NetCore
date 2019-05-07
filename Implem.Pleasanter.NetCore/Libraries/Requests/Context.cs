@@ -650,7 +650,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
 
         public override bool AuthenticationsWindows()
         {
-            return AspNetCoreHttpContext.Current.User.Identity.AuthenticationType == "Windows";
+            return AspNetCoreHttpContext.Current.User.Identity?.GetType().Name.Contains("Windows") ?? false;
         }
     }
 }
