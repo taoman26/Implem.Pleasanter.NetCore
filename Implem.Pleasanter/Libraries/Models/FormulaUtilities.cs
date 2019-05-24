@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Libraries.Models
     public static class FormulaUtilities
     {
         public static void Synchronize(
-            IContext context, SiteModel siteModel, IEnumerable<int> selected = null)
+            Context context, SiteModel siteModel, IEnumerable<int> selected = null)
         {
             Update(
                 context: context,
@@ -19,7 +19,7 @@ namespace Implem.Pleasanter.Libraries.Models
         }
 
         private static void Update(
-            IContext context, SiteModel siteModel, long id, IEnumerable<int> selected = null)
+            Context context, SiteModel siteModel, long id, IEnumerable<int> selected = null)
         {
             var hasFormula = siteModel.SiteSettings.Formulas?.Any() ?? false;
             var ss = SiteSettingsUtilities.Get(
@@ -58,7 +58,7 @@ namespace Implem.Pleasanter.Libraries.Models
         }
 
         private static void UpdateIssues(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
             long id,
@@ -86,7 +86,7 @@ namespace Implem.Pleasanter.Libraries.Models
         }
 
         private static void UpdateResults(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
             long id,
@@ -114,7 +114,7 @@ namespace Implem.Pleasanter.Libraries.Models
         }
 
         private static void UpdateWikis(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
             long id,

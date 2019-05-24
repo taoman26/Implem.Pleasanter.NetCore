@@ -1,4 +1,5 @@
-﻿using Implem.Libraries.Utilities;
+﻿using Implem.DefinitionAccessor;
+using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Responses;
@@ -13,7 +14,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlBreadcrumb
     {
         public static HtmlBuilder Breadcrumb(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, View view, bool _using)
+            this HtmlBuilder hb, Context context, SiteSettings ss, View view, bool _using)
         {
             if ((!context.Authenticated && !context.Publish) || !_using)
             {
@@ -118,7 +119,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Breadcrumb(
             HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string controller,
             string display = null,
@@ -153,7 +154,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder BreadcrumbWithoutAdmins(
             HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string controller,
             string display = null,
@@ -176,7 +177,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 : hb.Breadcrumb(context: context, ss: ss);
         }
 
-        public static HtmlBuilder Breadcrumb(this HtmlBuilder hb, IContext context, SiteSettings ss)
+        public static HtmlBuilder Breadcrumb(this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             return hb.Breadcrumb(
                 context: context,
@@ -199,7 +200,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Breadcrumb(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Dictionary<string, string> data = null)
         {
@@ -229,7 +230,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .Text(text: ">")));
         }
 
-        public static HtmlBuilder TrashBox(this HtmlBuilder hb, IContext context, SiteSettings ss)
+        public static HtmlBuilder TrashBox(this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             switch (context.Action)
             {
@@ -245,7 +246,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         public static HtmlBuilder CopyDirectUrlToClipboard(
-            this HtmlBuilder hb, IContext context, View view)
+            this HtmlBuilder hb, Context context, View view)
         {
             return view != null
                 ? hb.Div(
@@ -263,14 +264,23 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 : hb;
         }
 
-        private static string DirectUrl(IContext context, View view)
+        private static string DirectUrl(Context context, View view)
         {
             var queryString = HttpUtility.ParseQueryString(context.Query);
             if (view != null)
             {
                 queryString["View"] = view.ToJson();
             }
-            return new System.UriBuilder(context.AbsoluteUri)
+            var url = Locations.AbsoluteDirectUri(context);
+            switch (context.Action)
+            {
+                case "gridrows":
+                    url = url.Replace("gridrows", "index");
+                    break;
+                default:
+                    break;
+            }
+            return new System.UriBuilder(url)
             {
                 Query = queryString.ToString()
             }.ToString();

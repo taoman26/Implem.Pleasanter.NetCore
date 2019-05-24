@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder TimeSeries(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column groupBy,
             string aggregationType,
@@ -65,7 +65,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder TimeSeriesBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column groupBy,
             string aggregationType,

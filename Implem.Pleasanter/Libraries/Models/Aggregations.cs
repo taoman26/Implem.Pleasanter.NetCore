@@ -1,4 +1,5 @@
-﻿using Implem.Libraries.Utilities;
+﻿using Implem.Libraries.DataSources.SqlServer;
+using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
 using Implem.Pleasanter.Libraries.DataTypes;
 using Implem.Pleasanter.Libraries.Requests;
@@ -14,8 +15,14 @@ namespace Implem.Pleasanter.Libraries.Models
         public int OverdueCount;
         public IEnumerable<Aggregation> AggregationCollection;
 
-        public Aggregations(IContext context, SiteSettings ss, View view)
+        public Aggregations(Context context, SiteSettings ss, View view)
         {
+            var tableType = (view.ShowHistory == true)
+                ? Sqls.TableTypes.NormalAndHistory
+                : ss.TableType;
+            var where = view.Where(
+                context: context,
+                ss: ss);
             Set(
                 context: context,
                 ss: ss,
@@ -23,16 +30,15 @@ namespace Implem.Pleasanter.Libraries.Models
                     context: context,
                     statements: Rds.Aggregations(
                         ss: ss,
+                        tableType: tableType,
                         join: ss.Join(
                             context: context,
-                            withColumn: true),
-                        where: view.Where(
-                            context: context,
-                            ss: ss)).ToArray()));
+                            join: where),
+                        where: where).ToArray()));
         }
 
         private void Set(
-            IContext context,
+            Context context,
             SiteSettings ss,
             DataSet dataSet)
         {

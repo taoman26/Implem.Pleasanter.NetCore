@@ -1,11 +1,12 @@
 ﻿using Implem.Pleasanter.NetCore.Filters;
 using Implem.Pleasanter.NetCore.Libraries.Requests;
 using Implem.Pleasanter.NetCore.Libraries.Responses;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
-
 namespace Implem.Pleasanter.NetCore.Controllers
 {
     [Authorize]
@@ -198,7 +199,7 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.UsersController();
             var result = controller.SamlLogin(context: context);
-            var redirectResult = new RedirectResult(result.Url, result.Permanent);
+            var redirectResult = new RedirectResult(result.redirectResultUrl);
             return redirectResult;
         }
 
@@ -225,6 +226,8 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.UsersController();
             var url = controller.Logout(context: context, returnUrl: returnUrl);
+            this.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).Wait();
+            this.HttpContext.Session.Clear();
             return Redirect(url);
         }
 

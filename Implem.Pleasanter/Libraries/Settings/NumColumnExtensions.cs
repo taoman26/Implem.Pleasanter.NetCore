@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Libraries.Settings
     public static class NumColumnExtensions
     {
         public static Dictionary<string, ControlData> NumFilterOptions(
-            this Column column, IContext context)
+            this Column column, Context context)
         {
             var min = column.NumFilterMin;
             var max = column.NumFilterMax;
@@ -45,7 +45,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         private static void Add(
             this Dictionary<string, ControlData> data,
-            IContext context,
+            Context context,
             Column column,
             decimal? from,
             decimal? to,

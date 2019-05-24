@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlVerUps
     {
         public static HtmlBuilder VerUpCheckBox(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, BaseModel baseModel)
+            this HtmlBuilder hb, Context context, SiteSettings ss, BaseModel baseModel)
         {
             var mustVerUp = Versions.MustVerUp(context: context, baseModel: baseModel);
             return baseModel.VerType == Versions.VerTypes.Latest

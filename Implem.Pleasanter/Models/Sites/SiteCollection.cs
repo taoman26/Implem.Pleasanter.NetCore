@@ -24,9 +24,8 @@ namespace Implem.Pleasanter.Models
         [NonSerialized]
         public Databases.AccessStatuses AccessStatus = Databases.AccessStatuses.Initialized;
         public int TotalCount;
-
         public SiteCollection(
-            IContext context,
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -37,39 +36,52 @@ namespace Implem.Pleasanter.Models
             int top = 0,
             int offset = 0,
             int pageSize = 0,
-            bool countRecord = false,
-            bool get = true)
+            bool get = true,
+            List<FormData> formDataSet = null)
         {
             if (get)
             {
-                Set(context, Get(
+                Set(
                     context: context,
-                    column: column,
-                    join: join,
-                    where: where,
-                    orderBy: orderBy,
-                    param: param,
-                    tableType: tableType,
-                    distinct: distinct,
-                    top: top,
-                    offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord));
+                    dataRows: Get(
+                        context: context,
+                        column: column,
+                        join: join,
+                        where: where,
+                        orderBy: orderBy,
+                        param: param,
+                        tableType: tableType,
+                        distinct: distinct,
+                        top: top,
+                        offset: offset,
+                        pageSize: pageSize),
+                    formDataSet: formDataSet);
             }
         }
-
-        public SiteCollection(IContext context, IEnumerable<DataRow> dataRows)
+        public SiteCollection(
+            Context context,
+            EnumerableRowCollection<DataRow> dataRows,
+            List<FormData> formDataSet = null)
         {
-            Set(context, dataRows);
+                Set(
+                    context: context,
+                    dataRows: dataRows,
+                    formDataSet: formDataSet);
         }
-
-        private SiteCollection Set(IContext context, IEnumerable<DataRow> dataRows)
+        private SiteCollection Set(
+            Context context,
+            EnumerableRowCollection<DataRow> dataRows,
+            List<FormData> formDataSet = null)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new SiteModel(context, dataRow));
+                    Add(new SiteModel(
+                        context: context,
+                        dataRow: dataRow,
+                        formData: formDataSet?.FirstOrDefault(o =>
+                            o.Id == dataRow.Long("SiteId"))?.Data));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -80,8 +92,8 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        private IEnumerable<DataRow> Get(
-            IContext context,
+        private EnumerableRowCollection<DataRow> Get(
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -91,9 +103,7 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0,
             int offset = 0,
-            int pageSize = 0,
-            bool history = false,
-            bool countRecord = false)
+            int pageSize = 0)
         {
             var statements = new List<SqlStatement>
             {
@@ -108,8 +118,12 @@ namespace Implem.Pleasanter.Models
                     distinct: distinct,
                     top: top,
                     offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord)
+                    pageSize: pageSize),
+                Rds.SelectCount(
+                    tableName: "Sites",
+                    tableType: tableType,
+                    join: join ?? Rds.SitesJoinDefault(),
+                    where: where)
             };
             var dataSet = Rds.ExecuteDataSet(
                 context: context,

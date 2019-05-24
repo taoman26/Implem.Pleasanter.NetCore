@@ -14,7 +14,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlAggregations
     {
         public static HtmlBuilder Aggregations(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
+            this HtmlBuilder hb, Context context, SiteSettings ss, View view)
         {
             return !Reduced(context: context, siteId: ss.SiteId)
                 ? hb.Div(
@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             icon: "ui-icon-folder-open"));
         }
 
-        private static bool Reduced(IContext context, long siteId)
+        private static bool Reduced(Context context, long siteId)
         {
             var key = "ReduceAggregations";
             if (context.Forms.ControlId() == key)
@@ -65,7 +65,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder DisplayControl(
-            this HtmlBuilder hb, IContext context, string id, string icon)
+            this HtmlBuilder hb, Context context, string id, string icon)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -79,7 +79,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder Contents(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, Aggregations aggregations)
+            this HtmlBuilder hb, Context context, SiteSettings ss, Aggregations aggregations)
         {
             return aggregations.TotalCount != 0
                 ? hb
@@ -98,7 +98,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder Total(
-            this HtmlBuilder hb, IContext context, Aggregations aggregations)
+            this HtmlBuilder hb, Context context, Aggregations aggregations)
         {
             return hb
                 .Span(css: "label", action: () => hb
@@ -108,7 +108,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder Overdue(
-            this HtmlBuilder hb, IContext context, Aggregations aggregations)
+            this HtmlBuilder hb, Context context, Aggregations aggregations)
         {
             return aggregations.OverdueCount > 0
                 ? hb
@@ -120,7 +120,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder Parts(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, Aggregations aggregations)
+            this HtmlBuilder hb, Context context, SiteSettings ss, Aggregations aggregations)
         {
             var allowedColumns = Permissions.AllowedColumns(ss);
             aggregations.AggregationCollection
@@ -165,7 +165,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder GroupBy(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             Column groupBy,
             Column targetColumn,
             Aggregation aggregation)
@@ -191,7 +191,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 .Text(text: text));
         }
 
-        private static string Label(IContext context, Column groupBy, string selectedValue)
+        private static string Label(Context context, Column groupBy, string selectedValue)
         {
             if (groupBy.UserColumn)
             {

@@ -18,8 +18,10 @@ if not exist "%x%" (
     exit /B
 )
 cd /d %~dp0
+nuget restore ../Implem.SupportTools/Launcher/Implem.SupportTools.csproj /SolutionDirectory ../
 nuget restore ../Implem.CodeDefiner.NetFramework/Implem.CodeDefiner.NetFramework.csproj /SolutionDirectory ../
 nuget restore ../Implem.Pleasanter.NetFramework/Implem.Pleasanter.NetFramework.csproj /SolutionDirectory ../
+"%x%" ../Implem.SupportTools/Launcher/Implem.SupportTools.csproj -property:Configuration=Release /property:OutputPath="../../publish/Implem.SupportTools/" /target:Rebuild -clp:ErrorsOnly
 "%x%" ../Implem.CodeDefiner.NetFramework/Implem.CodeDefiner.NetFramework.csproj -property:Configuration=Release /property:OutputPath="../publish/Implem.CodeDefiner/" /target:Rebuild -clp:ErrorsOnly
 "%x%" ../Implem.Pleasanter.NetFramework/Implem.Pleasanter.NetFramework.csproj -property:Configuration=Release /p:DeployOnBuild=true /p:PublishProfile=../../../cmdnetframework/FolderProfile.xml -clp:ErrorsOnly
 xcopy /S /Y ..\Implem.Pleasanter.NetFramework\bin\Release\Publish ..\publish\Implem.Pleasanter\

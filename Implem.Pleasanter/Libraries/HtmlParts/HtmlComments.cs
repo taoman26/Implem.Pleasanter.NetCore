@@ -11,7 +11,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Comments(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Comments comments,
             Column column,
@@ -43,7 +43,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder Comment(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             Comment comment,
@@ -64,7 +64,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder TextArea(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string title,
             string labelText,

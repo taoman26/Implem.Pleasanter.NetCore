@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class Api_DeptsController
     {
-        public ContentResult Get(IContext context)
+        public ContentResult Get(Context context)
         {
             var log = new SysLogModel(context: context);
             var result = context.Authenticated

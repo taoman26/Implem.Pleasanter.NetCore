@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -26,15 +27,17 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Index(IContext context, SiteSettings ss)
+        public static string Index(Context context, SiteSettings ss)
         {
             var invalid = DeptValidators.OnEntry(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -56,7 +59,7 @@ namespace Implem.Pleasanter.Models
                     hb
                         .Form(
                             attributes: new HtmlAttributes()
-                                .Id("DeptForm")
+                                .Id("MainForm")
                                 .Class("main-form")
                                 .Action(Locations.Action(
                                     context: context,
@@ -76,7 +79,6 @@ namespace Implem.Pleasanter.Models
                                 .MainCommands(
                                     context: context,
                                     ss: ss,
-                                    siteId: ss.SiteId,
                                     verType: Versions.VerTypes.Latest)
                                 .Div(css: "margin-bottom")
                                 .Hidden(
@@ -101,20 +103,21 @@ namespace Implem.Pleasanter.Models
 
         private static string ViewModeTemplate(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             string viewMode,
-            Action viewModeBody,
-            Aggregations aggregations = null)
+            Action viewModeBody)
         {
             var invalid = DeptValidators.OnEntry(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             return hb.Template(
                 context: context,
@@ -131,17 +134,20 @@ namespace Implem.Pleasanter.Models
                 action: () => hb
                     .Form(
                         attributes: new HtmlAttributes()
-                            .Id("DeptsForm")
+                            .Id("MainForm")
                             .Class("main-form")
                             .Action(Locations.Action(
                                 context: context,
                                 controller: context.Controller,
                                 id: ss.SiteId)),
                         action: () => hb
-                            .ViewSelector(
-                                context: context,
-                                ss: ss,
-                                view: view)
+                            .Div(
+                                id: "ViewSelectorField", 
+                                action: ()=> hb
+                                    .ViewSelector(
+                                        context: context,
+                                        ss: ss,
+                                        view: view))
                             .ViewFilters(
                                 context: context,
                                 ss: ss,
@@ -154,7 +160,6 @@ namespace Implem.Pleasanter.Models
                             .MainCommands(
                                 context: context,
                                 ss: ss,
-                                siteId: ss.SiteId,
                                 verType: Versions.VerTypes.Latest,
                                 backButton: !context.Publish)
                             .Div(css: "margin-bottom")
@@ -163,7 +168,15 @@ namespace Implem.Pleasanter.Models
                                 value: "Depts")
                             .Hidden(
                                 controlId: "BaseUrl",
-                                value: Locations.BaseUrl(context: context)))
+                                value: Locations.BaseUrl(context: context))
+                            .Hidden(
+                                controlId: "EditOnGrid",
+                                css: "always-send",
+                                value: context.Forms.Data("EditOnGrid"))
+                            .Hidden(
+                                controlId: "NewRowId",
+                                css: "always-send",
+                                value: context.Forms.Data("NewRowId")))
                     .MoveDialog(context: context, bulk: true)
                     .Div(attributes: new HtmlAttributes()
                         .Id("ExportSelectorDialog")
@@ -172,7 +185,7 @@ namespace Implem.Pleasanter.Models
                     .ToString();
         }
 
-        public static string IndexJson(IContext context, SiteSettings ss)
+        public static string IndexJson(Context context, SiteSettings ss)
         {
             var view = Views.GetBySession(context: context, ss: ss);
             var gridData = GetGridData(context: context, ss: ss, view: view);
@@ -182,6 +195,7 @@ namespace Implem.Pleasanter.Models
                     ss: ss,
                     view: view,
                     invoke: "setGrid",
+                    editOnGrid: context.Forms.Bool("EditOnGrid"),
                     body: new HtmlBuilder()
                         .Grid(
                             context: context,
@@ -192,7 +206,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static GridData GetGridData(
-            IContext context, SiteSettings ss, View view, int offset = 0)
+            Context context, SiteSettings ss, View view, int offset = 0)
         {
             ss.SetColumnAccessControls(context: context);
             return new GridData(
@@ -206,17 +220,21 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder Grid(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GridData gridData,
             View view,
             string action = "GridRows")
         {
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
             return hb
                 .Table(
                     attributes: new HtmlAttributes()
                         .Id("Grid")
-                        .Class(ss.GridCss())
+                        .Class(ss.GridCss(context: context))
                         .DataValue("back", _using: ss?.IntegratedSites?.Any() == true)
                         .DataAction(action)
                         .DataMethod("post"),
@@ -225,8 +243,14 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: ss,
                             gridData: gridData,
+                            columns: columns,
                             view: view,
                             action: action))
+                .GridHeaderMenus(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    columns: columns)
                 .Hidden(
                     controlId: "GridOffset",
                     value: ss.GridNextOffset(
@@ -234,6 +258,12 @@ namespace Implem.Pleasanter.Models
                         gridData.DataRows.Count(),
                         gridData.TotalCount)
                             .ToString())
+                .Hidden(
+                    controlId: "GridRowIds",
+                    value: gridData.DataRows.Select(g => g.Long("DeptId")).ToJson())
+                .Hidden(
+                    controlId: "GridColumns",
+                    value: columns.Select(o => o.ColumnName).ToJson())
                 .Button(
                     controlId: "ViewSorters_Reset",
                     controlCss: "hidden",
@@ -242,7 +272,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string GridRows(
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResponseCollection res = null,
             int offset = 0,
@@ -256,8 +286,13 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 view: view,
                 offset: offset);
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
             return (res ?? new ResponseCollection())
                 .Remove(".grid tr", _using: offset == 0)
+                .ClearFormData("GridOffset")
                 .ClearFormData("GridCheckAll", _using: clearCheck)
                 .ClearFormData("GridUnCheckedItems", _using: clearCheck)
                 .ClearFormData("GridCheckedItems", _using: clearCheck)
@@ -273,18 +308,29 @@ namespace Implem.Pleasanter.Models
                         ss: ss,
                         view: view),
                     _using: offset == 0)
+                .ReplaceAll(
+                    "#ViewFilters",
+                    new HtmlBuilder()
+                        .ViewFilters(
+                            context: context,
+                            ss: ss,
+                            view: view),
+                    _using: context.Forms.ControlId().StartsWith("ViewFiltersOnGridHeader__"))
                 .Append("#Grid", new HtmlBuilder().GridRows(
                     context: context,
                     ss: ss,
                     gridData: gridData,
+                    columns: columns,
                     view: view,
-                    addHeader: offset == 0,
+                    offset: offset,
                     clearCheck: clearCheck,
                     action: action))
                 .Val("#GridOffset", ss.GridNextOffset(
                     offset,
                     gridData.DataRows.Count(),
                     gridData.TotalCount))
+                .Val("#GridRowIds", gridData.DataRows.Select(g => g.Long("DeptId")).ToJson())
+                .Val("#GridColumns", columns.Select(o => o.ColumnName).ToJson())
                 .Paging("#Grid")
                 .Message(message)
                 .ToJson();
@@ -292,69 +338,97 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder GridRows(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GridData gridData,
+            List<Column> columns,
             View view,
-            bool addHeader = true,
+            int offset = 0,
             bool clearCheck = false,
             string action = "GridRows")
         {
+            var checkRow = !ss.GridColumnsHasSources();
             var checkAll = clearCheck
                 ? false
                 : context.Forms.Bool("GridCheckAll");
-            var columns = ss.GetGridColumns(
-                context: context,
-                view: view,
-                checkPermission: true);
             return hb
                 .THead(
-                    _using: addHeader,
+                    _using: offset == 0,
                     action: () => hb
                         .GridHeader(
                             context: context,
+                            ss: ss,
                             columns: columns, 
                             view: view,
+                            checkRow: checkRow,
                             checkAll: checkAll,
                             action: action))
-                .TBody(action: () => gridData.TBody(
-                    hb: hb,
-                    context: context,
-                    ss: ss,
-                    columns: columns,
-                    checkAll: checkAll));
+                .TBody(action: () => hb
+                    .GridRows(
+                        context: context,
+                        ss: ss,
+                        dataRows: gridData.DataRows,
+                        columns: columns,
+                        checkAll: checkAll,
+                        checkRow: checkRow));
         }
 
-        private static SqlColumnCollection GridSqlColumnCollection(
-            IContext context, SiteSettings ss)
+        private static SqlWhereCollection SelectedWhere(
+            Context context, SiteSettings ss)
         {
-            var sqlColumnCollection = Rds.DeptsColumn();
-            new List<string> { "DeptId", "Creator", "Updator" }
-                .Concat(ss.GridColumns)
-                .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
-                .Concat(ss.TitleColumns)
-                    .Distinct().ForEach(column =>
-                        sqlColumnCollection.DeptsColumn(column));
-            return sqlColumnCollection;
+            var selector = new GridSelector(context: context);
+            return !selector.Nothing
+                ? Rds.DeptsWhere().DeptId_In(
+                    value: selector.Selected.Select(o => o.ToInt()),
+                    negative: selector.All)
+                : null;
         }
 
-        private static SqlColumnCollection DefaultSqlColumns(
-            IContext context, SiteSettings ss)
+        public static string ReloadRow(Context context, SiteSettings ss, long deptId)
         {
-            var sqlColumnCollection = Rds.DeptsColumn();
-            new List<string> { "DeptId", "Creator", "Updator" }
-                .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
-                .Concat(ss.TitleColumns)
-                    .Distinct().ForEach(column =>
-                        sqlColumnCollection.DeptsColumn(column));
-            return sqlColumnCollection;
+            ss.SetColumnAccessControls(context: context);
+            var view = Views.GetBySession(
+                context: context,
+                ss: ss);
+            var dataRow = new GridData(
+                context: context,
+                ss: ss,
+                view: view,
+                where: Rds.DeptsWhere().DeptId(deptId))
+                    .DataRows
+                    .FirstOrDefault();
+            var res = ItemUtilities.ClearItemDataResponse(
+                context: context,
+                ss: ss,
+                id: deptId);
+            return dataRow == null
+                ? res
+                    .Remove($"[data-id=\"{deptId}\"][data-latest]")
+                    .Message(
+                        message: Messages.NotFound(context: context),
+                        target: "row_" + deptId)
+                    .ToJson()
+                : res
+                    .ReplaceAll(
+                        $"[data-id=\"{dataRow.Long("DeptId")}\"][data-latest]",
+                        new HtmlBuilder().Tr(
+                            context: context,
+                            ss: ss,
+                            dataRow: dataRow,
+                            columns: ss.GetGridColumns(
+                                context: context,
+                                view: view,
+                                checkPermission: true),
+                            checkAll: false,
+                            editRow: true,
+                            checkRow: false,
+                            idColumn: "DeptId"))
+                    .ToJson();
         }
 
         public static HtmlBuilder TdValue(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             DeptModel deptModel)
@@ -522,14 +596,109 @@ namespace Implem.Pleasanter.Models
                                     context: context,
                                     column: column,
                                     value: string.Empty);
-                    default: return hb;
+                    default:
+                        switch (Def.ExtendedColumnTypes.Get(column.Name))
+                        {
+                            case "Class":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: deptModel.Class(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Num":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: deptModel.Num(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Date":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: deptModel.Date(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Description":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: deptModel.Description(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Check":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: deptModel.Check(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Attachments":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: deptModel.Attachments(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            default:
+                                return hb;
+                        }
                 }
             }
         }
 
         private static HtmlBuilder TdCustomValue(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string gridDesign,
             DeptModel deptModel)
@@ -569,6 +738,41 @@ namespace Implem.Pleasanter.Models
                     case "UpdatedTime": value = deptModel.UpdatedTime.GridText(
                         context: context,
                         column: column); break;
+                    default:
+                        switch (Def.ExtendedColumnTypes.Get(column.Name))
+                        {
+                            case "Class":
+                                value = deptModel.Class(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Num":
+                                value = deptModel.Num(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Date":
+                                value = deptModel.Date(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Description":
+                                value = deptModel.Description(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Check":
+                                value = deptModel.Check(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Attachments":
+                                value = deptModel.Attachments(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                        }
+                        break;
                 }
                 gridDesign = gridDesign.Replace("[" + column.ColumnName + "]", value);
             });
@@ -577,7 +781,7 @@ namespace Implem.Pleasanter.Models
                     .Text(text: gridDesign)));
         }
 
-        public static string EditorNew(IContext context, SiteSettings ss)
+        public static string EditorNew(Context context, SiteSettings ss)
         {
             return Editor(context: context, ss: ss, deptModel: new DeptModel(
                 context: context,
@@ -586,7 +790,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string Editor(
-            IContext context, SiteSettings ss, int deptId, bool clearSessions)
+            Context context, SiteSettings ss, int deptId, bool clearSessions)
         {
             var deptModel = new DeptModel(
                 context: context,
@@ -602,16 +806,18 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string Editor(
-            IContext context, SiteSettings ss, DeptModel deptModel)
+            Context context, SiteSettings ss, DeptModel deptModel)
         {
             var invalid = DeptValidators.OnEditing(
                 context: context,
                 ss: ss,
                 deptModel: deptModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             var hb = new HtmlBuilder();
             ss.SetColumnAccessControls(
@@ -635,12 +841,13 @@ namespace Implem.Pleasanter.Models
                             ss: ss,
                             deptModel: deptModel)
                         .Hidden(controlId: "TableName", value: "Depts")
+                        .Hidden(controlId: "Controller", value: context.Controller)
                         .Hidden(controlId: "Id", value: deptModel.DeptId.ToString());
                 }).ToString();
         }
 
         private static HtmlBuilder Editor(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, DeptModel deptModel)
+            this HtmlBuilder hb, Context context, SiteSettings ss, DeptModel deptModel)
         {
             var commentsColumn = ss.GetColumn(context: context, columnName: "Comments");
             var commentsColumnPermissionType = commentsColumn
@@ -650,8 +857,8 @@ namespace Implem.Pleasanter.Models
             return hb.Div(id: "Editor", action: () => hb
                 .Form(
                     attributes: new HtmlAttributes()
-                        .Id("DeptForm")
-                        .Class("main-form confirm-reload")
+                        .Id("MainForm")
+                        .Class("main-form confirm-unload")
                         .Action(deptModel.DeptId != 0
                             ? Locations.Action(
                                 context: context,
@@ -691,9 +898,7 @@ namespace Implem.Pleasanter.Models
                             .MainCommands(
                                 context: context,
                                 ss: ss,
-                                siteId: 0,
                                 verType: deptModel.VerType,
-                                referenceId: deptModel.DeptId,
                                 updateButton: true,
                                 mailButton: true,
                                 deleteButton: true,
@@ -735,7 +940,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static HtmlBuilder EditorTabs(
-            this HtmlBuilder hb, IContext context, DeptModel deptModel)
+            this HtmlBuilder hb, Context context, DeptModel deptModel)
         {
             return hb.Ul(id: "EditorTabs", action: () => hb
                 .Li(action: () => hb
@@ -753,7 +958,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder FieldSetGeneral(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             DeptModel deptModel)
         {
@@ -765,72 +970,18 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder FieldSetGeneralColumns(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             DeptModel deptModel,
             bool preview = false)
         {
             ss.GetEditorColumns(context: context).ForEach(column =>
-            {
-                switch (column.Name)
-                {
-                    case "DeptId":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: deptModel.MethodType,
-                            value: deptModel.DeptId
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Ver":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: deptModel.MethodType,
-                            value: deptModel.Ver
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DeptCode":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: deptModel.MethodType,
-                            value: deptModel.DeptCode
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DeptName":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: deptModel.MethodType,
-                            value: deptModel.DeptName
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Body":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: deptModel.MethodType,
-                            value: deptModel.Body
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                }
-            });
+                hb.Field(
+                    context: context,
+                    ss: ss,
+                    deptModel: deptModel,
+                    column: column,
+                    preview: preview));
             if (!preview)
             {
                 hb.VerUpCheckBox(
@@ -841,9 +992,122 @@ namespace Implem.Pleasanter.Models
             return hb;
         }
 
+        public static void Field(
+            this HtmlBuilder hb,
+            Context context,
+            SiteSettings ss,
+            DeptModel deptModel,
+            Column column,
+            bool controlOnly = false,
+            bool alwaysSend = false,
+            string idSuffix = null,
+            bool preview = false)
+        {
+            var value = deptModel.ControlValue(
+                context: context,
+                ss: ss,
+                column: column);
+            if (value != null)
+            {
+                hb.Field(
+                    context: context,
+                    ss: ss,
+                    column: column,
+                    methodType: deptModel.MethodType,
+                    value: value,
+                    columnPermissionType: column.ColumnPermissionType(context: context),
+                    controlOnly: controlOnly,
+                    alwaysSend: alwaysSend,
+                    idSuffix: idSuffix,
+                    preview: preview);
+            }
+        }
+
+        public static string ControlValue(
+            this DeptModel deptModel,
+            Context context,
+            SiteSettings ss,
+            Column column)
+        {
+            switch (column.Name)
+            {
+                case "DeptId":
+                    return deptModel.DeptId
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Ver":
+                    return deptModel.Ver
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "DeptCode":
+                    return deptModel.DeptCode
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "DeptName":
+                    return deptModel.DeptName
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Body":
+                    return deptModel.Body
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                default:
+                    switch (Def.ExtendedColumnTypes.Get(column.Name))
+                    {
+                        case "Class":
+                            return deptModel.Class(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Num":
+                            return deptModel.Num(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Date":
+                            return deptModel.Date(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Description":
+                            return deptModel.Description(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Check":
+                            return deptModel.Check(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Attachments":
+                            return deptModel.Attachments(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        default: return null;
+                    }
+            }
+        }
+
         private static HtmlBuilder MainCommandExtensions(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             DeptModel deptModel)
         {
@@ -852,21 +1116,21 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder EditorExtensions(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             DeptModel deptModel)
         {
             return hb;
         }
 
-        public static string EditorJson(IContext context, SiteSettings ss, int deptId)
+        public static string EditorJson(Context context, SiteSettings ss, int deptId)
         {
             return EditorResponse(context, ss, new DeptModel(
                 context, ss, deptId)).ToJson();
         }
 
         private static ResponseCollection EditorResponse(
-            IContext context,
+            Context context,
             SiteSettings ss,
             DeptModel deptModel,
             Message message = null,
@@ -883,14 +1147,24 @@ namespace Implem.Pleasanter.Models
                 .ClearFormData();
         }
 
-        private static List<int> GetSwitchTargets(IContext context, SiteSettings ss, int deptId)
+        private static List<int> GetSwitchTargets(Context context, SiteSettings ss, int deptId)
         {
             var view = Views.GetBySession(
                 context: context,
                 ss: ss,
                 setSession: false);
             var where = view.Where(context: context, ss: ss, where: Rds.DeptsWhere().TenantId(context.TenantId));
-            var join = ss.Join(context: context);
+            var orderBy = view.OrderBy(
+                context: context,
+                ss: ss)
+                    .Depts_UpdatedTime(SqlOrderBy.Types.desc);
+            var join = ss.Join(
+                context: context,
+                join: new IJoin[]
+                {
+                    where,
+                    orderBy
+                });
             var switchTargets = Rds.ExecuteScalar_int(
                 context: context,
                 statements: Rds.SelectDepts(
@@ -903,11 +1177,10 @@ namespace Implem.Pleasanter.Models
                                 column: Rds.DeptsColumn().DeptId(),
                                 join: join,
                                 where: where,
-                                orderBy: view.OrderBy(context: context, ss: ss)
-                                    .Depts_UpdatedTime(SqlOrderBy.Types.desc)))
-                                        .AsEnumerable()
-                                        .Select(o => o["DeptId"].ToInt())
-                                        .ToList()
+                                orderBy: orderBy))
+                                    .AsEnumerable()
+                                    .Select(o => o["DeptId"].ToInt())
+                                    .ToList()
                         : new List<int>();
             if (!switchTargets.Contains(deptId))
             {
@@ -917,14 +1190,17 @@ namespace Implem.Pleasanter.Models
         }
 
         public static ResponseCollection FieldResponse(
-            this DeptsResponseCollection res,
-            IContext context,
+            this ResponseCollection res,
+            Context context,
             SiteSettings ss,
-            DeptModel deptModel)
+            DeptModel deptModel,
+            string idSuffix = null)
         {
             var mine = deptModel.Mine(context: context);
             ss.EditorColumns
-                .Select(columnName => ss.GetColumn(context: context, columnName: columnName))
+                .Select(columnName => ss.GetColumn(
+                    context: context,
+                    columnName: columnName))
                 .Where(column => column != null)
                 .ForEach(column =>
                 {
@@ -932,44 +1208,107 @@ namespace Implem.Pleasanter.Models
                     {
                         case "DeptId":
                             res.Val(
-                                "#Depts_DeptId",
+                                "#Depts_DeptId" + idSuffix,
                                 deptModel.DeptId.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "DeptCode":
                             res.Val(
-                                "#Depts_DeptCode",
+                                "#Depts_DeptCode" + idSuffix,
                                 deptModel.DeptCode.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "DeptName":
                             res.Val(
-                                "#Depts_DeptName",
+                                "#Depts_DeptName" + idSuffix,
                                 deptModel.DeptName.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Body":
                             res.Val(
-                                "#Depts_Body",
+                                "#Depts_Body" + idSuffix,
                                 deptModel.Body.ToResponse(context: context, ss: ss, column: column));
                             break;
-                        default: break;
+                        default:
+                            switch (Def.ExtendedColumnTypes.Get(column.Name))
+                            {
+                                case "Class":
+                                    res.Val(
+                                        $"#Depts_{column.Name}{idSuffix}",
+                                        deptModel.Class(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Num":
+                                    res.Val(
+                                        $"#Depts_{column.Name}{idSuffix}",
+                                        deptModel.Num(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Date":
+                                    res.Val(
+                                        $"#Depts_{column.Name}{idSuffix}",
+                                        deptModel.Date(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Description":
+                                    res.Val(
+                                        $"#Depts_{column.Name}{idSuffix}",
+                                        deptModel.Description(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Check":
+                                    res.Val(
+                                        $"#Depts_{column.Name}{idSuffix}",
+                                        deptModel.Check(columnName: column.Name));
+                                    break;
+                                case "Attachments":
+                                    res.ReplaceAll(
+                                        $"#Depts_{column.Name}Field",
+                                        new HtmlBuilder()
+                                            .FieldAttachments(
+                                                context: context,
+                                                fieldId: $"Depts_{column.Name}Field",
+                                                controlId: $"Depts_{column.Name}",
+                                                columnName: column.ColumnName,
+                                                fieldCss: column.FieldCss,
+                                                fieldDescription: column.Description,
+                                                controlCss: column.ControlCss,
+                                                labelText: column.LabelText,
+                                                value: deptModel.Attachments(columnName: column.Name).ToJson(),
+                                                placeholder: column.LabelText,
+                                                readOnly: column.ColumnPermissionType(context: context)
+                                                    != Permissions.ColumnPermissionTypes.Update));
+                                    break;
+                            }
+                            break;
                     }
                 });
             return res;
         }
 
-        public static string Create(IContext context, SiteSettings ss)
+        public static string Create(Context context, SiteSettings ss)
         {
-            var deptModel = new DeptModel(context, ss, 0, setByForm: true);
+            var deptModel = new DeptModel(
+                context: context,
+                ss: ss,
+                deptId: 0,
+                formData: context.Forms);
             var invalid = DeptValidators.OnCreating(
                 context: context,
                 ss: ss,
                 deptModel: deptModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
-            var error = deptModel.Create(context: context, ss: ss);
-            switch (error)
+            var errorData = deptModel.Create(context: context, ss: ss);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -988,29 +1327,32 @@ namespace Implem.Pleasanter.Models
                                 : deptModel.DeptId))
                         .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
-        public static string Update(IContext context, SiteSettings ss, int deptId)
+        public static string Update(Context context, SiteSettings ss, int deptId)
         {
             var deptModel = new DeptModel(
-                context: context, ss: ss, deptId: deptId, setByForm: true);
+                context: context,
+                ss: ss,
+                deptId: deptId,
+                formData: context.Forms);
             var invalid = DeptValidators.OnUpdating(
                 context: context,
                 ss: ss,
                 deptModel: deptModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             if (deptModel.AccessStatus != Databases.AccessStatuses.Selected)
             {
                 return Messages.ResponseDeleteConflicts(context: context).ToJson();
             }
-            var error = deptModel.Update(context: context, ss: ss);
-            switch (error)
+            var errorData = deptModel.Update(context: context, ss: ss);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     var res = new DeptsResponseCollection(deptModel);
@@ -1028,13 +1370,13 @@ namespace Implem.Pleasanter.Models
                         data: deptModel.Updator.Name)
                             .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         private static ResponseCollection ResponseByUpdate(
             DeptsResponseCollection res,
-            IContext context,
+            Context context,
             SiteSettings ss,
             DeptModel deptModel)
         {
@@ -1048,17 +1390,19 @@ namespace Implem.Pleasanter.Models
                     context: context,
                     ss: ss,
                     view: view,
+                    tableType: Sqls.TableTypes.Normal,
                     where: Rds.DeptsWhere().DeptId(deptModel.DeptId));
                 var columns = ss.GetGridColumns(
                     context: context,
+                    view: view,
                     checkPermission: true);
                 return res
                     .ReplaceAll(
-                        $"[data-id=\"{deptModel.DeptId}\"]",
-                        gridData.TBody(
-                            hb: new HtmlBuilder(),
+                        $"[data-id=\"{deptModel.DeptId}\"][data-latest]",
+                        new HtmlBuilder().GridRows(
                             context: context,
                             ss: ss,
+                            dataRows: gridData.DataRows,
                             columns: columns,
                             checkAll: false))
                     .CloseDialog()
@@ -1093,20 +1437,20 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public static string Delete(IContext context, SiteSettings ss, int deptId)
+        public static string Delete(Context context, SiteSettings ss, int deptId)
         {
             var deptModel = new DeptModel(context, ss, deptId);
             var invalid = DeptValidators.OnDeleting(
                 context: context,
                 ss: ss,
                 deptModel: deptModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
-            var error = deptModel.Delete(context: context, ss: ss);
-            switch (error)
+            var errorData = deptModel.Delete(context: context, ss: ss);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -1122,12 +1466,12 @@ namespace Implem.Pleasanter.Models
                             controller: "Depts"));
                     return res.ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         public static string Histories(
-            IContext context, SiteSettings ss, int deptId, Message message = null)
+            Context context, SiteSettings ss, int deptId, Message message = null)
         {
             var deptModel = new DeptModel(context: context, ss: ss, deptId: deptId);
             ss.SetColumnAccessControls(
@@ -1147,6 +1491,7 @@ namespace Implem.Pleasanter.Models
                         .THead(action: () => hb
                             .GridHeader(
                                 context: context,
+                                ss: ss,
                                 columns: columns,
                                 sort: false,
                                 checkRow: true))
@@ -1164,7 +1509,7 @@ namespace Implem.Pleasanter.Models
 
         private static void HistoriesTableBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             List<Column> columns,
             DeptModel deptModel)
@@ -1210,11 +1555,12 @@ namespace Implem.Pleasanter.Models
             var sqlColumn = new Rds.DeptsColumnCollection()
                 .DeptId()
                 .Ver();
-            columns.ForEach(column => sqlColumn.DeptsColumn(column.ColumnName));
+            columns.ForEach(column =>
+                sqlColumn.DeptsColumn(columnName: column.ColumnName));
             return sqlColumn;
         }
 
-        public static string History(IContext context, SiteSettings ss, int deptId)
+        public static string History(Context context, SiteSettings ss, int deptId)
         {
             var deptModel = new DeptModel(context: context, ss: ss, deptId: deptId);
             ss.SetColumnAccessControls(
@@ -1236,18 +1582,18 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string GridRows(IContext context)
+        public static string GridRows(Context context)
         {
             return GridRows(
                 context: context,
                 ss: SiteSettingsUtilities.DeptsSiteSettings(context: context),
-                offset: DataViewGrid.Offset(context: context));
+                offset: context.Forms.Int("GridOffset"));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static System.Web.Mvc.ContentResult GetByApi(IContext context, SiteSettings ss)
+        public static System.Web.Mvc.ContentResult GetByApi(Context context, SiteSettings ss)
         {
             var api = context.RequestDataString.Deserialize<Api>();
             if (api == null)
@@ -1274,12 +1620,12 @@ namespace Implem.Pleasanter.Models
                     context,
                     siteModel.SitesSiteSettings(context, siteId.Value),
                     siteModel);
-                switch (invalid)
+                switch (invalid.Type)
                 {
                     case Error.Types.None: break;
                     default: return ApiResults.Error(
                         context: context,
-                        type: invalid);
+                        errorData: invalid);
                 }
             }
             var siteDepts = siteModel != null
@@ -1293,6 +1639,7 @@ namespace Implem.Pleasanter.Models
                 where: view.Where(context: context, ss: ss)
                 .Depts_TenantId(context.TenantId)
                 .SqlWhereLike(
+                    tableName: "Depts",
                     name: "SearchText",
                     searchText: view.ColumnFilterHash
                     ?.Where(f => f.Key == "SearchText")
@@ -1314,10 +1661,11 @@ namespace Implem.Pleasanter.Models
                         .Add(raw: "[Depts].[DeptId]>0")),
                     _operator: ">0",
                     _using: userId.HasValue),
-                orderBy: view.OrderBy(context: context, ss: ss, pageSize: pageSize),
+                orderBy: view.OrderBy(
+                    context: context,
+                    ss: ss),
                 offset: api.Offset,
-                pageSize: pageSize,
-                countRecord: true);
+                pageSize: pageSize);
             var groups = siteDepts == null
                 ? deptCollection
                 : deptCollection.Join(siteDepts, c => c.DeptId, s => s, (c, s) => c);

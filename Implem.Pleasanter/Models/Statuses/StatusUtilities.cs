@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -39,7 +40,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void Initialize(IContext context)
+        public static void Initialize(Context context)
         {
             if (context.TenantId != 0 && !MonitorInitialized(context: context))
             {
@@ -54,7 +55,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string AssemblyVersion(IContext context)
+        public static string AssemblyVersion(Context context)
         {
             return Rds.ExecuteScalar_string(
                 context: context,
@@ -68,7 +69,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void UpdateAssemblyVersion(IContext context, string version)
+        public static void UpdateAssemblyVersion(Context context, string version)
         {
             if (Rds.ExecuteScalar_int(
                 context: context,
@@ -102,7 +103,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static Dictionary<Types, DateTime> Monitors(IContext context)
+        public static Dictionary<Types, DateTime> Monitors(Context context)
         {
             var hash = MonitorHash();
             MonitorDataRows(
@@ -121,7 +122,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static bool MonitorInitialized(IContext context)
+        public static bool MonitorInitialized(Context context)
         {
             var hash = MonitorHash();
             return MonitorDataRows(
@@ -132,8 +133,8 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static IEnumerable<DataRow> MonitorDataRows(
-            IContext context, Dictionary<Types, DateTime> hash = null)
+        private static EnumerableRowCollection<DataRow> MonitorDataRows(
+            Context context, Dictionary<Types, DateTime> hash = null)
         {
             hash = hash ?? MonitorHash();
             return Rds.ExecuteTable(

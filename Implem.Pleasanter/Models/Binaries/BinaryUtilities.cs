@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -27,7 +28,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static bool ExistsSiteImage(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long referenceId,
             Libraries.Images.ImageData.SizeTypes sizeType)
@@ -35,7 +36,7 @@ namespace Implem.Pleasanter.Models
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return false;
@@ -61,7 +62,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static bool ExistsTenantImage(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long referenceId,
             Libraries.Images.ImageData.SizeTypes sizeType)
@@ -69,7 +70,7 @@ namespace Implem.Pleasanter.Models
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return false;
@@ -95,7 +96,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static string SiteImagePrefix(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long referenceId,
             Libraries.Images.ImageData.SizeTypes sizeType)
@@ -103,7 +104,7 @@ namespace Implem.Pleasanter.Models
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return string.Empty;
@@ -117,7 +118,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static string TenantImagePrefix(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long referenceId,
             Libraries.Images.ImageData.SizeTypes sizeType)
@@ -125,7 +126,7 @@ namespace Implem.Pleasanter.Models
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return string.Empty;
@@ -138,7 +139,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static byte[] SiteImageThumbnail(IContext context, SiteModel siteModel)
+        public static byte[] SiteImageThumbnail(Context context, SiteModel siteModel)
         {
             siteModel.SiteSettings = SiteSettingsUtilities.Get(
                 context: context,
@@ -147,7 +148,7 @@ namespace Implem.Pleasanter.Models
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: siteModel.SiteSettings);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return null;
@@ -161,7 +162,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static byte[] SiteImageIcon(IContext context, SiteModel siteModel)
+        public static byte[] SiteImageIcon(Context context, SiteModel siteModel)
         {
             siteModel.SiteSettings = SiteSettingsUtilities.Get(
                 context: context,
@@ -170,7 +171,7 @@ namespace Implem.Pleasanter.Models
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: siteModel.SiteSettings);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return null;
@@ -184,13 +185,13 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static byte[] TenantImageLogo(IContext context, TenantModel tenantModel)
+        public static byte[] TenantImageLogo(Context context, TenantModel tenantModel)
         {
             var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
             var invalid = BinaryValidators.OnGetting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return null;
@@ -204,7 +205,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string UpdateSiteImage(IContext context, SiteModel siteModel)
+        public static string UpdateSiteImage(Context context, SiteModel siteModel)
         {
             siteModel.SiteSettings = SiteSettingsUtilities.Get(
                 context: context,
@@ -248,7 +249,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string UpdateTenantImage(IContext context, TenantModel tenantModel)
+        public static string UpdateTenantImage(Context context, TenantModel tenantModel)
         {
             var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
             var bin = context.PostedFiles.FirstOrDefault()?.Byte();
@@ -286,7 +287,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string DeleteSiteImage(IContext context, SiteModel siteModel)
+        public static string DeleteSiteImage(Context context, SiteModel siteModel)
         {
             siteModel.SiteSettings = SiteSettingsUtilities.Get(
                 context: context,
@@ -328,7 +329,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string DeleteTenantImage(IContext context, TenantModel tenantModel)
+        public static string DeleteTenantImage(Context context, TenantModel tenantModel)
         {
             var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
             var invalid = BinaryValidators.OnDeletingTenantImage(
@@ -364,7 +365,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string UploadImage(IContext context, long id)
+        public static string UploadImage(Context context, long id)
         {
             var controlId = context.Forms.ControlId();
             var ss = new ItemModel(
@@ -422,7 +423,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string DeleteImage(IContext context, string guid)
+        public static string DeleteImage(Context context, string guid)
         {
             var binaryModel = new BinaryModel()
                 .Get(
@@ -456,7 +457,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string MultiUpload(IContext context, long id)
+        public static string MultiUpload(Context context, long id)
         {
             var controlId = context.Forms.ControlId();
             var ss = new ItemModel(
@@ -505,15 +506,22 @@ namespace Implem.Pleasanter.Models
                 Deleted = false
             }));
             var hb = new HtmlBuilder();
+            var fieldId = controlId + "Field";
             return new ResponseCollection()
-                .ReplaceAll($"#{controlId}Field", new HtmlBuilder()
-                    .Field(
+                .ReplaceAll("#" + fieldId, new HtmlBuilder()
+                    .FieldAttachments(
                         context: context,
-                        ss: ss,
-                        column: column,
+                        fieldId: fieldId,
+                        controlId: controlId,
+                        columnName: column.ColumnName,
+                        fieldCss: column.FieldCss,
+                        fieldDescription: column.Description,
+                        controlCss: column.ControlCss,
+                        labelText: column.LabelText,
                         value: attachments.ToJson(),
-                        columnPermissionType: column
-                            .ColumnPermissionType(context: context)))
+                        placeholder: column.LabelText,
+                        readOnly: column.ColumnPermissionType(context: context)
+                            != Permissions.ColumnPermissionTypes.Update))
                 .SetData("#" + controlId)
                 .ToJson();
         }
@@ -521,7 +529,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static System.Web.Mvc.FileContentResult Donwload(IContext context, string guid)
+        public static System.Web.Mvc.FileContentResult Donwload(Context context, string guid)
         {
             if (!context.ContractSettings.Attachments())
             {
@@ -533,7 +541,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static System.Web.Mvc.FileContentResult DownloadTemp(IContext context, string guid)
+        public static System.Web.Mvc.FileContentResult DownloadTemp(Context context, string guid)
         {
             if (!context.ContractSettings.Attachments())
             {
@@ -545,7 +553,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string DeleteTemp(IContext context)
+        public static string DeleteTemp(Context context)
         {
             if (!context.ContractSettings.Attachments())
             {
@@ -558,7 +566,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static decimal UsedTenantStorageSize(IContext context)
+        public static decimal UsedTenantStorageSize(Context context)
         {
             return Rds.ExecuteScalar_decimal(
                 context: context,
@@ -571,7 +579,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static SqlStatement UpdateReferenceId(
-            IContext context, SiteSettings ss, long referenceId, string values)
+            Context context, SiteSettings ss, long referenceId, string values)
         {
             var guids = values?.RegexValues("[0-9a-z]{32}").ToList();
             return guids?.Any() == true

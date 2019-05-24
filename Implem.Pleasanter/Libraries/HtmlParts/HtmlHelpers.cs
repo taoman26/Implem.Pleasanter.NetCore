@@ -6,14 +6,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlHelpers
     {
         public static HtmlBuilder HtmlUser(
-            this HtmlBuilder hb, IContext context, string text)
+            this HtmlBuilder hb, Context context, string text)
         {
             return hb.P(css: "user", action: () => hb
                 .Icon(iconCss: "ui-icon-person", text: text));
         }
 
         public static HtmlBuilder HtmlUser(
-            this HtmlBuilder hb, IContext context, int id)
+            this HtmlBuilder hb, Context context, int id)
         {
             return hb.P(css: "user", action: () => hb
                 .Icon(iconCss: "ui-icon-person", text: SiteInfo.UserName(
@@ -22,7 +22,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         public static HtmlBuilder HtmlDept(
-            this HtmlBuilder hb, IContext context, int id)
+            this HtmlBuilder hb, Context context, int id)
         {
             return hb.P(css: "dept", action: () => hb
                 .Icon(iconCss: "ui-icon-contact", text: SiteInfo.Dept(

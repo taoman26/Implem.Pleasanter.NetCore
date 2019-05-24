@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlImports
     {
         public static HtmlBuilder ImportSettingsDialog(
-            this HtmlBuilder hb, IContext context)
+            this HtmlBuilder hb, Context context)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()

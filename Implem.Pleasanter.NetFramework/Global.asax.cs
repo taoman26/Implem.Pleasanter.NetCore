@@ -6,11 +6,8 @@ using Implem.Pleasanter.Libraries.Migrators;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Security;
 using Implem.Pleasanter.Libraries.Server;
-using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
 using Implem.Pleasanter.NetFramework.Libraries.Requests;
-using System.Data;
-using System.Linq;
 using System.Reflection;
 using System.Web;
 using System.Web.Http;
@@ -27,9 +24,7 @@ namespace Implem.Pleasanter
             ContextImplement context = ApplicationStartContext();
             var log = new SysLogModel(context: context);
             UsersInitializer.Initialize(context: context);
-            ItemsInitializer.Initialize(context: context);
             StatusesMigrator.Migrate(context: context);
-            SiteSettingsMigrator.Migrate(context: context);
             StatusesInitializer.Initialize(context: context);
             SetConfigrations(context: context);
             SiteInfo.Reflesh(context: context);
@@ -54,7 +49,7 @@ namespace Implem.Pleasanter
                 assemblyVersion: Assembly.GetExecutingAssembly().GetName().Version.ToString());
         }
 
-        private void SetConfigrations(IContext context)
+        private void SetConfigrations(Context context)
         {
             AreaRegistration.RegisterAllAreas();
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
@@ -140,21 +135,6 @@ namespace Implem.Pleasanter
                 && !context.LoginId.IsNullOrEmpty()
                 && (!Parameters.Authentication.RejectUnregisteredUser
                 || context.Authenticated);
-        }
-
-        private static UserModel GetUser(ContextImplement context)
-        {
-            return new UserModel(
-                context: context,
-                ss: SiteSettingsUtilities.UsersSiteSettings(context: context),
-                dataRow: Rds.ExecuteTable(
-                    context: context,
-                    statements: Rds.SelectUsers(
-                        column: Rds.UsersDefaultColumns(),
-                        join: Rds.UsersJoinDefault(),
-                        where: Rds.UsersWhere().LoginId(context.LoginId)))
-                            .AsEnumerable()
-                            .FirstOrDefault());
         }
     }
 }

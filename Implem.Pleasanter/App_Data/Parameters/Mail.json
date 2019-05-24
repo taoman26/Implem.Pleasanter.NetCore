@@ -7,6 +7,5 @@
     "FixedFrom": null,
     "AllowedFrom": null,
     "SupportFrom": "\"Pleasanter.org\" <support@pleasanter.org>",
-    "InternalDomains": "",
-    "ApiKey": ""
+    "InternalDomains": ""
 }

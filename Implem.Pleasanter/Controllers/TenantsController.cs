@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class TenantsController
     {
-        public string Edit(IContext context)
+        public string Edit(Context context)
         {
             if (!context.Ajax)
             {
@@ -31,7 +31,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Update(IContext context)
+        public string Update(Context context)
         {
             var log = new SysLogModel(context: context);
             var json = TenantUtilities.Update(

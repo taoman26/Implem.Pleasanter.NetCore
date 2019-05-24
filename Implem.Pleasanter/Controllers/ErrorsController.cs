@@ -8,13 +8,13 @@ namespace Implem.Pleasanter.Controllers
 {
     public class ErrorsController
     {
-        public string Index(IContext context)
+        public string Index(Context context)
         {
             if (!context.Ajax)
             {
                 var html = HtmlTemplates.Error(
                     context: context,
-                    errorType: Error.Types.ApplicationError);
+                    errorData: new ErrorData(type: Error.Types.ApplicationError));
                 return html;
             }
             else
@@ -23,22 +23,22 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string InvalidIpAddress(IContext context)
+        public string InvalidIpAddress(Context context)
         {
             var html = HtmlTemplates.Error(
                 context: context,
-                errorType: Error.Types.InvalidIpAddress);
+                errorData: new ErrorData(type: Error.Types.InvalidIpAddress));
             return html;
         }
 
-        public string BadRequest(IContext context)
+        public string BadRequest(Context context)
         {
             // Response.StatusCode = (int)HttpStatusCode.BadRequest;
             if (!context.Ajax)
             {
                 var html = HtmlTemplates.Error(
                     context: context,
-                    errorType: Error.Types.BadRequest);
+                    errorData: new ErrorData(type: Error.Types.BadRequest));
                 return html;
             }
             else
@@ -47,14 +47,14 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string NotFound(IContext context)
+        public string NotFound(Context context)
         {
             // Response.StatusCode = (int)HttpStatusCode.NotFound;
             if (!context.Ajax)
             {
                 var html = HtmlTemplates.Error(
                     context: context,
-                    errorType: Error.Types.NotFound);
+                    errorData: new ErrorData(type: Error.Types.NotFound));
                 return html;
             }
             else
@@ -63,7 +63,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string ParameterSyntaxError(IContext context)
+        public string ParameterSyntaxError(Context context)
         {
             var messageData = new string[]
             {
@@ -73,7 +73,7 @@ namespace Implem.Pleasanter.Controllers
             {
                 var html = HtmlTemplates.Error(
                     context: context,
-                    errorType: Error.Types.ParameterSyntaxError,
+                    errorData: new ErrorData(type: Error.Types.ParameterSyntaxError),
                     messageData: messageData);
                 return html;
             }
@@ -85,14 +85,14 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string InternalServerError(IContext context)
+        public string InternalServerError(Context context)
         {
             // Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             if (!context.Ajax)
             {
                 var html = HtmlTemplates.Error(
                     context: context,
-                    errorType: Error.Types.InternalServerError);
+                    errorData: new ErrorData(type: Error.Types.InternalServerError));
                 return html;
             }
             else
@@ -101,11 +101,51 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string LoginIdAlreadyUse(IContext context)
+        public string LoginIdAlreadyUse(Context context)
         {
             var html = HtmlTemplates.Error(
                 context: context,
-                errorType: Error.Types.LoginIdAlreadyUse);
+                errorData: new ErrorData(type: Error.Types.LoginIdAlreadyUse));
+            return html;
+        }
+
+        public string UserLockout(Context context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorData: new ErrorData(type: Error.Types.UserLockout));
+            return html;
+        }
+
+        public string UserDisabled(Context context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorData: new ErrorData(type: Error.Types.UserDisabled));
+            return html;
+        }
+
+        public string SamlLoginFailed(Context context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorData: new ErrorData(type: Error.Types.SamlLoginFailed));
+            return html;
+        }
+
+        public string InvalidSsoCode(Context context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorData: new ErrorData(type: Error.Types.InvalidSsoCode));
+            return html;
+        }
+
+        public string EmptyUserName(Context context)
+        {
+            var html = HtmlTemplates.Error(
+                context: context,
+                errorData: new ErrorData(type: Error.Types.EmptyUserName));
             return html;
         }
     }

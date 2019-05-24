@@ -14,6 +14,7 @@ namespace Implem.Pleasanter.App_Start
                 "~/scripts/_api.js",
                 "~/scripts/_data.js",
                 "~/scripts/_dispatch.js",
+                "~/Scripts/_elements.js",
                 "~/scripts/_event.js",
                 "~/scripts/_form.js",
                 "~/scripts/_time.js",
@@ -94,7 +95,8 @@ namespace Implem.Pleasanter.App_Start
                 "~/scripts/_show.js",
                 "~/scripts/relatingcolumns.js",
                 "~/scripts/fieldselectable.js",
-                "~/scripts/tenants.js"
+                "~/scripts/tenants.js",
+                "~/scripts/setdaterangedialog.js"
             };
         }
     }

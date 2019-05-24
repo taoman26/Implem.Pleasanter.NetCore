@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Web;
 namespace Implem.Pleasanter.Libraries.Settings
 {
     [Serializable]
@@ -56,12 +55,13 @@ namespace Implem.Pleasanter.Libraries.Settings
         public string KambanGroupBy;
         // compatibility Version 1.012
         public string CalendarColumn;
+        public bool? ShowHistory;
 
         public View()
         {
         }
 
-        public View(IContext context, SiteSettings ss)
+        public View(Context context, SiteSettings ss)
         {
             SetByForm(context: context, ss: ss);
         }
@@ -69,7 +69,6 @@ namespace Implem.Pleasanter.Libraries.Settings
         [OnDeserialized]
         private void OnDeserialized(StreamingContext streamingContext)
         {
-            KambanColumns = KambanColumns ?? Parameters.General.KambanColumns;
         }
 
         [OnSerializing]
@@ -105,7 +104,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return GetCalendarFromTo(ss).Split_2nd('-');
         }
 
-        public string GetCrosstabGroupByX(IContext context, SiteSettings ss)
+        public string GetCrosstabGroupByX(Context context, SiteSettings ss)
         {
             var options = ss.CrosstabGroupByXOptions(context: context);
             if (CrosstabGroupByX.IsNullOrEmpty())
@@ -117,7 +116,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return CrosstabGroupByX;
         }
 
-        public string GetCrosstabGroupByY(IContext context, SiteSettings ss)
+        public string GetCrosstabGroupByY(Context context, SiteSettings ss)
         {
             var options = ss.CrosstabGroupByYOptions(context: context);
             if (CrosstabGroupByY.IsNullOrEmpty())
@@ -195,7 +194,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return TimeSeriesGroupBy;
         }
 
-        public string GetTimeSeriesAggregationType(IContext context, SiteSettings ss)
+        public string GetTimeSeriesAggregationType(Context context, SiteSettings ss)
         {
             var options = ss.TimeSeriesAggregationTypeOptions(context: context);
             if (TimeSeriesAggregateType.IsNullOrEmpty())
@@ -219,7 +218,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return TimeSeriesValue;
         }
 
-        public string GetKambanGroupByX(IContext context, SiteSettings ss)
+        public string GetKambanGroupByX(Context context, SiteSettings ss)
         {
             var options = ss.KambanGroupByOptions(context: context);
             if (KambanGroupByX.IsNullOrEmpty())
@@ -231,7 +230,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return KambanGroupByX;
         }
 
-        public string GetKambanGroupByY(IContext context, SiteSettings ss)
+        public string GetKambanGroupByY(Context context, SiteSettings ss)
         {
             var options = ss.KambanGroupByOptions(context: context);
             if (KambanGroupByY.IsNullOrEmpty())
@@ -243,7 +242,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return KambanGroupByY;
         }
 
-        public string GetKambanAggregationType(IContext context, SiteSettings ss)
+        public string GetKambanAggregationType(Context context, SiteSettings ss)
         {
             var options = ss.KambanAggregationTypeOptions(context: context);
             if (KambanAggregateType.IsNullOrEmpty())
@@ -267,15 +266,21 @@ namespace Implem.Pleasanter.Libraries.Settings
             return KambanValue;
         }
 
+        public int GetKambanColumns()
+        {
+            return KambanColumns ?? Parameters.General.KambanColumns;
+        }
+
         private ViewModeDefinition Definition(SiteSettings ss, string name)
         {
             return Def.ViewModeDefinitionCollection.FirstOrDefault(o =>
                 o.Id == ss.ReferenceType + "_" + name);
         }
 
-        public void SetByForm(IContext context, SiteSettings ss)
+        public void SetByForm(Context context, SiteSettings ss)
         {
             var columnFilterPrefix = "ViewFilters__";
+            var columnFilterOnGridPrefix = "ViewFiltersOnGridHeader__";
             var columnSorterPrefix = "ViewSorters__";
             switch (context.Forms.ControlId())
             {
@@ -289,6 +294,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                     Overdue = null;
                     ColumnFilterHash = null;
                     Search = null;
+                    ShowHistory = null;
                     break;
                 case "ViewSorters_Reset":
                     ColumnSorterHash = null;
@@ -330,6 +336,11 @@ namespace Implem.Pleasanter.Libraries.Settings
                                 break;
                             case "ViewFilters_Overdue":
                                 Overdue = Bool(
+                                    context: context,
+                                    controlId: controlId);
+                                break;
+                            case "ViewFilters_ShowHistory":
+                                ShowHistory = Bool(
                                     context: context,
                                     controlId: controlId);
                                 break;
@@ -465,6 +476,14 @@ namespace Implem.Pleasanter.Libraries.Settings
                                         columnName: controlId.Substring(columnFilterPrefix.Length),
                                         value: context.Forms.Data(controlId));
                                 }
+                                else if (controlId.StartsWith(columnFilterOnGridPrefix))
+                                {
+                                    AddColumnFilterHash(
+                                        context: context,
+                                        ss: ss,
+                                        columnName: controlId.Substring(columnFilterOnGridPrefix.Length),
+                                        value: context.Forms.Data(controlId));
+                                }
                                 else if (controlId.StartsWith(columnSorterPrefix))
                                 {
                                     AddColumnSorterHash(
@@ -476,12 +495,11 @@ namespace Implem.Pleasanter.Libraries.Settings
                                 break;
                         }
                     }
-                    KambanColumns = KambanColumns ?? Parameters.General.KambanColumns;
                     break;
             }
         }
 
-        private bool? Bool(IContext context, string controlId)
+        private bool? Bool(Context context, string controlId)
         {
             var data = context.Forms.Bool(controlId);
             if (data)
@@ -494,7 +512,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private DateTime? Time(IContext context, string controlId)
+        private DateTime? Time(Context context, string controlId)
         {
             var data = context.Forms.DateTime(controlId);
             if (data.InRange())
@@ -507,7 +525,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private string String(IContext context, string controlId)
+        private string String(Context context, string controlId)
         {
             var data = context.Forms.Data(controlId);
             if (data != string.Empty)
@@ -535,7 +553,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private void AddColumnFilterHash(
-            IContext context, SiteSettings ss, string columnName, string value)
+            Context context, SiteSettings ss, string columnName, string value)
         {
             if (ColumnFilterHash == null)
             {
@@ -563,7 +581,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private void AddColumnSorterHash(
-            IContext context, SiteSettings ss, string columnName, SqlOrderBy.Types value)
+            Context context, SiteSettings ss, string columnName, SqlOrderBy.Types value)
         {
             if (ColumnSorterHash == null)
             {
@@ -593,7 +611,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private void SetSorters(IContext context, SiteSettings ss)
+        private void SetSorters(Context context, SiteSettings ss)
         {
             ColumnSorterHash = new Dictionary<string, SqlOrderBy.Types>();
             context.Forms.List("ViewSorters").ForEach(data =>
@@ -680,6 +698,10 @@ namespace Implem.Pleasanter.Libraries.Settings
             {
                 view.CalendarFromTo = CalendarFromTo;
             }
+            if (CalendarMonth?.InRange() == true)
+            {
+                view.CalendarMonth = CalendarMonth;
+            }
             if (!CrosstabGroupByX.IsNullOrEmpty())
             {
                 view.CrosstabGroupByX = CrosstabGroupByX;
@@ -740,7 +762,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             {
                 view.KambanValue = KambanValue;
             }
-            if (KambanColumns != Parameters.General.KambanColumns)
+            if (KambanColumns != null && KambanColumns != Parameters.General.KambanColumns)
             {
                 view.KambanColumns = KambanColumns;
             }
@@ -748,25 +770,41 @@ namespace Implem.Pleasanter.Libraries.Settings
             {
                 view.KambanAggregationView = KambanAggregationView;
             }
+            if (ShowHistory == true)
+            {
+                view.ShowHistory = true;
+            }
             return view;
         }
 
         public SqlWhereCollection Where(
-            IContext context,
+            Context context,
             SiteSettings ss,
             SqlWhereCollection where = null,
             bool checkPermission = true)
         {
             if (where == null) where = new SqlWhereCollection();
-            SetGeneralsWhere(context: context, ss: ss, where: where);
-            SetColumnsWhere(context: context, ss: ss, where: where);
-            SetSearchWhere(context: context, ss: ss, where: where);
+            SetGeneralsWhere(
+                context: context,
+                ss: ss,
+                where: where);
+            SetColumnsWhere(
+                context: context,
+                ss: ss,
+                where: where);
+            SetSearchWhere(
+                context: context,
+                ss: ss,
+                where: where);
             Permissions.SetCanReadWhere(
-                context: context, ss: ss, where: where, checkPermission: checkPermission);
+                context: context,
+                ss: ss,
+                where: where,
+                checkPermission: checkPermission);
             return where;
         }
 
-        private void SetGeneralsWhere(IContext context, SiteSettings ss, SqlWhereCollection where)
+        private void SetGeneralsWhere(Context context, SiteSettings ss, SqlWhereCollection where)
         {
             if (Incomplete == true && HasIncompleteColumns(
                 context: context,
@@ -834,7 +872,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        public bool HasIncompleteColumns(IContext context, SiteSettings ss)
+        public bool HasIncompleteColumns(Context context, SiteSettings ss)
         {
             return ss.HasAllColumns(
                 context: context,
@@ -844,7 +882,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 });
         }
 
-        public bool HasOwnColumns(IContext context, SiteSettings ss)
+        public bool HasOwnColumns(Context context, SiteSettings ss)
         {
             return ss.HasAllColumns(
                 context: context,
@@ -855,7 +893,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 });
         }
 
-        public bool HasNearCompletionTimeColumns(IContext context, SiteSettings ss)
+        public bool HasNearCompletionTimeColumns(Context context, SiteSettings ss)
         {
             return ss.HasAllColumns(
                 context: context,
@@ -865,7 +903,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 });
         }
 
-        public bool HasDelayColumns(IContext context, SiteSettings ss)
+        public bool HasDelayColumns(Context context, SiteSettings ss)
         {
             return ss.HasAllColumns(
                 context: context,
@@ -877,7 +915,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 });
         }
 
-        public bool HasOverdueColumns(IContext context, SiteSettings ss)
+        public bool HasOverdueColumns(Context context, SiteSettings ss)
         {
             return ss.HasAllColumns(
                 context: context,
@@ -888,7 +926,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 });
         }
 
-        private void SetColumnsWhere(IContext context, SiteSettings ss, SqlWhereCollection where)
+        private void SetColumnsWhere(Context context, SiteSettings ss, SqlWhereCollection where)
         {
             var prefix = "ViewFilters_" + ss.ReferenceType + "_";
             var prefixLength = prefix.Length;
@@ -1064,7 +1102,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private void CsDateTimeColumns(
-            IContext context, Column column, string value, SqlWhereCollection where)
+            Context context, Column column, string value, SqlWhereCollection where)
         {
             var param = value.Deserialize<List<string>>();
             if (param.Any())
@@ -1082,23 +1120,55 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private SqlWhere CsDateTimeColumnsWhere(
-            IContext context, Column column, List<string> param)
+            Context context, Column column, List<string> param)
         {
             return param.Any(o => o != "\t")
                 ? new SqlWhere(
                     tableName: column.TableName(),
-                    raw: param.Select(range =>
-                        "#TableBracket#.[{0}] between '{1}' and '{2}'".Params(
-                            column.Name,
-                            range.Split_1st().ToDateTime().ToUniversal(context: context)
-                                .ToString("yyyy/M/d H:m:s"),
-                            range.Split_2nd().ToDateTime().ToUniversal(context: context)
-                                .ToString("yyyy/M/d H:m:s.fff"))).Join(" or "))
+                    raw: param.Select(range => {
+                        var from = range.Split_1st();
+                        var to = range.Split_2nd();
+                        if (!from.IsNullOrEmpty() && !to.IsNullOrEmpty())
+                        {
+                            return "#TableBracket#.[{0}] between '{1}' and '{2}'".Params(
+                                column.Name,
+                                ConvertDateTimeParam(from, column).ToUniversal(context: context)
+                                    .ToString("yyyy/M/d H:m:s"),
+                                ConvertDateTimeParam(to, column).ToDateTime().ToUniversal(context: context)
+                                    .ToString("yyyy/M/d H:m:s.fff"));
+                        }
+                        else if (to.IsNullOrEmpty())
+                        {
+                            return "#TableBracket#.[{0}] >= '{1}'".Params(
+                                column.Name,
+                                ConvertDateTimeParam(from, column).ToDateTime().ToUniversal(context: context)
+                                    .ToString("yyyy/M/d H:m:s"));
+                        }
+                        else
+                        {
+                            return "#TableBracket#.[{0}] <= '{1}'".Params(
+                                column.Name,
+                                ConvertDateTimeParam(to, column).ToDateTime().ToUniversal(context: context)
+                                    .ToString("yyyy/M/d H:m:s.fff"));
+                        }
+                    }).Join(" or "))
                 : null;
         }
 
+        private DateTime ConvertDateTimeParam(string dateTimeString, Column column)
+        {
+            var dt = dateTimeString.ToDateTime();
+            switch (column.ColumnName)
+            {
+                case "CompletionTime":
+                    return column.DateTimepicker() ? dt : dt.AddDays(1);
+                default:
+                    return dt;
+            }
+        }
+
         private SqlWhere CsDateTimeColumnsWhereNull(
-            IContext context, Column column, List<string> param)
+            Context context, Column column, List<string> param)
         {
             return param.Any(o => o == "\t")
                 ? new SqlWhere(or: new SqlWhereCollection(
@@ -1135,6 +1205,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                 {
                     var name = Strings.NewGuid();
                     where.SqlWhereLike(
+                        tableName: column.TableName(),
                         name: name,
                         searchText: value,
                         clauseCollection: "([{0}].[{1}] like '%' + @{2}#ParamCount#_#CommandCount# + '%')"
@@ -1172,10 +1243,9 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public SqlOrderByCollection OrderBy(
-            IContext context,
+            Context context,
             SiteSettings ss,
-            SqlOrderByCollection orderBy = null,
-            int pageSize = 0)
+            SqlOrderByCollection orderBy = null)
         {
             orderBy = orderBy ?? new SqlOrderByCollection();
             if (ColumnSorterHash?.Any() == true)
@@ -1198,7 +1268,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                     }
                 });
             }
-            return pageSize > 0 && orderBy?.Any() != true
+            return orderBy?.Any() != true
                 ? new SqlOrderByCollection().Add(
                     tableName: ss.ReferenceType,
                     columnBracket: "[UpdatedTime]",
@@ -1206,53 +1276,13 @@ namespace Implem.Pleasanter.Libraries.Settings
                 : orderBy;
         }
 
-        private void SetSearchWhere(IContext context, SiteSettings ss, SqlWhereCollection where)
+        private void SetSearchWhere(Context context, SiteSettings ss, SqlWhereCollection where)
         {
             if (Search.IsNullOrEmpty()) return;
-            var select = SearchIndexUtilities.Select(
-                context: context,
+            where.FullTextWhere(
                 ss: ss,
-                searchText: Search,
-                siteIdList: ss.AllowedIntegratedSites != null
-                    ? ss.AllowedIntegratedSites
-                    : new List<long> { ss.SiteId });
-            if (select != null)
-            {
-                switch (ss.ReferenceType)
-                {
-                    case "Issues":
-                        where.Add(
-                            tableName: ss.ReferenceType,
-                            columnBrackets: "[IssueId]".ToSingleArray(),
-                            name: "IssueId",
-                            _operator: " in ",
-                            sub: select,
-                            subPrefix: false);
-                        break;
-                    case "Results":
-                        where.Add(
-                            tableName: ss.ReferenceType,
-                            columnBrackets: "[ResultId]".ToSingleArray(),
-                            name: "ResultId",
-                            _operator: " in ",
-                            sub: select,
-                            subPrefix: false);
-                        break;
-                    case "Wikis":
-                        where.Add(
-                            tableName: ss.ReferenceType,
-                            columnBrackets: "[WikiId]".ToSingleArray(),
-                            name: "WikiId",
-                            _operator: " in ",
-                            sub: select,
-                            subPrefix: false);
-                        break;
-                }
-            }
-            else
-            {
-                where.Add(tableName: null, raw: "0=1");
-            }
+                tableName: ss.ReferenceType,
+                searchText: Search);
         }
     }
 }

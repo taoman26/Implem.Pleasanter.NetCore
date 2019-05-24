@@ -1,40 +1,45 @@
-﻿using Implem.Pleasanter.Libraries.Requests;
-using Implem.Pleasanter.Libraries.Server;
+﻿using Implem.DefinitionAccessor;
+using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
 using Implem.Pleasanter.Models;
-using System.Configuration;
 namespace Implem.Pleasanter.Libraries.Security
 {
     public static class Authentications
     {
-        public static string SignIn(IContext context, string returnUrl)
+        public static string SignIn(Context context, string returnUrl)
         {
             return new UserModel(
                 context: context,
                 ss: SiteSettingsUtilities.UsersSiteSettings(context: context),
-                setByForm: true)
+                formData: context.Forms)
                     .Authenticate(context: context, returnUrl: returnUrl);
         }
 
-        public static bool Try(IContext context, string loginId, string password)
+        public static bool Try(Context context, string loginId, string password)
         {
             return new UserModel(
                 context: context,
                 ss: SiteSettingsUtilities.UsersSiteSettings(context: context),
-                setByForm: true)
+                formData: context.Forms)
                     .Authenticate(context: context);
         }
 
-        public static void SignOut(IContext context)
+        public static void SignOut(Context context)
         {
             context.FormsAuthenticationSignOut();
             context.FederatedAuthenticationSessionAuthenticationModuleDeleteSessionTokenCookie();
-            context.SessionAbandon();
+            SessionUtilities.Abandon(context: context);
+
         }
 
-        public static bool Windows(IContext context)
+        public static bool Windows(Context context)
         {
             return context.AuthenticationsWindows();
+        }
+
+        public static bool SSO(Context context)
+        {
+            return Windows(context: context) || Parameters.Authentication.Provider == "SAML";
         }
     }
 }

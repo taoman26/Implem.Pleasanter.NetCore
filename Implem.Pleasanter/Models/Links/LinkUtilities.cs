@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -43,7 +44,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static HtmlBuilder LinkDialog(this HtmlBuilder hb, IContext context)
+        public static HtmlBuilder LinkDialog(this HtmlBuilder hb, Context context)
         {
             return hb.Div(attributes: new HtmlAttributes()
                 .Id("LinkDialog")

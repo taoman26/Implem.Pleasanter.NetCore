@@ -19,7 +19,7 @@ namespace Implem.CodeDefiner.Functions.Web.Styles
                 code.Append(Section(cssDefinition.Id, cssCollection));
             });
             CodeWriter.Write(
-                Directories.Outputs("Styles", "site.css"),
+                Directories.Outputs("wwwroot", "styles", "site.css"),
                 code.ToString());
         }
 
@@ -28,8 +28,8 @@ namespace Implem.CodeDefiner.Functions.Web.Styles
             Consoles.Write(cssDefinition.Id, Consoles.Types.Info);
             return typeof(CssDefinition).GetMembers()
                 .Where(o => o.Name != "Id")
-                .Where(o => o.Name != string.Empty)
-                .Where(o => cssDefinition[o.Name].ToStr() != string.Empty)
+                .Where(o => !o.Name.IsNullOrEmpty())
+                .Where(o => !cssDefinition[o.Name].ToStr().IsNullOrEmpty())
                 .Select(o => o.Name);
         }
 

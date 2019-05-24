@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlDropDownSearches
     {
         public static HtmlBuilder DropDownSearchDialog(
-            this HtmlBuilder hb, IContext context, long id)
+            this HtmlBuilder hb, Context context, long id)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -40,9 +40,6 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                             icon: "ui-icon-search")))
                             .Hidden(
                                 controlId: "DropDownSearchTarget",
-                                css: "always-send")
-                            .Hidden(
-                                controlId: "DropDownSearchOnEditor",
                                 css: "always-send")
                             .Hidden(
                                 controlId: "DropDownSearchMultiple",

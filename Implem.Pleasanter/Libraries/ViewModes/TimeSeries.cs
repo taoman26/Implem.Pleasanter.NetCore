@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public TimeSeries(
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column groupBy,
             string aggregationType,
@@ -83,7 +83,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             }
         }
 
-        public string Json(IContext context, Column groupBy, Column value)
+        public string Json(Context context, Column groupBy, Column value)
         {
             var elements = new List<Element>();
             var choices = groupBy
@@ -142,7 +142,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         private string IndexText(
-            IContext context, KeyValuePair<string, ControlData> index, Column valueColumn)
+            Context context, KeyValuePair<string, ControlData> index, Column valueColumn)
         {
             var data = GetData(Targets(MaxTime).Where(p => p.Index == index.Key));
             return "{0}: {1}".Params(

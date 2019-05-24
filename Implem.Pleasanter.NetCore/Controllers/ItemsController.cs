@@ -181,6 +181,24 @@ namespace Implem.Pleasanter.NetCore.Controllers
             }
         }
 
+        [HttpPost]
+        public ActionResult NewOnGrid(long id = 0)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.NewOnGrid(context: context, id: id);
+            return Content(json);
+        }
+
+        [HttpPost]
+        public ActionResult CancelNewRow(long id = 0)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.CancelNewRow(context: context, id: id);
+            return Content(json);
+        }
+
         [AcceptVerbs(HttpVerbs.Get, HttpVerbs.Post)]
         public ActionResult Edit(long id)
         {
@@ -303,6 +321,33 @@ namespace Implem.Pleasanter.NetCore.Controllers
         }
 
         [HttpPost]
+        public string EditOnGrid(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.EditOnGrid(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
+        public string ReloadRow(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.ReloadRow(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
+        public string CopyRow(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.CopyRow(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
         public string TrashBoxGridRows(long id)
         {
             var context = new ContextImplement();
@@ -371,6 +416,15 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.ItemsController();
             var json = controller.Update(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
+        public string BulkUpdate(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.BulkUpdate(context: context, id: id);
             return json;
         }
 
@@ -702,6 +756,33 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.ItemsController();
             var json = controller.SynchronizeFormulas(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
+        public string LockTable(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.LockTable(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
+        public string UnlockTable(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.UnlockTable(context: context, id: id);
+            return json;
+        }
+
+        [HttpPost]
+        public string ForceUnlockTable(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controller.ForceUnlockTable(context: context, id: id);
             return json;
         }
     }

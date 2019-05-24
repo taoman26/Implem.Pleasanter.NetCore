@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -26,15 +27,17 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Index(IContext context, SiteSettings ss)
+        public static string Index(Context context, SiteSettings ss)
         {
             var invalid = GroupValidators.OnEntry(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -56,7 +59,7 @@ namespace Implem.Pleasanter.Models
                     hb
                         .Form(
                             attributes: new HtmlAttributes()
-                                .Id("GroupForm")
+                                .Id("MainForm")
                                 .Class("main-form")
                                 .Action(Locations.Action(
                                     context: context,
@@ -76,7 +79,6 @@ namespace Implem.Pleasanter.Models
                                 .MainCommands(
                                     context: context,
                                     ss: ss,
-                                    siteId: ss.SiteId,
                                     verType: Versions.VerTypes.Latest)
                                 .Div(css: "margin-bottom")
                                 .Hidden(
@@ -101,20 +103,21 @@ namespace Implem.Pleasanter.Models
 
         private static string ViewModeTemplate(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             string viewMode,
-            Action viewModeBody,
-            Aggregations aggregations = null)
+            Action viewModeBody)
         {
             var invalid = GroupValidators.OnEntry(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             return hb.Template(
                 context: context,
@@ -131,17 +134,20 @@ namespace Implem.Pleasanter.Models
                 action: () => hb
                     .Form(
                         attributes: new HtmlAttributes()
-                            .Id("GroupsForm")
+                            .Id("MainForm")
                             .Class("main-form")
                             .Action(Locations.Action(
                                 context: context,
                                 controller: context.Controller,
                                 id: ss.SiteId)),
                         action: () => hb
-                            .ViewSelector(
-                                context: context,
-                                ss: ss,
-                                view: view)
+                            .Div(
+                                id: "ViewSelectorField", 
+                                action: ()=> hb
+                                    .ViewSelector(
+                                        context: context,
+                                        ss: ss,
+                                        view: view))
                             .ViewFilters(
                                 context: context,
                                 ss: ss,
@@ -154,7 +160,6 @@ namespace Implem.Pleasanter.Models
                             .MainCommands(
                                 context: context,
                                 ss: ss,
-                                siteId: ss.SiteId,
                                 verType: Versions.VerTypes.Latest,
                                 backButton: !context.Publish)
                             .Div(css: "margin-bottom")
@@ -163,7 +168,15 @@ namespace Implem.Pleasanter.Models
                                 value: "Groups")
                             .Hidden(
                                 controlId: "BaseUrl",
-                                value: Locations.BaseUrl(context: context)))
+                                value: Locations.BaseUrl(context: context))
+                            .Hidden(
+                                controlId: "EditOnGrid",
+                                css: "always-send",
+                                value: context.Forms.Data("EditOnGrid"))
+                            .Hidden(
+                                controlId: "NewRowId",
+                                css: "always-send",
+                                value: context.Forms.Data("NewRowId")))
                     .MoveDialog(context: context, bulk: true)
                     .Div(attributes: new HtmlAttributes()
                         .Id("ExportSelectorDialog")
@@ -172,7 +185,7 @@ namespace Implem.Pleasanter.Models
                     .ToString();
         }
 
-        public static string IndexJson(IContext context, SiteSettings ss)
+        public static string IndexJson(Context context, SiteSettings ss)
         {
             var view = Views.GetBySession(context: context, ss: ss);
             var gridData = GetGridData(context: context, ss: ss, view: view);
@@ -182,6 +195,7 @@ namespace Implem.Pleasanter.Models
                     ss: ss,
                     view: view,
                     invoke: "setGrid",
+                    editOnGrid: context.Forms.Bool("EditOnGrid"),
                     body: new HtmlBuilder()
                         .Grid(
                             context: context,
@@ -195,7 +209,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static GridData GetGridData(
-            IContext context, SiteSettings ss, View view, int offset = 0)
+            Context context, SiteSettings ss, View view, int offset = 0)
         {
             return new GridData(
                 context: context,
@@ -215,17 +229,21 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder Grid(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GridData gridData,
             View view,
             string action = "GridRows")
         {
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
             return hb
                 .Table(
                     attributes: new HtmlAttributes()
                         .Id("Grid")
-                        .Class(ss.GridCss())
+                        .Class(ss.GridCss(context: context))
                         .DataValue("back", _using: ss?.IntegratedSites?.Any() == true)
                         .DataAction(action)
                         .DataMethod("post"),
@@ -234,8 +252,14 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: ss,
                             gridData: gridData,
+                            columns: columns,
                             view: view,
                             action: action))
+                .GridHeaderMenus(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    columns: columns)
                 .Hidden(
                     controlId: "GridOffset",
                     value: ss.GridNextOffset(
@@ -243,6 +267,12 @@ namespace Implem.Pleasanter.Models
                         gridData.DataRows.Count(),
                         gridData.TotalCount)
                             .ToString())
+                .Hidden(
+                    controlId: "GridRowIds",
+                    value: gridData.DataRows.Select(g => g.Long("GroupId")).ToJson())
+                .Hidden(
+                    controlId: "GridColumns",
+                    value: columns.Select(o => o.ColumnName).ToJson())
                 .Button(
                     controlId: "ViewSorters_Reset",
                     controlCss: "hidden",
@@ -251,7 +281,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string GridRows(
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResponseCollection res = null,
             int offset = 0,
@@ -265,8 +295,13 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 view: view,
                 offset: offset);
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
             return (res ?? new ResponseCollection())
                 .Remove(".grid tr", _using: offset == 0)
+                .ClearFormData("GridOffset")
                 .ClearFormData("GridCheckAll", _using: clearCheck)
                 .ClearFormData("GridUnCheckedItems", _using: clearCheck)
                 .ClearFormData("GridCheckedItems", _using: clearCheck)
@@ -282,18 +317,29 @@ namespace Implem.Pleasanter.Models
                         ss: ss,
                         view: view),
                     _using: offset == 0)
+                .ReplaceAll(
+                    "#ViewFilters",
+                    new HtmlBuilder()
+                        .ViewFilters(
+                            context: context,
+                            ss: ss,
+                            view: view),
+                    _using: context.Forms.ControlId().StartsWith("ViewFiltersOnGridHeader__"))
                 .Append("#Grid", new HtmlBuilder().GridRows(
                     context: context,
                     ss: ss,
                     gridData: gridData,
+                    columns: columns,
                     view: view,
-                    addHeader: offset == 0,
+                    offset: offset,
                     clearCheck: clearCheck,
                     action: action))
                 .Val("#GridOffset", ss.GridNextOffset(
                     offset,
                     gridData.DataRows.Count(),
                     gridData.TotalCount))
+                .Val("#GridRowIds", gridData.DataRows.Select(g => g.Long("GroupId")).ToJson())
+                .Val("#GridColumns", columns.Select(o => o.ColumnName).ToJson())
                 .Paging("#Grid")
                 .Message(message)
                 .ToJson();
@@ -301,69 +347,97 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder GridRows(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GridData gridData,
+            List<Column> columns,
             View view,
-            bool addHeader = true,
+            int offset = 0,
             bool clearCheck = false,
             string action = "GridRows")
         {
+            var checkRow = !ss.GridColumnsHasSources();
             var checkAll = clearCheck
                 ? false
                 : context.Forms.Bool("GridCheckAll");
-            var columns = ss.GetGridColumns(
-                context: context,
-                view: view,
-                checkPermission: true);
             return hb
                 .THead(
-                    _using: addHeader,
+                    _using: offset == 0,
                     action: () => hb
                         .GridHeader(
                             context: context,
+                            ss: ss,
                             columns: columns, 
                             view: view,
+                            checkRow: checkRow,
                             checkAll: checkAll,
                             action: action))
-                .TBody(action: () => gridData.TBody(
-                    hb: hb,
-                    context: context,
-                    ss: ss,
-                    columns: columns,
-                    checkAll: checkAll));
+                .TBody(action: () => hb
+                    .GridRows(
+                        context: context,
+                        ss: ss,
+                        dataRows: gridData.DataRows,
+                        columns: columns,
+                        checkAll: checkAll,
+                        checkRow: checkRow));
         }
 
-        private static SqlColumnCollection GridSqlColumnCollection(
-            IContext context, SiteSettings ss)
+        private static SqlWhereCollection SelectedWhere(
+            Context context, SiteSettings ss)
         {
-            var sqlColumnCollection = Rds.GroupsColumn();
-            new List<string> { "GroupId", "Creator", "Updator" }
-                .Concat(ss.GridColumns)
-                .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
-                .Concat(ss.TitleColumns)
-                    .Distinct().ForEach(column =>
-                        sqlColumnCollection.GroupsColumn(column));
-            return sqlColumnCollection;
+            var selector = new GridSelector(context: context);
+            return !selector.Nothing
+                ? Rds.GroupsWhere().GroupId_In(
+                    value: selector.Selected.Select(o => o.ToInt()),
+                    negative: selector.All)
+                : null;
         }
 
-        private static SqlColumnCollection DefaultSqlColumns(
-            IContext context, SiteSettings ss)
+        public static string ReloadRow(Context context, SiteSettings ss, long groupId)
         {
-            var sqlColumnCollection = Rds.GroupsColumn();
-            new List<string> { "GroupId", "Creator", "Updator" }
-                .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
-                .Concat(ss.TitleColumns)
-                    .Distinct().ForEach(column =>
-                        sqlColumnCollection.GroupsColumn(column));
-            return sqlColumnCollection;
+            ss.SetColumnAccessControls(context: context);
+            var view = Views.GetBySession(
+                context: context,
+                ss: ss);
+            var dataRow = new GridData(
+                context: context,
+                ss: ss,
+                view: view,
+                where: Rds.GroupsWhere().GroupId(groupId))
+                    .DataRows
+                    .FirstOrDefault();
+            var res = ItemUtilities.ClearItemDataResponse(
+                context: context,
+                ss: ss,
+                id: groupId);
+            return dataRow == null
+                ? res
+                    .Remove($"[data-id=\"{groupId}\"][data-latest]")
+                    .Message(
+                        message: Messages.NotFound(context: context),
+                        target: "row_" + groupId)
+                    .ToJson()
+                : res
+                    .ReplaceAll(
+                        $"[data-id=\"{dataRow.Long("GroupId")}\"][data-latest]",
+                        new HtmlBuilder().Tr(
+                            context: context,
+                            ss: ss,
+                            dataRow: dataRow,
+                            columns: ss.GetGridColumns(
+                                context: context,
+                                view: view,
+                                checkPermission: true),
+                            checkAll: false,
+                            editRow: true,
+                            checkRow: false,
+                            idColumn: "GroupId"))
+                    .ToJson();
         }
 
         public static HtmlBuilder TdValue(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             GroupModel groupModel)
@@ -516,14 +590,109 @@ namespace Implem.Pleasanter.Models
                                     context: context,
                                     column: column,
                                     value: string.Empty);
-                    default: return hb;
+                    default:
+                        switch (Def.ExtendedColumnTypes.Get(column.Name))
+                        {
+                            case "Class":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: groupModel.Class(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Num":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: groupModel.Num(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Date":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: groupModel.Date(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Description":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: groupModel.Description(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Check":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: groupModel.Check(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Attachments":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: groupModel.Attachments(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            default:
+                                return hb;
+                        }
                 }
             }
         }
 
         private static HtmlBuilder TdCustomValue(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string gridDesign,
             GroupModel groupModel)
@@ -560,6 +729,41 @@ namespace Implem.Pleasanter.Models
                     case "UpdatedTime": value = groupModel.UpdatedTime.GridText(
                         context: context,
                         column: column); break;
+                    default:
+                        switch (Def.ExtendedColumnTypes.Get(column.Name))
+                        {
+                            case "Class":
+                                value = groupModel.Class(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Num":
+                                value = groupModel.Num(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Date":
+                                value = groupModel.Date(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Description":
+                                value = groupModel.Description(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Check":
+                                value = groupModel.Check(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Attachments":
+                                value = groupModel.Attachments(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                        }
+                        break;
                 }
                 gridDesign = gridDesign.Replace("[" + column.ColumnName + "]", value);
             });
@@ -568,7 +772,7 @@ namespace Implem.Pleasanter.Models
                     .Text(text: gridDesign)));
         }
 
-        public static string EditorNew(IContext context, SiteSettings ss)
+        public static string EditorNew(Context context, SiteSettings ss)
         {
             return Editor(context: context, ss: ss, groupModel: new GroupModel(
                 context: context,
@@ -577,7 +781,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string Editor(
-            IContext context, SiteSettings ss, int groupId, bool clearSessions)
+            Context context, SiteSettings ss, int groupId, bool clearSessions)
         {
             var groupModel = new GroupModel(
                 context: context,
@@ -593,16 +797,18 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string Editor(
-            IContext context, SiteSettings ss, GroupModel groupModel)
+            Context context, SiteSettings ss, GroupModel groupModel)
         {
             var invalid = GroupValidators.OnEditing(
                 context: context,
                 ss: ss,
                 groupModel: groupModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             var hb = new HtmlBuilder();
             ss.SetColumnAccessControls(
@@ -626,6 +832,7 @@ namespace Implem.Pleasanter.Models
                             ss: ss,
                             groupModel: groupModel)
                         .Hidden(controlId: "TableName", value: "Groups")
+                        .Hidden(controlId: "Controller", value: context.Controller)
                         .Hidden(controlId: "Id", value: groupModel.GroupId.ToString());
                 }).ToString();
         }
@@ -634,7 +841,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder Editor(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, GroupModel groupModel)
+            this HtmlBuilder hb, Context context, SiteSettings ss, GroupModel groupModel)
         {
             var commentsColumn = ss.GetColumn(context: context, columnName: "Comments");
             var commentsColumnPermissionType = commentsColumn
@@ -645,7 +852,7 @@ namespace Implem.Pleasanter.Models
                 .Form(
                     attributes: new HtmlAttributes()
                         .Id("GroupForm")
-                        .Class("main-form confirm-reload")
+                        .Class("main-form confirm-unload")
                         .Action(groupModel.GroupId != 0
                             ? Locations.Action(
                                 context: context,
@@ -690,9 +897,7 @@ namespace Implem.Pleasanter.Models
                             .MainCommands(
                                 context: context,
                                 ss: ss,
-                                siteId: 0,
                                 verType: groupModel.VerType,
-                                referenceId: groupModel.GroupId,
                                 updateButton: true,
                                 mailButton: true,
                                 deleteButton: true,
@@ -737,7 +942,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder EditorTabs(
-            this HtmlBuilder hb, IContext context, GroupModel groupModel)
+            this HtmlBuilder hb, Context context, GroupModel groupModel)
         {
             return hb.Ul(id: "EditorTabs", action: () => hb
                 .Li(action: () => hb
@@ -759,7 +964,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder FieldSetGeneral(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GroupModel groupModel)
         {
@@ -771,61 +976,18 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder FieldSetGeneralColumns(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GroupModel groupModel,
             bool preview = false)
         {
             ss.GetEditorColumns(context: context).ForEach(column =>
-            {
-                switch (column.Name)
-                {
-                    case "GroupId":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: groupModel.MethodType,
-                            value: groupModel.GroupId
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Ver":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: groupModel.MethodType,
-                            value: groupModel.Ver
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "GroupName":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: groupModel.MethodType,
-                            value: groupModel.GroupName
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Body":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: groupModel.MethodType,
-                            value: groupModel.Body
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                }
-            });
+                hb.Field(
+                    context: context,
+                    ss: ss,
+                    groupModel: groupModel,
+                    column: column,
+                    preview: preview));
             if (!preview)
             {
                 hb.VerUpCheckBox(
@@ -836,9 +998,116 @@ namespace Implem.Pleasanter.Models
             return hb;
         }
 
+        public static void Field(
+            this HtmlBuilder hb,
+            Context context,
+            SiteSettings ss,
+            GroupModel groupModel,
+            Column column,
+            bool controlOnly = false,
+            bool alwaysSend = false,
+            string idSuffix = null,
+            bool preview = false)
+        {
+            var value = groupModel.ControlValue(
+                context: context,
+                ss: ss,
+                column: column);
+            if (value != null)
+            {
+                hb.Field(
+                    context: context,
+                    ss: ss,
+                    column: column,
+                    methodType: groupModel.MethodType,
+                    value: value,
+                    columnPermissionType: column.ColumnPermissionType(context: context),
+                    controlOnly: controlOnly,
+                    alwaysSend: alwaysSend,
+                    idSuffix: idSuffix,
+                    preview: preview);
+            }
+        }
+
+        public static string ControlValue(
+            this GroupModel groupModel,
+            Context context,
+            SiteSettings ss,
+            Column column)
+        {
+            switch (column.Name)
+            {
+                case "GroupId":
+                    return groupModel.GroupId
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Ver":
+                    return groupModel.Ver
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "GroupName":
+                    return groupModel.GroupName
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Body":
+                    return groupModel.Body
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                default:
+                    switch (Def.ExtendedColumnTypes.Get(column.Name))
+                    {
+                        case "Class":
+                            return groupModel.Class(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Num":
+                            return groupModel.Num(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Date":
+                            return groupModel.Date(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Description":
+                            return groupModel.Description(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Check":
+                            return groupModel.Check(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Attachments":
+                            return groupModel.Attachments(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        default: return null;
+                    }
+            }
+        }
+
         private static HtmlBuilder MainCommandExtensions(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GroupModel groupModel)
         {
@@ -847,21 +1116,21 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder EditorExtensions(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GroupModel groupModel)
         {
             return hb;
         }
 
-        public static string EditorJson(IContext context, SiteSettings ss, int groupId)
+        public static string EditorJson(Context context, SiteSettings ss, int groupId)
         {
             return EditorResponse(context, ss, new GroupModel(
                 context, ss, groupId)).ToJson();
         }
 
         private static ResponseCollection EditorResponse(
-            IContext context,
+            Context context,
             SiteSettings ss,
             GroupModel groupModel,
             Message message = null,
@@ -878,14 +1147,24 @@ namespace Implem.Pleasanter.Models
                 .ClearFormData();
         }
 
-        private static List<int> GetSwitchTargets(IContext context, SiteSettings ss, int groupId)
+        private static List<int> GetSwitchTargets(Context context, SiteSettings ss, int groupId)
         {
             var view = Views.GetBySession(
                 context: context,
                 ss: ss,
                 setSession: false);
             var where = view.Where(context: context, ss: ss, where: Rds.GroupsWhere().TenantId(context.TenantId));
-            var join = ss.Join(context: context);
+            var orderBy = view.OrderBy(
+                context: context,
+                ss: ss)
+                    .Groups_UpdatedTime(SqlOrderBy.Types.desc);
+            var join = ss.Join(
+                context: context,
+                join: new IJoin[]
+                {
+                    where,
+                    orderBy
+                });
             var switchTargets = Rds.ExecuteScalar_int(
                 context: context,
                 statements: Rds.SelectGroups(
@@ -898,11 +1177,10 @@ namespace Implem.Pleasanter.Models
                                 column: Rds.GroupsColumn().GroupId(),
                                 join: join,
                                 where: where,
-                                orderBy: view.OrderBy(context: context, ss: ss)
-                                    .Groups_UpdatedTime(SqlOrderBy.Types.desc)))
-                                        .AsEnumerable()
-                                        .Select(o => o["GroupId"].ToInt())
-                                        .ToList()
+                                orderBy: orderBy))
+                                    .AsEnumerable()
+                                    .Select(o => o["GroupId"].ToInt())
+                                    .ToList()
                         : new List<int>();
             if (!switchTargets.Contains(groupId))
             {
@@ -912,14 +1190,17 @@ namespace Implem.Pleasanter.Models
         }
 
         public static ResponseCollection FieldResponse(
-            this GroupsResponseCollection res,
-            IContext context,
+            this ResponseCollection res,
+            Context context,
             SiteSettings ss,
-            GroupModel groupModel)
+            GroupModel groupModel,
+            string idSuffix = null)
         {
             var mine = groupModel.Mine(context: context);
             ss.EditorColumns
-                .Select(columnName => ss.GetColumn(context: context, columnName: columnName))
+                .Select(columnName => ss.GetColumn(
+                    context: context,
+                    columnName: columnName))
                 .Where(column => column != null)
                 .ForEach(column =>
                 {
@@ -927,44 +1208,107 @@ namespace Implem.Pleasanter.Models
                     {
                         case "TenantId":
                             res.Val(
-                                "#Groups_TenantId",
+                                "#Groups_TenantId" + idSuffix,
                                 groupModel.TenantId.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "GroupId":
                             res.Val(
-                                "#Groups_GroupId",
+                                "#Groups_GroupId" + idSuffix,
                                 groupModel.GroupId.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "GroupName":
                             res.Val(
-                                "#Groups_GroupName",
+                                "#Groups_GroupName" + idSuffix,
                                 groupModel.GroupName.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Body":
                             res.Val(
-                                "#Groups_Body",
+                                "#Groups_Body" + idSuffix,
                                 groupModel.Body.ToResponse(context: context, ss: ss, column: column));
                             break;
-                        default: break;
+                        default:
+                            switch (Def.ExtendedColumnTypes.Get(column.Name))
+                            {
+                                case "Class":
+                                    res.Val(
+                                        $"#Groups_{column.Name}{idSuffix}",
+                                        groupModel.Class(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Num":
+                                    res.Val(
+                                        $"#Groups_{column.Name}{idSuffix}",
+                                        groupModel.Num(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Date":
+                                    res.Val(
+                                        $"#Groups_{column.Name}{idSuffix}",
+                                        groupModel.Date(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Description":
+                                    res.Val(
+                                        $"#Groups_{column.Name}{idSuffix}",
+                                        groupModel.Description(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Check":
+                                    res.Val(
+                                        $"#Groups_{column.Name}{idSuffix}",
+                                        groupModel.Check(columnName: column.Name));
+                                    break;
+                                case "Attachments":
+                                    res.ReplaceAll(
+                                        $"#Groups_{column.Name}Field",
+                                        new HtmlBuilder()
+                                            .FieldAttachments(
+                                                context: context,
+                                                fieldId: $"Groups_{column.Name}Field",
+                                                controlId: $"Groups_{column.Name}",
+                                                columnName: column.ColumnName,
+                                                fieldCss: column.FieldCss,
+                                                fieldDescription: column.Description,
+                                                controlCss: column.ControlCss,
+                                                labelText: column.LabelText,
+                                                value: groupModel.Attachments(columnName: column.Name).ToJson(),
+                                                placeholder: column.LabelText,
+                                                readOnly: column.ColumnPermissionType(context: context)
+                                                    != Permissions.ColumnPermissionTypes.Update));
+                                    break;
+                            }
+                            break;
                     }
                 });
             return res;
         }
 
-        public static string Create(IContext context, SiteSettings ss)
+        public static string Create(Context context, SiteSettings ss)
         {
-            var groupModel = new GroupModel(context, ss, 0, setByForm: true);
+            var groupModel = new GroupModel(
+                context: context,
+                ss: ss,
+                groupId: 0,
+                formData: context.Forms);
             var invalid = GroupValidators.OnCreating(
                 context: context,
                 ss: ss,
                 groupModel: groupModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
-            var error = groupModel.Create(context: context, ss: ss);
-            switch (error)
+            var errorData = groupModel.Create(context: context, ss: ss);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -983,29 +1327,32 @@ namespace Implem.Pleasanter.Models
                                 : groupModel.GroupId))
                         .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
-        public static string Update(IContext context, SiteSettings ss, int groupId)
+        public static string Update(Context context, SiteSettings ss, int groupId)
         {
             var groupModel = new GroupModel(
-                context: context, ss: ss, groupId: groupId, setByForm: true);
+                context: context,
+                ss: ss,
+                groupId: groupId,
+                formData: context.Forms);
             var invalid = GroupValidators.OnUpdating(
                 context: context,
                 ss: ss,
                 groupModel: groupModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             if (groupModel.AccessStatus != Databases.AccessStatuses.Selected)
             {
                 return Messages.ResponseDeleteConflicts(context: context).ToJson();
             }
-            var error = groupModel.Update(context: context, ss: ss);
-            switch (error)
+            var errorData = groupModel.Update(context: context, ss: ss);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     var res = new GroupsResponseCollection(groupModel);
@@ -1023,13 +1370,13 @@ namespace Implem.Pleasanter.Models
                         data: groupModel.Updator.Name)
                             .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         private static ResponseCollection ResponseByUpdate(
             GroupsResponseCollection res,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GroupModel groupModel)
         {
@@ -1043,17 +1390,19 @@ namespace Implem.Pleasanter.Models
                     context: context,
                     ss: ss,
                     view: view,
+                    tableType: Sqls.TableTypes.Normal,
                     where: Rds.GroupsWhere().GroupId(groupModel.GroupId));
                 var columns = ss.GetGridColumns(
                     context: context,
+                    view: view,
                     checkPermission: true);
                 return res
                     .ReplaceAll(
-                        $"[data-id=\"{groupModel.GroupId}\"]",
-                        gridData.TBody(
-                            hb: new HtmlBuilder(),
+                        $"[data-id=\"{groupModel.GroupId}\"][data-latest]",
+                        new HtmlBuilder().GridRows(
                             context: context,
                             ss: ss,
+                            dataRows: gridData.DataRows,
                             columns: columns,
                             checkAll: false))
                     .CloseDialog()
@@ -1088,20 +1437,20 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public static string Delete(IContext context, SiteSettings ss, int groupId)
+        public static string Delete(Context context, SiteSettings ss, int groupId)
         {
             var groupModel = new GroupModel(context, ss, groupId);
             var invalid = GroupValidators.OnDeleting(
                 context: context,
                 ss: ss,
                 groupModel: groupModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
-            var error = groupModel.Delete(context: context, ss: ss);
-            switch (error)
+            var errorData = groupModel.Delete(context: context, ss: ss);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -1117,12 +1466,12 @@ namespace Implem.Pleasanter.Models
                             controller: "Groups"));
                     return res.ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         public static string Histories(
-            IContext context, SiteSettings ss, int groupId, Message message = null)
+            Context context, SiteSettings ss, int groupId, Message message = null)
         {
             var groupModel = new GroupModel(context: context, ss: ss, groupId: groupId);
             ss.SetColumnAccessControls(
@@ -1142,6 +1491,7 @@ namespace Implem.Pleasanter.Models
                         .THead(action: () => hb
                             .GridHeader(
                                 context: context,
+                                ss: ss,
                                 columns: columns,
                                 sort: false,
                                 checkRow: true))
@@ -1159,7 +1509,7 @@ namespace Implem.Pleasanter.Models
 
         private static void HistoriesTableBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             List<Column> columns,
             GroupModel groupModel)
@@ -1205,11 +1555,12 @@ namespace Implem.Pleasanter.Models
             var sqlColumn = new Rds.GroupsColumnCollection()
                 .GroupId()
                 .Ver();
-            columns.ForEach(column => sqlColumn.GroupsColumn(column.ColumnName));
+            columns.ForEach(column =>
+                sqlColumn.GroupsColumn(columnName: column.ColumnName));
             return sqlColumn;
         }
 
-        public static string History(IContext context, SiteSettings ss, int groupId)
+        public static string History(Context context, SiteSettings ss, int groupId)
         {
             var groupModel = new GroupModel(context: context, ss: ss, groupId: groupId);
             ss.SetColumnAccessControls(
@@ -1231,19 +1582,19 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string GridRows(IContext context)
+        public static string GridRows(Context context)
         {
             return GridRows(
                 context: context,
                 ss: SiteSettingsUtilities.GroupsSiteSettings(context: context),
-                offset: DataViewGrid.Offset(context: context));
+                offset: context.Forms.Int("GridOffset"));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
         public static HtmlBuilder FieldSetMembers(
-            this HtmlBuilder hb, IContext context, GroupModel groupModel)
+            this HtmlBuilder hb, Context context, GroupModel groupModel)
         {
             if (groupModel.MethodType == BaseModel.MethodTypes.New) return hb;
             return hb.FieldSet(id: "FieldSetMembers", action: () => hb
@@ -1257,7 +1608,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static HtmlBuilder CurrentMembers(
-            this HtmlBuilder hb, IContext context, GroupModel groupModel)
+            this HtmlBuilder hb, Context context, GroupModel groupModel)
         {
             return hb.FieldSelectable(
                 controlId: "CurrentMembers",
@@ -1298,7 +1649,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static Dictionary<string, ControlData> CurrentMembers(
-            IContext context, GroupModel groupModel)
+            Context context, GroupModel groupModel)
         {
             var data = new Dictionary<string, ControlData>();
             Rds.ExecuteTable(
@@ -1326,7 +1677,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string SelectableMembersJson(IContext context)
+        public static string SelectableMembersJson(Context context)
         {
             return new ResponseCollection().Html(
                 "#SelectableMembers",
@@ -1340,7 +1691,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder SelectableMembers(
-            this HtmlBuilder hb, IContext context)
+            this HtmlBuilder hb, Context context)
         {
             return hb.FieldSelectable(
                 controlId: "SelectableMembers",
@@ -1371,7 +1722,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static Dictionary<string, ControlData> SelectableMembers(IContext context)
+        private static Dictionary<string, ControlData> SelectableMembers(Context context)
         {
             var data = new Dictionary<string, ControlData>();
             var searchText = context.Forms.Data("SearchMemberText");
@@ -1397,6 +1748,7 @@ namespace Implem.Pleasanter.Models
                                         .Select(o => o.Split_2nd().ToInt()),
                                     negative: true)
                                 .SqlWhereLike(
+                                    tableName: "Groups",
                                     name: "SearchText",
                                     searchText: searchText,
                                     clauseCollection: new List<string>()
@@ -1425,6 +1777,7 @@ namespace Implem.Pleasanter.Models
                                         .Select(o => o.Split_2nd().ToInt()),
                                     negative: true)
                                 .SqlWhereLike(
+                                    tableName: null,
                                     name: "SearchText",
                                     searchText: searchText,
                                     clauseCollection: new List<string>()
@@ -1456,7 +1809,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static void AddMember(
-            this Dictionary<string, ControlData> data, IContext context, DataRow dataRow)
+            this Dictionary<string, ControlData> data, Context context, DataRow dataRow)
         {
             var deptId = dataRow.Int("DeptId");
             var userId = dataRow.Int("UserId");
@@ -1487,7 +1840,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static System.Web.Mvc.ContentResult GetByApi(IContext context, SiteSettings ss)
+        public static System.Web.Mvc.ContentResult GetByApi(Context context, SiteSettings ss)
         {
             var api = context.RequestDataString.Deserialize<Api>();
             if (api == null)
@@ -1514,12 +1867,12 @@ namespace Implem.Pleasanter.Models
                     context,
                     siteModel.SitesSiteSettings(context, siteId.Value),
                     siteModel);
-                switch (invalid)
+                switch (invalid.Type)
                 {
                     case Error.Types.None: break;
                     default: return ApiResults.Error(
                         context: context,
-                        type: invalid);
+                        errorData: invalid);
                 }
             }
             var siteGroups = siteModel != null
@@ -1533,6 +1886,7 @@ namespace Implem.Pleasanter.Models
                 where: view.Where(context: context, ss: ss)
                 .Groups_TenantId(context.TenantId)
                 .SqlWhereLike(
+                    tableName: "Groups",
                     name: "SearchText",
                     searchText: view.ColumnFilterHash
                     ?.Where(f => f.Key == "SearchText")
@@ -1551,10 +1905,11 @@ namespace Implem.Pleasanter.Models
                     where: Rds.GroupMembersWhere().UserId(userId).GroupId(raw: "[Groups].[GroupId]").Add(raw: "[Groups].[GroupId]>0")),
                     _operator: ">0",
                     _using: userId.HasValue),
-                orderBy: view.OrderBy(context: context, ss: ss, pageSize: pageSize),
+                orderBy: view.OrderBy(
+                    context: context,
+                    ss: ss),
                 offset: api.Offset,
-                pageSize: pageSize,
-                countRecord: true);
+                pageSize: pageSize);
             var groups = siteGroups == null
                 ? groupCollection
                 : groupCollection.Join(siteGroups, c => c.GroupId, s => s, (c, s) => c);

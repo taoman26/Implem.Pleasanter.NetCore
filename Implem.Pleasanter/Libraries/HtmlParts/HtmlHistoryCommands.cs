@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlHistoryCommands
     {
         public static HtmlBuilder HistoryCommands(
-            this HtmlBuilder hb, IContext context, SiteSettings ss)
+            this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             return hb.Div(
                 css: "command-left",
@@ -36,7 +36,8 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             && context.CanManageSite(ss: ss)),
                 _using: (Parameters.History.Restore || Parameters.History.PhysicalDelete)
                     && context.Controller == "items"
-                    && (context.CanUpdate(ss: ss) || context.CanManageSite(ss: ss)));
+                    && (context.CanUpdate(ss: ss) || context.CanManageSite(ss: ss))
+                    && !ss.Locked());
         }
     }
 }

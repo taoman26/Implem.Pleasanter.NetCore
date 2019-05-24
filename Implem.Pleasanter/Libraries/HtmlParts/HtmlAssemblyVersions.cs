@@ -15,7 +15,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlAssemblyVersions
     {
-        public static string AssemblyVersions(this HtmlBuilder hb, IContext context)
+        public static string AssemblyVersions(this HtmlBuilder hb, Context context)
         {
             var ss = new SiteSettings();
             var plan = context.ContractSettings.DisplayName;
@@ -69,12 +69,11 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .MainCommands(
                             context: context,
                             ss: ss,
-                            siteId: 0,
                             verType: Versions.VerTypes.Latest))
                 .ToString();
         }
 
-        private static string DatabaseSize(IContext context)
+        private static string DatabaseSize(Context context)
         {
             try
             {

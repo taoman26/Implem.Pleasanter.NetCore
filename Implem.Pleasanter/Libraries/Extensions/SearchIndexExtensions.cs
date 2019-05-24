@@ -14,7 +14,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
     {
         public static void SearchIndexes(
             this int self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -23,7 +23,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this long self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -32,7 +32,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this decimal self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this DateTime self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -50,7 +50,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this string self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -63,7 +63,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this string self,
-            IContext context,
+            Context context,
             Column column,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
@@ -88,7 +88,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this IEnumerable<SiteMenuElement> self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -101,7 +101,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this ProgressRate self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -114,7 +114,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this Status self,
-            IContext context,
+            Context context,
             Column column,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
@@ -139,7 +139,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this Time self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -152,7 +152,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this Title self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -165,7 +165,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this User self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -178,7 +178,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this Comments self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -193,7 +193,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this WorkValue self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -206,7 +206,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static void SearchIndexes(
             this Attachments self,
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             int searchPriority)
         {
@@ -218,7 +218,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static void OutgoingMailsSearchIndexes(
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             string referenceType,
             long referenceId)
@@ -243,7 +243,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         private static void SearchIndexes(
-            IContext context,
+            Context context,
             Dictionary<string, int> searchIndexHash,
             string text,
             int searchPriority)
@@ -271,8 +271,8 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static IEnumerable<string> SearchIndexes(
-            this string self, IContext context, bool createIndex = false)
+        public static List<string> SearchIndexes(
+            this string self, Context context, bool createIndex = false)
         {
             return new Search.WordBreaker(self, createIndex).Results
                 .Select(o => o.Trim().ToLower())

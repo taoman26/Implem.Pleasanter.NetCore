@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class ResourcesController
     {
-        public ContentResult Scripts(IContext context)
+        public ContentResult Scripts(Context context)
         {
             var log = new SysLogModel(context: context);
             var result = JavaScripts.Get();
@@ -14,7 +14,7 @@ namespace Implem.Pleasanter.Controllers
             return result;
         }
 
-        public ContentResult Styles(IContext context)
+        public ContentResult Styles(Context context)
         {
             var log = new SysLogModel(context: context);
             var result = Css.Get();

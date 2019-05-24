@@ -11,7 +11,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
     public class Gantt : List<GanttElement>
     {
         public Gantt(
-            IContext context,
+            Context context,
             SiteSettings ss,
             IEnumerable<DataRow> dataRows,
             Column groupBy,
@@ -58,7 +58,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         private void AddSummary(
-            IContext context,
+            Context context,
             SiteSettings ss,
             IEnumerable<DataRow> dataRows,
             Column groupBy,
@@ -110,7 +110,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         private void AddSummary(
-            IContext context,
+            Context context,
             SiteSettings ss,
             string groupBy,
             string title,

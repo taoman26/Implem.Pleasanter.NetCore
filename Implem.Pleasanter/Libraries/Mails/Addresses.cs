@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.Mails
     public static class Addresses
     {
         public static IEnumerable<string> GetEnumerable(
-            IContext context, string addresses)
+            Context context, string addresses)
         {
             return addresses.Split(';', ',')
                 .Select(address => address.Trim())
@@ -23,7 +23,7 @@ namespace Implem.Pleasanter.Libraries.Mails
         }
 
         private static IEnumerable<string> ConvertedMailAddresses(
-            IContext context, string address)
+            Context context, string address)
         {
             var userId = address?.RegexFirst(@"(?<=\[User)[0-9]+(?=\])").ToInt();
             return userId > 0
@@ -47,7 +47,7 @@ namespace Implem.Pleasanter.Libraries.Mails
                 : address?.ToSingleList();
         }
 
-        public static string BadAddress(IContext context, string addresses)
+        public static string BadAddress(Context context, string addresses)
         {
             foreach (var address in GetEnumerable(
                 context: context,
@@ -68,7 +68,7 @@ namespace Implem.Pleasanter.Libraries.Mails
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
-        public static string ExternalMailAddress(IContext context, string addresses)
+        public static string ExternalMailAddress(Context context, string addresses)
         {
             var domains = Parameters.Mail.InternalDomains
                 .Split(',')

@@ -8,7 +8,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlTimes
     {
-        public static HtmlBuilder ElapsedTime(this HtmlBuilder hb, IContext context, DateTime value)
+        public static HtmlBuilder ElapsedTime(this HtmlBuilder hb, Context context, DateTime value)
         {
             if (!Times.InRange(value))
             {

@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -23,7 +24,54 @@ namespace Implem.Pleasanter.Models
 {
     public static class ItemUtilities
     {
-        public static void UpdateTitles(IContext context, long siteId, long id)
+        public static ResponseCollection ClearItemDataResponse(
+            Context context, SiteSettings ss, long id)
+        {
+            var formDataSet = new FormDataSet(
+                context: context,
+                ss: ss);
+            var res = new ResponseCollection().ClearFormData("Id");
+            formDataSet
+                .Where(o => !o.Suffix.IsNullOrEmpty())
+                .Where(o => o.Id == id)
+                .ForEach(formData =>
+                    formData.Data.Keys.ForEach(controlId =>
+                        res.ClearFormData(controlId + formData.Suffix)));
+            return res;
+        }
+
+        public static SqlJoinCollection ItemJoin(
+            this SqlJoinCollection join,
+            Sqls.TableTypes tableType,
+            string tableName)
+        {
+            switch (tableName)
+            {
+                case "Sites":
+                case "Issues":
+                case "Results":
+                case "Wikis":
+                    var tableTypeName = string.Empty;
+                    switch (tableType)
+                    {
+                        case Sqls.TableTypes.History:
+                            tableTypeName = "_history";
+                            break;
+                        case Sqls.TableTypes.Deleted:
+                            tableTypeName = "_deleted";
+                            break;
+                    }
+                    return join.Add(
+                        tableName: "Items" + tableTypeName,
+                        joinType: SqlJoin.JoinTypes.Inner,
+                        joinExpression: $"[{tableName}].[{Rds.IdColumn(tableName)}]=[{tableName}_Items].[ReferenceId]",
+                        _as: tableName + "_Items");
+                default:
+                    return join;
+            }
+        }
+
+        public static void UpdateTitles(Context context, long siteId, long id)
         {
             UpdateTitles(
                 context: context,
@@ -31,7 +79,7 @@ namespace Implem.Pleasanter.Models
                 idList: id.ToSingleList());
         }
 
-        public static void UpdateTitles(IContext context, long siteId, IEnumerable<long> idList)
+        public static void UpdateTitles(Context context, long siteId, IEnumerable<long> idList)
         {
             idList
                 .Chunk(100)
@@ -78,7 +126,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static void UpdateTitles(
-            IContext context, SiteSettings ss, IEnumerable<long> idList = null)
+            Context context, SiteSettings ss, IEnumerable<long> idList = null)
         {
             switch (ss?.ReferenceType)
             {
@@ -106,7 +154,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static void UpdateIssueTitles(
-            IContext context, SiteSettings ss, IEnumerable<long> idList)
+            Context context, SiteSettings ss, IEnumerable<long> idList)
         {
             var issues = GetIssues(
                 context: context,
@@ -130,6 +178,8 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         ss: ss,
                         id: issueModel.IssueId,
+                        ver: issueModel.Ver,
+                        isHistory: issueModel.VerType == Versions.VerTypes.History, 
                         data: issueModel.PropertyValues(
                             context: context,
                             names: ss.TitleColumns)));
@@ -156,12 +206,13 @@ namespace Implem.Pleasanter.Models
         }
 
         private static List<IssueModel> GetIssues(
-            IContext context, SiteSettings ss, IEnumerable<long> idList)
+            Context context, SiteSettings ss, IEnumerable<long> idList)
         {
             var column = Rds.IssuesColumn()
                 .IssueId()
                 .Title();
-            ss.TitleColumns.ForEach(o => column.IssuesColumn(o));
+            ss.TitleColumns.ForEach(columnName =>
+                column.IssuesColumn(columnName: columnName));
             return idList?.Any() == true
                 ? idList
                     .Chunk(100)
@@ -182,7 +233,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static void UpdateResultTitles(
-            IContext context, SiteSettings ss, IEnumerable<long> idList)
+            Context context, SiteSettings ss, IEnumerable<long> idList)
         {
             var results = GetResults(
                 context: context,
@@ -206,6 +257,8 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         ss: ss,
                         id: resultModel.ResultId,
+                        ver: resultModel.Ver,
+                        isHistory: resultModel.VerType == Versions.VerTypes.History, 
                         data: resultModel.PropertyValues(
                             context: context,
                             names: ss.TitleColumns)));
@@ -232,12 +285,13 @@ namespace Implem.Pleasanter.Models
         }
 
         private static List<ResultModel> GetResults(
-            IContext context, SiteSettings ss, IEnumerable<long> idList)
+            Context context, SiteSettings ss, IEnumerable<long> idList)
         {
             var column = Rds.ResultsColumn()
                 .ResultId()
                 .Title();
-            ss.TitleColumns.ForEach(o => column.ResultsColumn(o));
+            ss.TitleColumns.ForEach(columnName =>
+                column.ResultsColumn(columnName: columnName));
             return idList?.Any() == true
                 ? idList
                     .Chunk(100)
@@ -258,7 +312,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static void UpdateWikiTitles(
-            IContext context, SiteSettings ss, IEnumerable<long> idList)
+            Context context, SiteSettings ss, IEnumerable<long> idList)
         {
             var wikis = GetWikis(
                 context: context,
@@ -282,6 +336,8 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         ss: ss,
                         id: wikiModel.WikiId,
+                        ver: wikiModel.Ver,
+                        isHistory: wikiModel.VerType == Versions.VerTypes.History, 
                         data: wikiModel.PropertyValues(
                             context: context,
                             names: ss.TitleColumns)));
@@ -308,12 +364,13 @@ namespace Implem.Pleasanter.Models
         }
 
         private static List<WikiModel> GetWikis(
-            IContext context, SiteSettings ss, IEnumerable<long> idList)
+            Context context, SiteSettings ss, IEnumerable<long> idList)
         {
             var column = Rds.WikisColumn()
                 .WikiId()
                 .Title();
-            ss.TitleColumns.ForEach(o => column.WikisColumn(o));
+            ss.TitleColumns.ForEach(columnName =>
+                column.WikisColumn(columnName: columnName));
             return idList?.Any() == true
                 ? idList
                     .Chunk(100)

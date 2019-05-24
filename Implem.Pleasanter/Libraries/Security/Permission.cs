@@ -65,7 +65,7 @@ namespace Implem.Pleasanter.Libraries.Security
             return Name + "," + Id + "," + Type.ToInt().ToString();
         }
 
-        public bool Exists(IContext context)
+        public bool Exists(Context context)
         {
             if (Id == 0)
             {
@@ -91,7 +91,7 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public ControlData ControlData(IContext context, SiteSettings ss, bool withType = true)
+        public ControlData ControlData(Context context, SiteSettings ss, bool withType = true)
         {
             switch (Name)
             {
@@ -150,7 +150,7 @@ namespace Implem.Pleasanter.Libraries.Security
         }
 
         private ControlData DisplayText(
-            IContext context, string text, string name, string title, bool withType)
+            Context context, string text, string name, string title, bool withType)
         {
             return new ControlData(
                 text: "[" + text +
@@ -167,7 +167,7 @@ namespace Implem.Pleasanter.Libraries.Security
                 title: title);
         }
 
-        private string DisplayTypeName(IContext context)
+        private string DisplayTypeName(Context context)
         {
             var permissionType = Type.ToLong();
             return Parameters.Permissions.Pattern.ContainsValue(permissionType)

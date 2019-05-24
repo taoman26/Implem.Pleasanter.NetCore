@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Controllers.Api
 {
     public class GroupsController
     {
-        public ContentResult Get(IContext context)
+        public ContentResult Get(Context context)
         {
             var log = new SysLogModel(context: context);
             var result = context.Authenticated

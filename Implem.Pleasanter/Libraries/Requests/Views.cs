@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Libraries.Requests
 {
     public static class Views
     {
-        public static View GetBySession(IContext context, SiteSettings ss, bool setSession = true)
+        public static View GetBySession(Context context, SiteSettings ss, bool setSession = true)
         {
             var view = !context.Ajax
                 ? context.QueryStrings.Data("View")?.Deserialize<View>()
@@ -46,7 +46,7 @@ namespace Implem.Pleasanter.Libraries.Requests
         }
 
         public static View GetBySession(
-            IContext context,
+            Context context,
             SiteSettings ss,
             string dataTableName,
             bool setSession = false)
@@ -81,7 +81,7 @@ namespace Implem.Pleasanter.Libraries.Requests
         }
 
         private static void SetSession(
-            IContext context, SiteSettings ss, View view, bool setSession, string key = "View")
+            Context context, SiteSettings ss, View view, bool setSession, string key = "View")
         {
             if (setSession)
             {

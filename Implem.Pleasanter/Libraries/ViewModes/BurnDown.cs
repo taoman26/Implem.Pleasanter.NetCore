@@ -26,7 +26,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             public decimal? Earned;
         }
 
-        public BurnDown(IContext context, SiteSettings ss, IEnumerable<DataRow> dataRows)
+        public BurnDown(Context context, SiteSettings ss, IEnumerable<DataRow> dataRows)
         {
             dataRows.ForEach(dataRow =>
             {
@@ -77,7 +77,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return workValue * progressRateAddtions / 100;
         }
 
-        public string Json(IContext context)
+        public string Json(Context context)
         {
             var elements = new List<Element>();
             if (this.Any())

@@ -84,29 +84,41 @@ namespace Implem.Pleasanter.Libraries.Security
             Update
         }
 
-        public static Dictionary<long, Types> Get(IContext context, IEnumerable<long> targets)
+        public static Dictionary<long, Types> Get(Context context)
         {
             return Hash(
                 dataRows: Rds.ExecuteTable(
-                    context: context,
-                    statements: Rds.SelectPermissions(
+                context: context,
+                statements: new SqlStatement[]
+                {
+                    Rds.SelectSites(
                         distinct: true,
+                        column: Rds.SitesColumn()
+                            .SiteId(_as: "ReferenceId")
+                            .Permissions_PermissionType(),
+                        join: Rds.SitesJoinDefault()
+                            .Add(new SqlJoin(
+                                tableBracket: "[Permissions]",
+                                joinType: SqlJoin.JoinTypes.Inner,
+                                joinExpression: "[Permissions].[ReferenceId]=[Sites].[InheritPermission]")),
+                        where: Rds.SitesWhere()
+                            .TenantId(context.TenantId)
+                            .PermissionsWhere()),
+                    Rds.SelectPermissions(
                         column: Rds.PermissionsColumn()
                             .ReferenceId()
                             .PermissionType(),
                         where: Rds.PermissionsWhere()
-                            .ReferenceId_In(targets.Where(o => o != 0))
-                            .Or(Rds.PermissionsWhere()
-                                .GroupId_In(sub: Rds.SelectGroupMembers(
-                                    column: Rds.GroupMembersColumn().GroupId(),
-                                    where: Rds.GroupMembersWhere()
-                                        .Add(raw: DeptOrUser("GroupMembers"))))
-                                .Add(raw: DeptOrUser("Permissions")))))
-                                    .AsEnumerable());
+                            .ReferenceId(context.Id)
+                            .PermissionsWhere(),
+                        unionType: Sqls.UnionTypes.UnionAll,
+                        _using: context.Id > 0 && context.Id != context.SiteId),
+                })
+                    .AsEnumerable());
         }
 
         public static SqlWhereCollection SetCanReadWhere(
-            IContext context,
+            Context context,
             SiteSettings ss,
             SqlWhereCollection where,
             bool checkPermission = true)
@@ -170,13 +182,14 @@ namespace Implem.Pleasanter.Libraries.Security
                                             .UserId(raw: userRaw))
                                         .Add(raw: "[Permissions].[GroupId]>0")),
                                 _operator: ">0")
-                            .UserId(raw: userRaw))),
+                            .UserId(raw: userRaw)
+                            .UserId(-1))),
                 _operator: ">0");
         }
 
         public static SqlWhereCollection CanRead(
             this SqlWhereCollection where,
-            IContext context,
+            Context context,
             string idColumnBracket,
             bool _using = true)
         {
@@ -217,55 +230,57 @@ namespace Implem.Pleasanter.Libraries.Security
                                 .SiteId_In(siteIdList)),
                         _using: siteIdList?.Any() == true)
                     .PermissionType(_operator: " & 1 = 1")
-                    .Or(Rds.PermissionsWhere()
-                        .GroupId_In(sub: Rds.SelectGroupMembers(
-                            column: Rds.GroupMembersColumn().GroupId(),
-                            where: Rds.GroupMembersWhere()
-                                .Add(raw: DeptOrUser("GroupMembers"))))
-                        .Add(raw: DeptOrUser("Permissions"))));
+                    .PermissionsWhere());
+        }
+
+        private static SqlWhereCollection PermissionsWhere(this SqlWhereCollection where)
+        {
+            return where.Or(Rds.PermissionsWhere()
+                .GroupId_In(sub: Rds.SelectGroupMembers(
+                    column: Rds.GroupMembersColumn().GroupId(),
+                    where: Rds.GroupMembersWhere()
+                        .Add(raw: DeptOrUser("GroupMembers"))))
+                .Add(raw: DeptOrUser("Permissions")));
         }
 
         public static string DeptOrUser(string tableName)
         {
-            return "((@_D <> 0 and [{0}].[DeptId]=@_D) or(@_U <> 0 and [{0}].[UserId]=@_U))"
+            return "((@_D<>0 and [{0}].[DeptId]=@_D)or(@_U<>0 and [{0}].[UserId]=@_U)or([{0}].[UserId]=-1))"
                 .Params(tableName);
         }
 
-        private static Dictionary<long, Types> Hash(IEnumerable<DataRow> dataRows)
+        private static Dictionary<long, Types> Hash(EnumerableRowCollection<DataRow> dataRows)
         {
             var hash = dataRows
-                .Select(o => o["ReferenceId"].ToLong())
+                .Select(o => o.Long("ReferenceId"))
                 .Distinct()
                 .ToDictionary(o => o, o => Types.NotSet);
             dataRows.ForEach(dataRow =>
             {
-                var key = dataRow["ReferenceId"].ToLong();
-                hash[key] |= (Types)dataRow["PermissionType"].ToLong();
+                var key = dataRow.Long("ReferenceId");
+                hash[key] |= (Types)dataRow.Long("PermissionType");
             });
             return hash;
         }
 
-        public static Types Get(IContext context, long siteId)
+        public static Types Get(Context context, long siteId)
         {
-            var data = Get(context: context, targets: siteId.ToSingleList());
-            return data.Count() == 1
-                ? data.First().Value
-                : Types.NotSet;
+            return context.PermissionHash.Get(siteId);
         }
 
-        public static bool Can(IContext context, long siteId, Types type)
+        public static bool Can(Context context, long siteId, Types type)
         {
             return (Get(context: context, siteId: siteId) & type) == type
                 || context.HasPrivilege;
         }
 
-        public static bool CanRead(IContext context, long siteId)
+        public static bool CanRead(Context context, long siteId)
         {
             return (Get(context: context, siteId: siteId) & Types.Read) == Types.Read
                 || context.HasPrivilege;
         }
 
-        public static long InheritPermission(IContext context, long id)
+        public static long InheritPermission(Context context, long id)
         {
             return Rds.ExecuteScalar_long(
                 context: context,
@@ -278,7 +293,7 @@ namespace Implem.Pleasanter.Libraries.Security
         }
 
         public static IEnumerable<long> AllowSites(
-            IContext context, IEnumerable<long> sites, string referenceType = null)
+            Context context, IEnumerable<long> sites, string referenceType = null)
         {
             return Rds.ExecuteTable(
                 context: context,
@@ -310,14 +325,14 @@ namespace Implem.Pleasanter.Libraries.Security
 
         public static bool Allowed(
             this List<ColumnAccessControl> columnAccessControls,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             Types? type,
             List<string> mine)
         {
             return columnAccessControls?
-                .FirstOrDefault(o => o.ColumnName == column.ColumnName)?
+                .FirstOrDefault(o => o.ColumnName == column.Name)?
                 .Allowed(
                     context: context,
                     ss: ss,
@@ -325,14 +340,14 @@ namespace Implem.Pleasanter.Libraries.Security
                     mine: mine) != false;
         }
 
-        public static bool HasPermission(this IContext context, SiteSettings ss)
+        public static bool HasPermission(this Context context, SiteSettings ss)
         {
             return ss.PermissionType != null
                 || ss.ItemPermissionType != null
                 || context.HasPrivilege;
         }
 
-        public static bool CanRead(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanRead(this Context context, SiteSettings ss, bool site = false)
         {
             switch (context.Controller)
             {
@@ -350,7 +365,7 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanCreate(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanCreate(this Context context, SiteSettings ss, bool site = false)
         {
             switch (context.Controller)
             {
@@ -361,12 +376,14 @@ namespace Implem.Pleasanter.Libraries.Security
                     return CanManageTenant(context: context);
                 case "groups":
                     return CanEditGroup(context: context);
+                case "versions":
+                    return false;
                 default:
                     return context.Can(ss: ss, type: Types.Create, site: site);
             }
         }
 
-        public static bool CanUpdate(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanUpdate(this Context context, SiteSettings ss, bool site = false)
         {
             switch (context.Controller)
             {
@@ -391,13 +408,13 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanMove(IContext context, SiteSettings source, SiteSettings destination)
+        public static bool CanMove(Context context, SiteSettings source, SiteSettings destination)
         {
             return context.CanUpdate(ss: source)
                 && context.CanUpdate(ss: destination);
         }
 
-        public static bool CanDelete(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanDelete(this Context context, SiteSettings ss, bool site = false)
         {
             switch (context.Controller)
             {
@@ -422,10 +439,12 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanSendMail(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanSendMail(this Context context, SiteSettings ss, bool site = false)
         {
             if (context.ContractSettings.Mail == false) return false;
-            switch (context.Controller)
+            switch (Strings.CoalesceEmpty(
+                context.Forms.Get("Controller"),
+                context.Controller))
             {
                 case "tenants":
                     return false;
@@ -448,7 +467,7 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanImport(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanImport(this Context context, SiteSettings ss, bool site = false)
         {
             if (context.ContractSettings.Import == false) return false;
             switch (context.Controller)
@@ -464,7 +483,7 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanExport(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanExport(this Context context, SiteSettings ss, bool site = false)
         {
             if (context.ContractSettings.Import == false) return false;
             switch (context.Controller)
@@ -480,17 +499,17 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanManageSite(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanManageSite(this Context context, SiteSettings ss, bool site = false)
         {
             return context.Can(ss: ss, type: Types.ManageSite, site: site);
         }
 
-        public static bool CanManagePermission(this IContext context, SiteSettings ss, bool site = false)
+        public static bool CanManagePermission(this Context context, SiteSettings ss, bool site = false)
         {
             return context.Can(ss: ss, type: Types.ManagePermission, site: site);
         }
 
-        public static ColumnPermissionTypes ColumnPermissionType(this Column self, IContext context)
+        public static ColumnPermissionTypes ColumnPermissionType(this Column self, Context context)
         {
             switch(context.Action)
             {
@@ -509,13 +528,13 @@ namespace Implem.Pleasanter.Libraries.Security
             }
         }
 
-        public static bool CanManageTenant(IContext context)
+        public static bool CanManageTenant(Context context)
         {
             return context.User?.TenantManager == true
                 || context.HasPrivilege;
         }
 
-        public static bool CanReadGroup(IContext context)
+        public static bool CanReadGroup(Context context)
         {
             return 
                 context.UserSettings?.DisableGroupAdmin != true &&
@@ -525,7 +544,7 @@ namespace Implem.Pleasanter.Libraries.Security
                 context.HasPrivilege);
         }
 
-        public static bool CanEditGroup(IContext context)
+        public static bool CanEditGroup(Context context)
         {
             return
                 context.UserSettings?.DisableGroupAdmin != true
@@ -535,13 +554,21 @@ namespace Implem.Pleasanter.Libraries.Security
                 || context.HasPrivilege);
         }
 
-        private static bool Can(this IContext context, SiteSettings ss, Types type, bool site)
+        private static bool Can(this Context context, SiteSettings ss, Types type, bool site)
         {
+            if (ss.Locked())
+            {
+                if ((type & Types.Create) == Types.Create) return false;
+                if ((type & Types.Update) == Types.Update) return false;
+                if ((type & Types.Delete) == Types.Delete) return false;
+                if ((type & Types.SendMail) == Types.SendMail) return false;
+                if ((type & Types.Import) == Types.Import) return false;
+            }
             return (ss.GetPermissionType(site) & type) == type
                 || context.HasPrivilege;
         }
 
-        private static IEnumerable<DataRow> Groups(IContext context)
+        private static EnumerableRowCollection<DataRow> Groups(Context context)
         {
             return Rds.ExecuteTable(
                 context: context,
@@ -553,7 +580,7 @@ namespace Implem.Pleasanter.Libraries.Security
                             .AsEnumerable();
         }
 
-        public static Types? Admins(IContext context, Types? type = Types.NotSet)
+        public static Types? Admins(Context context, Types? type = Types.NotSet)
         {
             if (context.User?.TenantManager == true) type |= Types.ManageTenant;
             if (context.User?.ServiceManager == true) type |= Types.ManageService;

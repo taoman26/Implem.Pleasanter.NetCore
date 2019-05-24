@@ -20,7 +20,7 @@ namespace Implem.Pleasanter.Libraries.Responses
             Order = order;
         }
 
-        public string DisplayValue(IContext context)
+        public string DisplayValue(Context context)
         {
             return !Text.IsNullOrEmpty()
                 ? Text

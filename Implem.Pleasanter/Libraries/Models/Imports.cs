@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Libraries.Models
     public static class Imports
     {
         public static string ColumnValidate(
-            IContext context,
+            Context context,
             SiteSettings ss,
             IEnumerable<string> headers,
             params string[] columnNames)
@@ -29,7 +29,7 @@ namespace Implem.Pleasanter.Libraries.Models
             return null;
         }
 
-        public static string Validate(IContext context, Dictionary<int, string> hash, Column column)
+        public static string Validate(Context context, Dictionary<int, string> hash, Column column)
         {
             foreach (var data in hash.Where(o => HasError(o.Value, column)))
             {

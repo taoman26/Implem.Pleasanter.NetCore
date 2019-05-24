@@ -4,7 +4,7 @@ namespace Implem.Pleasanter.Libraries.Migrators.Statuses
 {
     public static class Version00_043_052
     {
-        public static void Migrate(IContext context)
+        public static void Migrate(Context context)
         {
             var sub = Rds.SelectItems(
                 column: Rds.ItemsColumn().ReferenceId());

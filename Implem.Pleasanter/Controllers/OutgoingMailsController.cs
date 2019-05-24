@@ -5,7 +5,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class OutgoingMailsController
     {
-        public string Edit(IContext context, string reference, long id)
+        public string Edit(Context context, string reference, long id)
         {
             var log = new SysLogModel(context: context);
             var json = OutgoingMailUtilities.Editor(
@@ -16,7 +16,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Reply(IContext context, string reference, long id)
+        public string Reply(Context context, string reference, long id)
         {
             var log = new SysLogModel(context: context);
             var json = OutgoingMailUtilities.Editor(
@@ -27,7 +27,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string GetDestinations(IContext context, string reference, long id)
+        public string GetDestinations(Context context, string reference, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new OutgoingMailModel(
@@ -39,7 +39,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Send(IContext context, string reference, long id)
+        public string Send(Context context, string reference, long id)
         {
             var log = new SysLogModel(context: context);
             var json = OutgoingMailUtilities.Send(

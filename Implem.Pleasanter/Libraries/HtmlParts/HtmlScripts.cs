@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Scripts(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string script = null,
             string userScript = null)
@@ -66,7 +66,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 : hb;
         }
 
-        private static HtmlBuilder Generals(this HtmlBuilder hb, IContext context)
+        private static HtmlBuilder Generals(this HtmlBuilder hb, Context context)
         {
             if (!System.Diagnostics.Debugger.IsAttached)
             {
@@ -80,13 +80,16 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             return hb;
         }
 
-        private static HtmlBuilder OnEditorLoad(this HtmlBuilder hb, IContext context)
+        private static HtmlBuilder OnEditorLoad(this HtmlBuilder hb, Context context)
         {
             switch (context.Action)
             {
                 case "new":
                 case "edit":
-                    hb.Script(script: "$p.execOnEditorLoad();");
+                    hb.Script(script: "$p.execEvents('on_editor_load','');");
+                    break;
+                case "index":
+                    hb.Script(script: "$p.execEvents('on_grid_load','');");
                     break;
             }
             return hb;

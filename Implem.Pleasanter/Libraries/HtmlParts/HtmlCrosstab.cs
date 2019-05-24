@@ -16,7 +16,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Crosstab(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByX,
@@ -26,7 +26,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             Column value,
             string timePeriod,
             DateTime month,
-            IEnumerable<DataRow> dataRows,
+            EnumerableRowCollection<DataRow> dataRows,
             bool inRange = true)
         {
             return hb.Div(id: "Crosstab", css: "both", action: () =>
@@ -141,7 +141,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             });
         }
 
-        private static Dictionary<string, ControlData> CrosstabMonth(IContext context)
+        private static Dictionary<string, ControlData> CrosstabMonth(Context context)
         {
             var now = DateTime.Now;
             var month = new DateTime(
@@ -159,7 +159,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder CrosstabBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByX,
@@ -169,7 +169,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             Column value,
             string timePeriod,
             DateTime month,
-            IEnumerable<DataRow> dataRows,
+            EnumerableRowCollection<DataRow> dataRows,
             bool inRange = true)
         {
             if (!inRange) return hb;
@@ -261,7 +261,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Table(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Dictionary<string, ControlData> choicesX,
             Dictionary<string, ControlData> choicesY,
@@ -345,7 +345,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Td(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column value,
             string aggregateType,
@@ -385,7 +385,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder HeaderText(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string aggregateType,
             Column value,

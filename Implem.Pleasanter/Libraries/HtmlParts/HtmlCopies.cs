@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlCopies
     {
         public static HtmlBuilder CopyDialog(
-            this HtmlBuilder hb, IContext context, string referenceType, long id)
+            this HtmlBuilder hb, Context context, string referenceType, long id)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()

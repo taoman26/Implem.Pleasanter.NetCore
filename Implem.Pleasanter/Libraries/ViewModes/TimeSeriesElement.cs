@@ -15,7 +15,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         public bool Latest;
 
         public TimeSeriesElement(
-            IContext context,
+            Context context,
             bool userColumn,
             long id,
             int ver,

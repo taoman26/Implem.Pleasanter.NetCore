@@ -14,7 +14,7 @@ namespace Implem.Pleasanter.Libraries.Server
         public DateTime CreatedTime;
 
         public SiteMenuElement(
-            IContext context,
+            Context context,
             long siteId,
             string referenceType,
             long parentId,

@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -26,7 +27,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Get(IContext context, int userId, bool withFullName = false)
+        public static string Get(Context context, int userId, bool withFullName = false)
         {
             var mailAddress = Rds.ExecuteScalar_string(
                 context: context,

@@ -24,6 +24,7 @@ namespace Implem.Pleasanter.Libraries.General
             DefinitionNotFound,
             DeleteConflicts,
             Duplicated,
+            EmptyUserName,
             Expired,
             ExternalMailAddress,
             FailedReadFile,
@@ -39,7 +40,9 @@ namespace Implem.Pleasanter.Libraries.General
             InvalidFormula,
             InvalidIpAddress,
             InvalidRequest,
+            InvalidSsoCode,
             ItemsLimit,
+            JoeAccountCheck,
             LoginIdAlreadyUse,
             MailAddressHasNotSet,
             NoLinks,
@@ -56,6 +59,7 @@ namespace Implem.Pleasanter.Libraries.General
             RequireMailAddresses,
             RequireTo,
             Restricted,
+            SamlLoginFailed,
             SelectFile,
             SelectOne,
             SelectTargets,
@@ -67,6 +71,7 @@ namespace Implem.Pleasanter.Libraries.General
             UpdateConflicts,
             UserDisabled,
             UserLockout,
+            UserNotSelfDelete,
             UsersLimit
         }
 
@@ -75,7 +80,7 @@ namespace Implem.Pleasanter.Libraries.General
             return type != Types.None;
         }
 
-        public static Message Message(this Types type, IContext context, params string[] data)
+        public static Message Message(this Types type, Context context, params string[] data)
         {
             switch (type)
             {
@@ -143,6 +148,10 @@ namespace Implem.Pleasanter.Libraries.General
                     return Messages.Duplicated(
                         context: context,
                         data: data);
+                case Types.EmptyUserName:
+                    return Messages.EmptyUserName(
+                        context: context,
+                        data: data);
                 case Types.Expired:
                     return Messages.Expired(
                         context: context,
@@ -203,8 +212,16 @@ namespace Implem.Pleasanter.Libraries.General
                     return Messages.InvalidRequest(
                         context: context,
                         data: data);
+                case Types.InvalidSsoCode:
+                    return Messages.InvalidSsoCode(
+                        context: context,
+                        data: data);
                 case Types.ItemsLimit:
                     return Messages.ItemsLimit(
+                        context: context,
+                        data: data);
+                case Types.JoeAccountCheck:
+                    return Messages.JoeAccountCheck(
                         context: context,
                         data: data);
                 case Types.LoginIdAlreadyUse:
@@ -271,6 +288,10 @@ namespace Implem.Pleasanter.Libraries.General
                     return Messages.Restricted(
                         context: context,
                         data: data);
+                case Types.SamlLoginFailed:
+                    return Messages.SamlLoginFailed(
+                        context: context,
+                        data: data);
                 case Types.SelectFile:
                     return Messages.SelectFile(
                         context: context,
@@ -315,6 +336,10 @@ namespace Implem.Pleasanter.Libraries.General
                     return Messages.UserLockout(
                         context: context,
                         data: data);
+                case Types.UserNotSelfDelete:
+                    return Messages.UserNotSelfDelete(
+                        context: context,
+                        data: data);
                 case Types.UsersLimit:
                     return Messages.UsersLimit(
                         context: context,
@@ -323,7 +348,7 @@ namespace Implem.Pleasanter.Libraries.General
             }
         }
 
-        public static string MessageJson(this Types type, IContext context, params string[] data)
+        public static string MessageJson(this Types type, Context context, params string[] data)
         {
             return new ResponseCollection().Message(type.Message(
                 context: context,

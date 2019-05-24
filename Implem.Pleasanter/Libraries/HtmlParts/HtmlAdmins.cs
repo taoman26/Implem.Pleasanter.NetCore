@@ -9,13 +9,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlAdmins
     {
-        public static string AdminsIndex(this HtmlBuilder hb, IContext context)
+        public static string AdminsIndex(this HtmlBuilder hb, Context context)
         {
             if (!Permissions.CanManageTenant(context: context))
             {
                 return HtmlTemplates.Error(
                     context: context,
-                    errorType: Error.Types.HasNotPermission);
+                    errorData: new ErrorData(type: Error.Types.HasNotPermission));
             }
             var ss = new SiteSettings();
             return hb.Template(
@@ -74,7 +74,6 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .MainCommands(
                         context: context,
                         ss: ss,
-                        siteId: 0,
                         verType: Versions.VerTypes.Latest))
                             .ToString();
         }

@@ -1,19 +1,22 @@
-﻿using Implem.Pleasanter.Libraries.Html;
+﻿using Implem.Libraries.Utilities;
+using Implem.Pleasanter.Libraries.Html;
 using Implem.Pleasanter.Libraries.HtmlParts;
 using Implem.Pleasanter.Libraries.Models;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Settings;
+using System.Linq;
 namespace Implem.Pleasanter.Libraries.Responses
 {
     public static class ResponseViewModes
     {
         public static ResponseCollection ViewMode(
             this ResponseCollection res,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             string invoke = null,
             Message message = null,
+            bool editOnGrid = false,
             bool loadScroll = false,
             bool bodyOnly = false,
             string bodySelector = null,
@@ -23,7 +26,13 @@ namespace Implem.Pleasanter.Libraries.Responses
                 .Html(!bodyOnly ? "#ViewModeContainer" : bodySelector, body)
                 .View(context: context, ss: ss, view: view)
                 .ReplaceAll("#Breadcrumb", new HtmlBuilder()
-                    .Breadcrumb(context: context, ss: ss))
+                    .Breadcrumb(
+                        context: context,
+                        ss: ss))
+                .ReplaceAll("#Guide", new HtmlBuilder()
+                    .Guide(
+                        context: context,
+                        ss:ss))
                 .ReplaceAll("#CopyDirectUrlToClipboard", new HtmlBuilder()
                     .CopyDirectUrlToClipboard(
                         context: context,
@@ -37,13 +46,39 @@ namespace Implem.Pleasanter.Libraries.Responses
                     .MainCommands(
                         context: context,
                         ss: ss,
-                        siteId: ss.SiteId,
                         verType: Versions.VerTypes.Latest,
-                        backButton: !context.Publish))
+                        backButton: !context.Publish && !editOnGrid))
+                .SetMemory("formChanged", false, _using: !editOnGrid)
                 .Invoke(invoke)
                 .Message(message)
                 .LoadScroll(loadScroll)
-                .ClearFormData();
+                .ClearFormData(
+                    context: context,
+                    ss: ss,
+                    editOnGrid: editOnGrid);
+        }
+
+        private static ResponseCollection ClearFormData(
+            this ResponseCollection res,
+            Context context,
+            SiteSettings ss,
+            bool editOnGrid)
+        {
+            if (editOnGrid)
+            {
+                new FormDataSet(
+                    context: context,
+                    ss: ss)
+                        .Where(o => o.Suffix.IsNullOrEmpty())
+                        .ForEach(formData =>
+                            formData.Data.Keys.ForEach(controlId =>
+                                res.ClearFormData(controlId)));
+            }
+            else
+            {
+                res.ClearFormData();
+            }
+            return res;
         }
     }
 }

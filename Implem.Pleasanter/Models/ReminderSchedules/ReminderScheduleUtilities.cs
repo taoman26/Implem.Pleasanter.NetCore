@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -26,7 +27,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Remind(IContext context)
+        public static string Remind(Context context)
         {
             var now = DateTime.Now;
             while ((DateTime.Now - now).Seconds <= Parameters.Reminder.Span)
@@ -65,7 +66,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static void Remind(IContext context, DataRow dataRow)
+        private static void Remind(Context context, DataRow dataRow)
         {
             context = context.CreateContext(
                 tenantId: dataRow.Int("TenantId"),

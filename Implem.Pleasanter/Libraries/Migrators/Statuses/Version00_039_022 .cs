@@ -9,21 +9,21 @@ namespace Implem.Pleasanter.Libraries.Migrators.Statuses
 {
     public static class Version00_039_022
     {
-        public static void Migrate(IContext context)
+        public static void Migrate(Context context)
         {
             new ExportSettingCollection(context: context)
                 .ForEach(exportSettingModel =>
                     Migrate(context: context, exportSettingModel: exportSettingModel));
         }
 
-        private static void Migrate(IContext context, ExportSettingModel exportSettingModel)
+        private static void Migrate(Context context, ExportSettingModel exportSettingModel)
         {
             var ss = Rds.ExecuteScalar_string(
                 context: context,
                 statements: Rds.SelectSites(
                     column: Rds.SitesColumn().SiteSettings(),
                     where: Rds.SitesWhere().SiteId(exportSettingModel.ReferenceId)))
-                        .Deserialize<SiteSettings>();
+                        .DeserializeSiteSettings(context: context);
             if (ss != null)
             {
                 ss.SiteId = exportSettingModel.ReferenceId;
@@ -32,14 +32,16 @@ namespace Implem.Pleasanter.Libraries.Migrators.Statuses
                     id: ss.Exports.Any()
                         ? ss.Exports.Max(o => o.Id) + 1
                         : 1,
+                    type: Export.Types.Csv,
                     name: exportSettingModel.Title.Value,
                     header: exportSettingModel.AddHeader,
                     columns: exportSettingModel.ExportColumns.Columns
                         .Where(o => o.Value)
                         .Select((o, i) => new ExportColumn(
                             context: context,
-                            ss: ss,
-                            columnName: o.Key,
+                            column: ss.GetColumn(
+                                context: context,
+                                columnName: o.Key),
                             id: i + 1))
                         .ToList()));
                 Rds.ExecuteNonQuery(

@@ -15,7 +15,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder LinkCreations(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             long linkId,
             BaseModel.MethodTypes methodType)
@@ -36,7 +36,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     : hb;
         }
 
-        private static List<Link> Links(IContext context, SiteSettings ss)
+        private static List<Link> Links(Context context, SiteSettings ss)
         {
             return new LinkCollection(
                 context: context,
@@ -46,13 +46,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     .SiteTitle(),
                 where: Rds.LinksWhere()
                     .DestinationId(ss.SiteId)
-                    .SiteId_In(ss.Sources?
+                    .SiteId_In(ss.Sources
+                        ?.Values
                         .Where(currentSs => context.CanCreate(ss: currentSs))
                         .Select(currentSs => currentSs.SiteId)))
                             .Select(linkModel => GetLink(
                                 linkModel: linkModel,
-                                ss: ss.Sources.FirstOrDefault(o =>
-                                    o.SiteId == linkModel.SourceId)))
+                                ss: ss.Sources.Get(linkModel.SourceId)))
                             .Where(o => o != null)
                             .ToList();
         }
@@ -72,7 +72,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder LinkCreations(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             List<Link> links,
             long linkId)
@@ -88,7 +88,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder LinkCreationButton(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             long linkId,
             long sourceId,
@@ -96,7 +96,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         {
             return hb.Button(
                 attributes: new HtmlAttributes()
-                    .Class("button button-icon confirm-reload")
+                    .Class("button button-icon confirm-unload")
                     .OnClick("$p.new($(this));")
                     .Title(SiteInfo.TenantCaches.Get(context.TenantId)?
                         .SiteMenu

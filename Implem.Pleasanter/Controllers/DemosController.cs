@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class DemosController
     {
-        public string Register(IContext context)
+        public string Register(Context context)
         {
             var log = new SysLogModel(context: context);
             if (Parameters.Service.Demo)
@@ -23,7 +23,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public (string redirectUrl, string errors, string notFound) Login(IContext context)
+        public (string redirectUrl, string errors, string notFound) Login(Context context)
         {
             var log = new SysLogModel(context: context);
             if (Parameters.Service.Demo)

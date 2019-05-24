@@ -26,7 +26,7 @@ namespace Implem.Pleasanter.Models
         public int TotalCount;
 
         public DeptCollection(
-            IContext context,
+            Context context,
             SiteSettings ss,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -38,39 +38,52 @@ namespace Implem.Pleasanter.Models
             int top = 0,
             int offset = 0,
             int pageSize = 0,
-            bool countRecord = false,
             bool get = true)
         {
             if (get)
             {
-                Set(context, ss, Get(
+                Set(
                     context: context,
-                    column: column,
-                    join: join,
-                    where: where,
-                    orderBy: orderBy,
-                    param: param,
-                    tableType: tableType,
-                    distinct: distinct,
-                    top: top,
-                    offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord));
+                    ss: ss,
+                    dataRows: Get(
+                        context: context,
+                        column: column,
+                        join: join,
+                        where: where,
+                        orderBy: orderBy,
+                        param: param,
+                        tableType: tableType,
+                        distinct: distinct,
+                        top: top,
+                        offset: offset,
+                        pageSize: pageSize));
             }
         }
 
-        public DeptCollection(IContext context,SiteSettings ss, IEnumerable<DataRow> dataRows)
+        public DeptCollection(
+            Context context,
+            SiteSettings ss,
+            EnumerableRowCollection<DataRow> dataRows)
         {
-            Set(context, ss, dataRows);
+                Set(
+                    context: context,
+                    ss: ss,
+                    dataRows: dataRows);
         }
 
-        private DeptCollection Set(IContext context, SiteSettings ss, IEnumerable<DataRow> dataRows)
+        private DeptCollection Set(
+            Context context,
+            SiteSettings ss,
+            EnumerableRowCollection<DataRow> dataRows)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new DeptModel(context, ss, dataRow));
+                    Add(new DeptModel(
+                        context: context,
+                        ss: ss,
+                        dataRow: dataRow));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -81,8 +94,8 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        private IEnumerable<DataRow> Get(
-            IContext context,
+        private EnumerableRowCollection<DataRow> Get(
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -92,9 +105,7 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0,
             int offset = 0,
-            int pageSize = 0,
-            bool history = false,
-            bool countRecord = false)
+            int pageSize = 0)
         {
             var statements = new List<SqlStatement>
             {
@@ -109,8 +120,12 @@ namespace Implem.Pleasanter.Models
                     distinct: distinct,
                     top: top,
                     offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord)
+                    pageSize: pageSize),
+                Rds.SelectCount(
+                    tableName: "Depts",
+                    tableType: tableType,
+                    join: join ?? Rds.DeptsJoinDefault(),
+                    where: where)
             };
             var dataSet = Rds.ExecuteDataSet(
                 context: context,

@@ -8,7 +8,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlExport
     {
         public static HtmlBuilder ExportSelectorDialog(
-            this HtmlBuilder hb, IContext context, SiteSettings ss)
+            this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             var optionCollection = ss.Exports.ToDictionary(o => o.Id.ToString(), o => o.Name);
             optionCollection.Add("0", Displays.Standard(context: context));

@@ -28,7 +28,7 @@ using System.Web;
 
 namespace Implem.Pleasanter.NetCore.Libraries.Requests
 {
-    public class ContextImplement : IContext
+    public class ContextImplement : Context
     {
         public override bool Authenticated { get; set; }
         public override bool SwitchUser { get; set; }
@@ -58,11 +58,13 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
         public override int TenantId { get; set; }
         public override long SiteId { get; set; }
         public override long Id { get; set; }
+        public override Dictionary<long, Permissions.Types> PermissionHash { get; set; }
         public override string Guid { get; set; }
         public override TenantModel.LogoTypes LogoType { get; set; }
         public override string TenantTitle { get; set; }
         public override string SiteTitle { get; set; }
         public override string RecordTitle { get; set; }
+        public override bool DisableAllUsersPermission { get; set; }
         public override string HtmlTitleTop { get; set; }
         public override string HtmlTitleSite { get; set; }
         public override string HtmlTitleRecord { get; set; }
@@ -80,6 +82,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
         public override UserSettings UserSettings { get; set; }
         public override bool HasPrivilege { get; set; }
         public override ContractSettings ContractSettings { get; set; } = new ContractSettings();
+        public override decimal ApiVersion { get; set; }
         public override string ApiRequestBody { get; set; }
         public override string RequestDataString { get => !string.IsNullOrEmpty(ApiRequestBody) ? ApiRequestBody : FormString; }
 
@@ -112,10 +115,11 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
             UserId = userId;
             Language = language ?? Language;
             UserHostAddress = HasRoute
-                ? AspNetCoreHttpContext.Current?.Connection.RemoteIpAddress?.ToString()
+                ? GetUserHostAddress(AspNetCoreHttpContext.Current?.Connection)
                 : null;
             SetTenantProperties();
             SetPublish();
+            SetPermissions();
             SetTenantCaches();
         }
 
@@ -140,6 +144,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
             if (user) SetUserProperties(sessionStatus, setData);
             SetTenantProperties();
             if (request) SetPublish();
+            if (request) SetPermissions();
             SetTenantCaches();
         }
 
@@ -147,9 +152,10 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
         {
             if (HasRoute)
             {
-                var request = AspNetCoreHttpContext.Current.Request;
+                var request = AspNetCoreHttpContext.Current?.Request;
                 FormStringRaw = CreateFormStringRaw(AspNetCoreHttpContext.Current.Request);
                 FormString = HttpUtility.UrlDecode(FormStringRaw, System.Text.Encoding.UTF8);
+                HttpMethod = request?.Method;
                 Ajax = IsAjax();
                 Mobile = IsMobile(AspNetCoreHttpContext.Current.Request);
                 RouteData = GetRouteData();
@@ -164,7 +170,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
                 Action = RouteData.Get("action")?.ToLower() ?? string.Empty;
                 Id = RouteData.Get("id")?.ToLong() ?? 0;
                 Guid = RouteData.Get("guid");
-                UserHostName = CreateUserHostName(AspNetCoreHttpContext.Current.Request);
+                UserHostName = GetUserHostAddress(request?.HttpContext?.Connection);
                 UserHostAddress = CreateUserHostAddress(AspNetCoreHttpContext.Current.Request);
                 UserAgent = CreateUserAgent(AspNetCoreHttpContext.Current.Request);
             }
@@ -238,6 +244,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
                 var api = RequestDataString.Deserialize<Api>();
                 if (api?.ApiKey.IsNullOrEmpty() == false)
                 {
+                    ApiVersion = api.ApiVersion;
                     SetUser(userModel: GetUser(where: Rds.UsersWhere()
                         .ApiKey(api.ApiKey)));
                 }
@@ -280,7 +287,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
                 Dept = SiteInfo.Dept(tenantId: TenantId, deptId: DeptId);
                 User = SiteInfo.User(context: this, userId: UserId);
                 Language = userModel.Language;
-                UserHostAddress = AspNetCoreHttpContext.Current?.Connection.RemoteIpAddress?.ToString();
+                UserHostAddress = GetUserHostAddress(AspNetCoreHttpContext.Current?.Connection);
                 Developer = userModel.Developer;
                 TimeZoneInfo = userModel.TimeZoneInfo;
                 UserSettings = userModel.UserSettings;
@@ -300,6 +307,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
                             .ContractSettings()
                             .ContractDeadline()
                             .LogoType()
+                            .DisableAllUsersPermission()
                             .HtmlTitleTop()
                             .HtmlTitleSite()
                             .HtmlTitleRecord(),
@@ -322,7 +330,9 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
 
         private void SetData()
         {
-            SessionData = SessionUtilities.Get(this);
+            SessionData = SessionUtilities.Get(
+                context: this,
+                includeUserArea: Controller == "sessions");
             var request = AspNetCoreHttpContext.Current.Request;
             foreach (var o in request.QueryString.Value?.PadLeft(1, '?').Substring(1).Split('&'))
             {
@@ -335,7 +345,7 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
                 request.Form.Keys
                     .Where(o => o != null)
                     .ForEach(key =>
-                        Forms.Add(key, request.Form[key]));
+                        Forms.AddIfNotConainsKey(key, request.Form[key]));
         }
 
         private void SetPostedFiles(ICollection<IFormFile> files)
@@ -610,14 +620,14 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
             return JsonConvert.DeserializeObject<T>(Encoding.UTF8.GetString(bytes));
         }
 
-        public override IContext CreateContext() { return new ContextImplement(); }
-        public override IContext CreateContext(int tenantId) { return new ContextImplement(tenantId: tenantId); }
-        public override IContext CreateContext(int tenantId, int userId, int deptId) { return new ContextImplement(tenantId: tenantId, userId: userId, deptId: deptId); }
-        public override IContext CreateContext(int tenantId, string language) { return new ContextImplement(tenantId: tenantId, language: language); }
-        public override IContext CreateContext(int tenantId, int userId, string language) { return new ContextImplement(tenantId: tenantId, userId: userId, language: language); }
-        public override IContext CreateContext(bool request, bool sessionStatus, bool sessionData, bool user) { return new ContextImplement(request: request, sessionStatus: sessionStatus, sessionData: sessionData, user: user); }
+        public override Context CreateContext() { return new ContextImplement(); }
+        public override Context CreateContext(int tenantId) { return new ContextImplement(tenantId: tenantId); }
+        public override Context CreateContext(int tenantId, int userId, int deptId) { return new ContextImplement(tenantId: tenantId, userId: userId, deptId: deptId); }
+        public override Context CreateContext(int tenantId, string language) { return new ContextImplement(tenantId: tenantId, language: language); }
+        public override Context CreateContext(int tenantId, int userId, string language) { return new ContextImplement(tenantId: tenantId, userId: userId, language: language); }
+        public override Context CreateContext(bool request, bool sessionStatus, bool sessionData, bool user) { return new ContextImplement(request: request, sessionStatus: sessionStatus, sessionData: sessionData, user: user); }
 
-        public static void Init() { IContext.SetFactory(item => new ContextImplement(item: item)); }
+        public static void Init() { Context.SetFactory(item => new ContextImplement(item: item)); }
 
         public override string VirtualPathToAbsolute(string virtualPath)
         {
@@ -651,6 +661,11 @@ namespace Implem.Pleasanter.NetCore.Libraries.Requests
         public override bool AuthenticationsWindows()
         {
             return AspNetCoreHttpContext.Current.User.Identity?.GetType().Name.Contains("Windows") ?? false;
+        }
+
+        private string GetUserHostAddress(ConnectionInfo request)
+        {
+            return request?.RemoteIpAddress?.ToString();
         }
     }
 }

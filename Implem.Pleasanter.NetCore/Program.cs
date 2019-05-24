@@ -17,8 +17,14 @@ namespace Implem.Pleasanter.NetCore
             CreateWebHostBuilder(args).Build().Run();
         }
 
-        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
-            WebHost.CreateDefaultBuilder(args)
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args)
+        {
+            var config = new ConfigurationBuilder()
+                .AddCommandLine(args)
+                .Build();
+            var webHost = WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>();
+            return webHost;
+        }
     }
 }

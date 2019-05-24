@@ -42,7 +42,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return strSize;
         }
 
-        public void WriteToLocal(IContext context)
+        public void WriteToLocal(Context context)
         {
             if (Added == true)
             {
@@ -60,7 +60,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public void SqlStatement(IContext context, List<SqlStatement> statements, long referenceId)
+        public void SqlStatement(Context context, List<SqlStatement> statements, long referenceId)
         {
             if (Added == true)
             {

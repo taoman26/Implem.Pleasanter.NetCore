@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Header(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
             string referenceType,
@@ -32,7 +32,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     useSearch: useSearch));
         }
 
-        public static HtmlBuilder HeaderLogo(this HtmlBuilder hb, IContext context)
+        public static HtmlBuilder HeaderLogo(this HtmlBuilder hb, Context context)
         {
             var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
             var existsImage = BinaryUtilities.ExistsTenantImage(
@@ -58,7 +58,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder LogoImage(
-            this HtmlBuilder hb, IContext context, bool showTitle, bool existsTenantImage)
+            this HtmlBuilder hb, Context context, bool showTitle, bool existsTenantImage)
         {
             return existsTenantImage && !context.Publish
                 ? hb.Img(
@@ -84,7 +84,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             : "logo-corp-with-title.png"));
         }
 
-        private static string Title(IContext context)
+        private static string Title(Context context)
         {
             return Strings.CoalesceEmpty(
                 context.LogoType == TenantModel.LogoTypes.ImageAndTitle

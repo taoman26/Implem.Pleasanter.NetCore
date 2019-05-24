@@ -24,12 +24,12 @@ namespace Implem.Pleasanter.Libraries.Server
         public bool PermissionsUpdated;
         public bool SitesUpdated;
 
-        public UpdateMonitor(IContext context)
+        public UpdateMonitor(Context context)
         {
             Monitor(context: context);
         }
 
-        public void Monitor(IContext context)
+        public void Monitor(Context context)
         {
             Set(context: context);
             DeptsUpdated = DeptsUpdatedTime != NowDeptsUpdatedTime;
@@ -40,7 +40,7 @@ namespace Implem.Pleasanter.Libraries.Server
             Updated = DeptsUpdated || GroupsUpdated || UsersUpdated || SitesUpdated || PermissionsUpdated;
         }
 
-        private void Set(IContext context)
+        private void Set(Context context)
         {
             var hash = StatusUtilities.Monitors(context: context);
             NowDeptsUpdatedTime = hash[StatusUtilities.Types.DeptsUpdated];

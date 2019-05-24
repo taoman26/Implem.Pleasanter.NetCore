@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlMoves
     {
         public static HtmlBuilder MoveDialog(
-            this HtmlBuilder hb, IContext context, bool bulk = false)
+            this HtmlBuilder hb, Context context, bool bulk = false)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()

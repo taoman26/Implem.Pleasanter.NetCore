@@ -19,6 +19,8 @@ namespace Implem.Pleasanter.Libraries.DataTypes
     public class Title : IConvertable
     {
         public long Id;
+        public int Ver;
+        public bool IsHistory = false;
         public string Value = string.Empty;
         public string DisplayValue;
         public List<string> PartCollection;
@@ -30,17 +32,20 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         public Title(DataRow dataRow, string name)
         {
             Id = dataRow.Long(name);
+            Ver = dataRow.Int("Ver");
+            IsHistory = dataRow.Bool("IsHistory");
             Value = dataRow.String("Title");
             DisplayValue = Value;
         }
 
         public Title(
-            IContext context, SiteSettings ss, DataRow dataRow, ColumnNameInfo column = null)
+            Context context, SiteSettings ss, DataRow dataRow, ColumnNameInfo column = null)
         {
             Id = dataRow.Long((column?.Joined == true
                 ? column.TableAlias + ","
                 : string.Empty) +
                     Rds.IdColumn(ss.ReferenceType));
+            Ver = dataRow.Int("Ver");
             Value = dataRow.String(Rds.DataColumnName(column, "Title"));
             var itemTitlePath = Rds.DataColumnName(column, "ItemTitle");
             var displayValue = dataRow.Table.Columns.Contains(itemTitlePath)
@@ -54,14 +59,16 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                         path: Rds.DataColumnName(column, o.ColumnName)))
                     .Where(o => !o.IsNullOrEmpty())
                     .Join(ss.TitleSeparator);
-            DisplayValue = displayValue != string.Empty
-                ? displayValue
-                : Displays.NoTitle(context: context);
+            DisplayValue = GetNoTitle(
+                context: context,
+                displayValue: displayValue);
         }
 
-        public Title(IContext context, SiteSettings ss, long id, Dictionary<string, string> data)
+        public Title(Context context, SiteSettings ss, long id, int ver, bool isHistory, Dictionary<string, string> data)
         {
             Id = id;
+            Ver = ver;
+            IsHistory = isHistory;
             Value = data.Get("Title");
             var displayValue = ss.GetTitleColumns(context: context)?
                 .Select(column => GetDisplayValue(
@@ -71,13 +78,24 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     data: data))
                 .Where(o => !o.IsNullOrEmpty())
                 .Join(ss.TitleSeparator);
-            DisplayValue = displayValue != string.Empty
-                ? displayValue
-                : Displays.NoTitle(context: context);
+            DisplayValue = GetNoTitle(
+                context: context,
+                displayValue: displayValue);
+        }
+
+        public Title(long id, string value)
+        {
+            Id = id;
+            Value = value;
+        }
+
+        public Title(string value)
+        {
+            Value = value;
         }
 
         private string GetDisplayValue(
-            IContext context, SiteSettings ss, Column column, DataRow dataRow, string path)
+            Context context, SiteSettings ss, Column column, DataRow dataRow, string path)
         {
             switch (column.TypeName.CsTypeSummary())
             {
@@ -118,7 +136,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         private string GetDisplayValue(
-            IContext context, SiteSettings ss, Column column, Dictionary<string, string> data)
+            Context context, SiteSettings ss, Column column, Dictionary<string, string> data)
         {
             switch (column.TypeName.CsTypeSummary())
             {
@@ -159,23 +177,30 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public Title(long id, string value)
+        private string GetNoTitle(Context context, string displayValue)
         {
-            Id = id;
-            Value = value;
+            if (!displayValue.IsNullOrEmpty())
+            {
+                return displayValue;
+            }
+            else
+            {
+                switch (context.Action)
+                {
+                    case "export":
+                        return string.Empty;
+                    default:
+                        return Displays.NoTitle(context: context);
+                }
+            }
         }
 
-        public Title(string value)
-        {
-            Value = value;
-        }
-
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return Value;
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return Value;
         }
@@ -185,14 +210,25 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Value;
         }
 
-        public virtual HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public virtual HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return hb.Td(action: () => hb
                 .P(action: () => TdTitle(hb: hb, context: context, column: column)));
         }
 
-        protected void TdTitle(HtmlBuilder hb, IContext context, Column column)
+        protected void TdTitle(HtmlBuilder hb, Context context, Column column)
         {
+            var queryString = new[] {
+                column.Joined
+                    || column.SiteSettings.Linked
+                    || column.SiteSettings?.IntegratedSites?.Any() == true
+                    ? "back=1"
+                    : string.Empty,
+                IsHistory
+                    ? "ver=" + Ver
+                    : string.Empty
+            }.Where(s=>s != string.Empty).Join("&");
+            
             switch (column.SiteSettings.TableType)
             {
                 case Sqls.TableTypes.Normal:
@@ -200,11 +236,9 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                         href: Locations.ItemEdit(
                             context: context,
                             id: Id)
-                                + (column.Joined
-                                    || column.SiteSettings.Linked
-                                    || column.SiteSettings?.IntegratedSites?.Any() == true
-                                        ? "?back=1"
-                                        : string.Empty),
+                            + ((queryString == string.Empty)
+                                ? string.Empty
+                                : "?" + queryString),
                         text: DisplayValue);
                     break;
                 default:
@@ -213,12 +247,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public virtual string GridText(IContext context, Column column)
+        public virtual string GridText(Context context, Column column)
         {
             return DisplayValue;
         }
 
-        public virtual string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public virtual string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             switch (exportColumn.Type)
             {
@@ -230,7 +264,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public string ToNotice(
-            IContext context,
+            Context context,
             string saved,
             Column column,
             bool updated,
@@ -244,7 +278,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 update: update);
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return Value.IsNullOrEmpty();
         }

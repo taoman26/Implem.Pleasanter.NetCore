@@ -9,12 +9,12 @@ namespace Implem.Pleasanter.Libraries.DataSources
 {
     public class Line
     {
-        public IContext context;
+        public Context context;
         public string text;
         public string username;
         public string token;
 
-        public Line(IContext _context, string _text, string _username, string _token)
+        public Line(Context _context, string _text, string _username, string _token)
         {
             text = _text;
             username = _username;

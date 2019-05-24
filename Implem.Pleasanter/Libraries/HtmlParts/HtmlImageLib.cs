@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlImageLib
     {
         public static HtmlBuilder ImageLib(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, ImageLibData imageLibData)
+            this HtmlBuilder hb, Context context, SiteSettings ss, ImageLibData imageLibData)
         {
             return hb.Div(
                 attributes: new HtmlAttributes()
@@ -36,7 +36,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         public static HtmlBuilder ImageLibBody(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, ImageLibData imageLibData)
+            this HtmlBuilder hb, Context context, SiteSettings ss, ImageLibData imageLibData)
         {
             return hb.Div(
                 attributes: new HtmlAttributes().Id("ImageLibBody"),
@@ -49,7 +49,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         public static HtmlBuilder ImageLibItem(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, DataRow dataRow)
+            this HtmlBuilder hb, Context context, SiteSettings ss, DataRow dataRow)
         {
             var guid = dataRow.String("Guid");
             var href = Locations.ShowFile(

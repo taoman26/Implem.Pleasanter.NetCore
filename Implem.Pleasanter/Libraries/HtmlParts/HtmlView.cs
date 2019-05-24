@@ -9,11 +9,11 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlView
     {
         public static HtmlBuilder ViewSelector(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, View view)
+            this HtmlBuilder hb, Context context, SiteSettings ss, View view)
         {
             return hb.FieldDropDown(
                 context: context,
-                fieldId: "ViewSelectorField",
+                fieldId: "_ViewSelectorField",
                 controlId: "ViewSelector",
                 controlCss: " auto-postback",
                 labelText: Displays.DataView(context: context),

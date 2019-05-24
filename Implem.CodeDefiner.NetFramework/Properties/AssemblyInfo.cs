@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Microsoft")]
 [assembly: AssemblyProduct("Implem.CodeDefiner.NetFramework")]
-[assembly: AssemblyCopyright("Copyright © Implem Inc 2014 - 2018")]
+[assembly: AssemblyCopyright("Copyright © Implem Inc 2014 - 2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]

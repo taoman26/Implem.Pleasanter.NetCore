@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlTrashBoxCommands
     {
         public static HtmlBuilder TrashBoxCommands(
-            this HtmlBuilder hb, IContext context, SiteSettings ss)
+            this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             return hb.Div(
                 css: "command-left",

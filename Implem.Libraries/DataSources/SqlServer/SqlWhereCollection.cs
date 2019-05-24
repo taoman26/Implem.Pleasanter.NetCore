@@ -1,11 +1,13 @@
 ﻿using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.Utilities;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 namespace Implem.Libraries.DataSources.SqlServer
 {
-    public class SqlWhereCollection : ListEx<SqlWhere>
+    public class SqlWhereCollection : ListEx<SqlWhere>, IJoin
     {
         public string Clause = "where ";
         public string MultiClauseOperator = " and ";
@@ -94,6 +96,23 @@ namespace Implem.Libraries.DataSources.SqlServer
         public void Prefix(string prefix)
         {
             ForEach(o => o.Name += prefix);
+        }
+
+        public List<string> JoinTableNames()
+        {
+            var data = this
+                .Where(o => o != null)
+                .Select(o => o.TableName)
+                .Where(o => o?.Contains("~") == true)
+                .ToList();
+            this
+                .Where(o => o != null)
+                .Select(o => o.Or)
+                .Where(o => o != null)
+                .ForEach(o => data.AddRange(o.JoinTableNames()));
+            return data
+                .Distinct()
+                .ToList();
         }
     }
 }

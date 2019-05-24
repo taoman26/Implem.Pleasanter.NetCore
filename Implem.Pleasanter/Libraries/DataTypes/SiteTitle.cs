@@ -19,7 +19,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             SiteId = siteId;
         }
 
-        public string Title(IContext context)
+        public string Title(Context context)
         {
             return SiteInfo.TenantCaches
                 .Get(context.TenantId)?
@@ -28,35 +28,35 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 .Title ?? string.Empty;
         }
 
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return Title(context: context);
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return Title(context: context);
         }
 
-        public virtual HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public virtual HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return hb.Td(action: () => hb
                 .P(action: () => hb
                     .Text(Title(context: context))));
         }
 
-        public virtual string GridText(IContext context, Column column)
+        public virtual string GridText(Context context, Column column)
         {
             return Title(context: context);
         }
 
         public virtual string ToExport(
-            IContext context, Column column, ExportColumn exportColumn = null)
+            Context context, Column column, ExportColumn exportColumn = null)
         {
             return Title(context: context);
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return SiteId == 0;
         }

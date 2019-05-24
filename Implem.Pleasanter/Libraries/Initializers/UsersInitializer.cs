@@ -8,7 +8,7 @@ namespace Implem.Pleasanter.Libraries.Initializers
 {
     public static class UsersInitializer
     {
-        public static void Initialize(IContext context)
+        public static void Initialize(Context context)
         {
             if (Rds.ExecuteScalar_int(
                 context: context,
@@ -35,7 +35,7 @@ namespace Implem.Pleasanter.Libraries.Initializers
         }
 
         private static void Create(
-            IContext context, 
+            Context context, 
             int tenantId,
             string loginId,
             string name,

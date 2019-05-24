@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -23,11 +24,16 @@ namespace Implem.Pleasanter.Models
 {
     public static class ResultUtilities
     {
-        public static string Index(IContext context, SiteSettings ss)
+        public static string Index(Context context, SiteSettings ss)
         {
             var hb = new HtmlBuilder();
-            var view = Views.GetBySession(context: context, ss: ss);
-            var gridData = GetGridData(context: context, ss: ss, view: view);
+            var view = Views.GetBySession(
+                context: context,
+                ss: ss);
+            var gridData = GetGridData(
+                context: context,
+                ss: ss,
+                view: view);
             var viewMode = ViewModes.GetSessionData(
                 context: context,
                 siteId: ss.SiteId);
@@ -45,20 +51,21 @@ namespace Implem.Pleasanter.Models
 
         private static string ViewModeTemplate(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             string viewMode,
-            Action viewModeBody,
-            Aggregations aggregations = null)
+            Action viewModeBody)
         {
             var invalid = ResultValidators.OnEntry(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             return hb.Template(
                 context: context,
@@ -75,17 +82,28 @@ namespace Implem.Pleasanter.Models
                 action: () => hb
                     .Form(
                         attributes: new HtmlAttributes()
-                            .Id("ResultsForm")
+                            .Id("MainForm")
                             .Class("main-form")
                             .Action(Locations.Action(
                                 context: context,
                                 controller: context.Controller,
                                 id: ss.SiteId)),
                         action: () => hb
-                            .ViewSelector(
-                                context: context,
-                                ss: ss,
-                                view: view)
+                            .Div(
+                                id: "ViewSelectorField", 
+                                action: ()=> hb
+                                    .ViewSelector(
+                                        context: context,
+                                        ss: ss,
+                                        view: view)
+                                    .FieldCheckBox(
+                                        fieldId: "ShowHistoryField",
+                                        fieldCss: "field-auto-thin",
+                                        controlId: "ViewFilters_ShowHistory",
+                                        controlCss: " auto-postback",
+                                        method: "post",
+                                        _checked: view.ShowHistory == true,
+                                        labelText: Displays.ShowHistory(context:context)))
                             .ViewFilters(
                                 context: context,
                                 ss: ss,
@@ -98,7 +116,6 @@ namespace Implem.Pleasanter.Models
                             .MainCommands(
                                 context: context,
                                 ss: ss,
-                                siteId: ss.SiteId,
                                 verType: Versions.VerTypes.Latest,
                                 backButton: !context.Publish)
                             .Div(css: "margin-bottom")
@@ -107,7 +124,15 @@ namespace Implem.Pleasanter.Models
                                 value: "Results")
                             .Hidden(
                                 controlId: "BaseUrl",
-                                value: Locations.BaseUrl(context: context)))
+                                value: Locations.BaseUrl(context: context))
+                            .Hidden(
+                                controlId: "EditOnGrid",
+                                css: "always-send",
+                                value: context.Forms.Data("EditOnGrid"))
+                            .Hidden(
+                                controlId: "NewRowId",
+                                css: "always-send",
+                                value: context.Forms.Data("NewRowId")))
                     .EditorDialog(context: context, ss: ss)
                     .DropDownSearchDialog(
                         context: context,
@@ -121,7 +146,7 @@ namespace Implem.Pleasanter.Models
                     .ToString();
         }
 
-        public static string IndexJson(IContext context, SiteSettings ss)
+        public static string IndexJson(Context context, SiteSettings ss)
         {
             var view = Views.GetBySession(context: context, ss: ss);
             var gridData = GetGridData(context: context, ss: ss, view: view);
@@ -131,6 +156,7 @@ namespace Implem.Pleasanter.Models
                     ss: ss,
                     view: view,
                     invoke: "setGrid",
+                    editOnGrid: context.Forms.Bool("EditOnGrid"),
                     body: new HtmlBuilder()
                         .Grid(
                             context: context,
@@ -141,7 +167,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static GridData GetGridData(
-            IContext context, SiteSettings ss, View view, int offset = 0)
+            Context context, SiteSettings ss, View view, int offset = 0)
         {
             ss.SetColumnAccessControls(context: context);
             return new GridData(
@@ -154,17 +180,21 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder Grid(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GridData gridData,
             View view,
             string action = "GridRows")
         {
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
             return hb
                 .Table(
                     attributes: new HtmlAttributes()
                         .Id("Grid")
-                        .Class(ss.GridCss())
+                        .Class(ss.GridCss(context: context))
                         .DataValue("back", _using: ss?.IntegratedSites?.Any() == true)
                         .DataAction(action)
                         .DataMethod("post"),
@@ -173,8 +203,15 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: ss,
                             gridData: gridData,
+                            columns: columns,
                             view: view,
+                        editRow: context.Forms.Bool("EditOnGrid"),
                             action: action))
+                .GridHeaderMenus(
+                    context: context,
+                    ss: ss,
+                    view: view,
+                    columns: columns)
                 .Hidden(
                     controlId: "GridOffset",
                     value: ss.GridNextOffset(
@@ -182,6 +219,12 @@ namespace Implem.Pleasanter.Models
                         gridData.DataRows.Count(),
                         gridData.TotalCount)
                             .ToString())
+                .Hidden(
+                    controlId: "GridRowIds",
+                    value: gridData.DataRows.Select(g => g.Long("ResultId")).ToJson())
+                .Hidden(
+                    controlId: "GridColumns",
+                    value: columns.Select(o => o.ColumnName).ToJson())
                 .Button(
                     controlId: "ViewSorters_Reset",
                     controlCss: "hidden",
@@ -190,7 +233,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string GridRows(
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResponseCollection res = null,
             int offset = 0,
@@ -204,11 +247,48 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 view: view,
                 offset: offset);
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
+            var newOnGrid = context.Action == "newongrid"
+                || context.Action == "copyrow";
+            if (newOnGrid && !context.CanCreate(ss: ss))
+            {
+                return Messages.ResponseHasNotPermission(context: context).ToJson();
+            }
+            var editRow = context.Forms.Bool("EditOnGrid");
+            var newRowId = newOnGrid
+                ? (context.Forms.Int("NewRowId") - 1)
+                : 0;
+            ResultModel resultModel = null;
+            var originalId = context.Forms.Long("OriginalId");
+            if (editRow && offset == 0)
+            {
+                if (newRowId != 0)
+                {
+                    resultModel = originalId > 0
+                        ? new ResultModel(
+                            context: context,
+                            ss: ss,
+                            resultId: originalId)
+                        : new ResultModel(
+                            context: context,
+                            ss: ss,
+                            methodType: BaseModel.MethodTypes.New);
+                    resultModel.ResultId = 0;
+                    ss.SetColumnAccessControls(
+                        context: context,
+                        mine: resultModel.Mine(context: context));
+                }
+            }
             return (res ?? new ResponseCollection())
                 .Remove(".grid tr", _using: offset == 0)
+                .ClearFormData("GridOffset")
                 .ClearFormData("GridCheckAll", _using: clearCheck)
                 .ClearFormData("GridUnCheckedItems", _using: clearCheck)
                 .ClearFormData("GridCheckedItems", _using: clearCheck)
+                .ClearFormData("OriginalId", _using: newOnGrid)
                 .CloseDialog()
                 .ReplaceAll("#CopyDirectUrlToClipboard", new HtmlBuilder()
                     .CopyDirectUrlToClipboard(
@@ -221,18 +301,41 @@ namespace Implem.Pleasanter.Models
                         ss: ss,
                         view: view),
                     _using: offset == 0)
+                .ReplaceAll(
+                    "#ViewFilters",
+                    new HtmlBuilder()
+                        .ViewFilters(
+                            context: context,
+                            ss: ss,
+                            view: view),
+                    _using: context.Forms.ControlId().StartsWith("ViewFiltersOnGridHeader__"))
                 .Append("#Grid", new HtmlBuilder().GridRows(
                     context: context,
                     ss: ss,
                     gridData: gridData,
+                    columns: columns,
                     view: view,
-                    addHeader: offset == 0,
+                    resultModel: resultModel,
+                    editRow: editRow,
+                    newRowId: newRowId,
+                    offset: offset,
                     clearCheck: clearCheck,
                     action: action))
+                .Val("#NewRowId", newRowId, _using: newOnGrid)
+                .CopyRowFormData(
+                    context: context,
+                    ss: ss,
+                    resultModel: resultModel,
+                    columns: columns,
+                    newOnGrid: newOnGrid,
+                    newRowId: newRowId,
+                    originalId: originalId)
                 .Val("#GridOffset", ss.GridNextOffset(
                     offset,
                     gridData.DataRows.Count(),
                     gridData.TotalCount))
+                .Val("#GridRowIds", gridData.DataRows.Select(g => g.Long("ResultId")).ToJson())
+                .Val("#GridColumns", columns.Select(o => o.ColumnName).ToJson())
                 .Paging("#Grid")
                 .Message(message)
                 .ToJson();
@@ -240,67 +343,192 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder GridRows(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             GridData gridData,
+            List<Column> columns,
             View view,
-            bool addHeader = true,
+            ResultModel resultModel = null,
+            bool editRow = false,
+            long newRowId = 0,
+            int offset = 0,
             bool clearCheck = false,
             string action = "GridRows")
         {
+            var checkRow = !ss.GridColumnsHasSources();
             var checkAll = clearCheck
                 ? false
                 : context.Forms.Bool("GridCheckAll");
-            var columns = ss.GetGridColumns(
+            var formDataSet = new FormDataSet(
                 context: context,
-                view: view,
-                checkPermission: true);
+                ss: ss);
             return hb
                 .THead(
-                    _using: addHeader,
+                    _using: offset == 0,
                     action: () => hb
                         .GridHeader(
                             context: context,
+                            ss: ss,
                             columns: columns, 
                             view: view,
+                            editRow: editRow,
+                            checkRow: checkRow,
                             checkAll: checkAll,
                             action: action))
-                .TBody(action: () => gridData.TBody(
-                    hb: hb,
+                .TBody(action: () => hb
+                    .GridNewRows(
+                        context: context,
+                        ss: ss,
+                        resultModel: resultModel,
+                        columns: columns,
+                        formDataSet: formDataSet,
+                        editRow: editRow,
+                        newRowId: newRowId,
+                        offset: offset)
+                    .GridRows(
+                        context: context,
+                        ss: ss,
+                        dataRows: gridData.DataRows,
+                        columns: columns,
+                        formDataSet: formDataSet,
+                        checkAll: checkAll,
+                        editRow: editRow,
+                        checkRow: checkRow));
+        }
+
+        private static HtmlBuilder GridNewRows(
+            this HtmlBuilder hb,
+            Context context,
+            SiteSettings ss,
+            ResultModel resultModel,
+            List<Column> columns,
+            FormDataSet formDataSet,
+            bool editRow,
+            long newRowId,
+            int offset)
+        {
+            if (editRow && offset == 0)
+            {
+                if (newRowId != 0)
+                {
+                    hb.NewOnGrid(
+                        context: context,
+                        ss: ss,
+                        columns: columns,
+                        resultModel: resultModel,
+                        newRowId: newRowId);
+                }
+                formDataSet
+                    .Where(o => o.Id < 0)
+                    .OrderBy(o => o.Id)
+                    .ForEach(formData =>
+                    {
+                        resultModel = new ResultModel(
+                            context: context,
+                            ss: ss,
+                            formData: formData.Data);
+                        ss.SetColumnAccessControls(
+                            context: context,
+                            mine: resultModel.Mine(context: context));
+                        hb.NewOnGrid(
+                            context: context,
+                            ss: ss,
+                            columns: columns,
+                            resultModel: resultModel,
+                            newRowId: formData.Id);
+                    });
+            }
+            return hb;
+        }
+
+        private static ResponseCollection CopyRowFormData(
+            this ResponseCollection res,
+            Context context,
+            SiteSettings ss,
+            ResultModel resultModel,
+            List<Column> columns,
+            bool newOnGrid,
+            int newRowId,
+            long originalId)
+        {
+            if (newOnGrid && originalId > 0)
+            {
+                resultModel.SetCopyDefault(
                     context: context,
-                    ss: ss,
-                    columns: columns,
-                    checkAll: checkAll));
+                    ss: ss);
+                ss.EditorColumns
+                    .Select(columnName => ss.GetColumn(
+                        context: context,
+                        columnName: columnName))
+                    .Where(column => column.CanUpdate)
+                    .Where(column => !column.Id_Ver)
+                    .Where(column => !columns.Any(p =>
+                        p.ColumnName == column.ColumnName))
+                    .ForEach(column =>
+                        res.SetFormData(
+                            $"{ss.ReferenceType}_{column.ColumnName}_{ss.SiteId}_{newRowId}",
+                            resultModel.ControlValue(
+                                context: context,
+                                ss: ss,
+                                column: column)));
+            }
+            return res;
         }
 
-        private static SqlColumnCollection GridSqlColumnCollection(
-            IContext context, SiteSettings ss)
+        private static SqlWhereCollection SelectedWhere(
+            Context context, SiteSettings ss)
         {
-            var sqlColumnCollection = Rds.ResultsColumn();
-            new List<string> { "SiteId", "ResultId", "Creator", "Updator" }
-                .Concat(ss.GridColumns)
-                .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
-                .Concat(ss.TitleColumns)
-                    .Distinct().ForEach(column =>
-                        sqlColumnCollection.ResultsColumn(column));
-            return sqlColumnCollection;
+            var selector = new GridSelector(context: context);
+            return !selector.Nothing
+                ? Rds.ResultsWhere().ResultId_In(
+                    value: selector.Selected.Select(o => o.ToLong()),
+                    negative: selector.All)
+                : null;
         }
 
-        private static SqlColumnCollection DefaultSqlColumns(
-            IContext context, SiteSettings ss)
+        public static string ReloadRow(Context context, SiteSettings ss, long resultId)
         {
-            var sqlColumnCollection = Rds.ResultsColumn();
-            new List<string> { "SiteId", "ResultId", "Creator", "Updator" }
-                .Concat(ss.IncludedColumns())
-                .Concat(ss.GetUseSearchLinks(context: context).Select(o => o.ColumnName))
-                .Concat(ss.TitleColumns)
-                    .Distinct().ForEach(column =>
-                        sqlColumnCollection.ResultsColumn(column));
-            return sqlColumnCollection;
+            ss.SetColumnAccessControls(context: context);
+            var view = Views.GetBySession(
+                context: context,
+                ss: ss);
+            var dataRow = new GridData(
+                context: context,
+                ss: ss,
+                view: view,
+                where: Rds.ResultsWhere().ResultId(resultId))
+                    .DataRows
+                    .FirstOrDefault();
+            var res = ItemUtilities.ClearItemDataResponse(
+                context: context,
+                ss: ss,
+                id: resultId);
+            return dataRow == null
+                ? res
+                    .Remove($"[data-id=\"{resultId}\"][data-latest]")
+                    .Message(
+                        message: Messages.NotFound(context: context),
+                        target: "row_" + resultId)
+                    .ToJson()
+                : res
+                    .ReplaceAll(
+                        $"[data-id=\"{dataRow.Long("ResultId")}\"][data-latest]",
+                        new HtmlBuilder().Tr(
+                            context: context,
+                            ss: ss,
+                            dataRow: dataRow,
+                            columns: ss.GetGridColumns(
+                                context: context,
+                                view: view,
+                                checkPermission: true),
+                            checkAll: false,
+                            editRow: true,
+                            checkRow: false,
+                            idColumn: "ResultId"))
+                    .ToJson();
         }
 
-        public static string TrashBox(IContext context, SiteSettings ss)
+        public static string TrashBox(Context context, SiteSettings ss)
         {
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -323,7 +551,7 @@ namespace Implem.Pleasanter.Models
                         action: "TrashBoxGridRows"));
         }
 
-        public static string TrashBoxJson(IContext context, SiteSettings ss)
+        public static string TrashBoxJson(Context context, SiteSettings ss)
         {
             var view = Views.GetBySession(context: context, ss: ss);
             var gridData = GetGridData(context: context, ss: ss, view: view);
@@ -346,7 +574,7 @@ namespace Implem.Pleasanter.Models
 
         public static HtmlBuilder TdValue(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             ResultModel resultModel)
@@ -514,2346 +742,6 @@ namespace Implem.Pleasanter.Models
                                     context: context,
                                     column: column,
                                     value: string.Empty);
-                    case "ClassA":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassA)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassB":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassB)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassC":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassC)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassD":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassD)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassE":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassE)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassF":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassF)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassG":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassG)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassH":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassH)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassI":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassI)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassJ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassJ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassK":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassK)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassL":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassL)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassM":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassM)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassN":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassN)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassO":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassO)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassP":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassP)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassQ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassQ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassR":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassR)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassS":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassS)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassT":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassT)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassU":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassU)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassV":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassV)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassW":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassW)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassX":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassX)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassY":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassY)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "ClassZ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.ClassZ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumA":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumA)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumB":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumB)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumC":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumC)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumD":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumD)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumE":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumE)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumF":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumF)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumG":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumG)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumH":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumH)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumI":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumI)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumJ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumJ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumK":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumK)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumL":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumL)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumM":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumM)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumN":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumN)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumO":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumO)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumP":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumP)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumQ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumQ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumR":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumR)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumS":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumS)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumT":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumT)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumU":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumU)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumV":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumV)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumW":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumW)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumX":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumX)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumY":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumY)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "NumZ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.NumZ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateA":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateA)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateB":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateB)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateC":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateC)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateD":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateD)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateE":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateE)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateF":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateF)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateG":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateG)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateH":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateH)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateI":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateI)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateJ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateJ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateK":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateK)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateL":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateL)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateM":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateM)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateN":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateN)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateO":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateO)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateP":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateP)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateQ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateQ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateR":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateR)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateS":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateS)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateT":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateT)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateU":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateU)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateV":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateV)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateW":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateW)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateX":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateX)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateY":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateY)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DateZ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DateZ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionA":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionA)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionB":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionB)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionC":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionC)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionD":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionD)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionE":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionE)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionF":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionF)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionG":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionG)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionH":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionH)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionI":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionI)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionJ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionJ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionK":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionK)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionL":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionL)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionM":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionM)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionN":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionN)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionO":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionO)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionP":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionP)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionQ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionQ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionR":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionR)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionS":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionS)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionT":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionT)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionU":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionU)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionV":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionV)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionW":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionW)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionX":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionX)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionY":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionY)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "DescriptionZ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.DescriptionZ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckA":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckA)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckB":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckB)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckC":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckC)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckD":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckD)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckE":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckE)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckF":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckF)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckG":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckG)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckH":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckH)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckI":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckI)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckJ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckJ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckK":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckK)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckL":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckL)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckM":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckM)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckN":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckN)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckO":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckO)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckP":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckP)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckQ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckQ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckR":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckR)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckS":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckS)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckT":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckT)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckU":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckU)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckV":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckV)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckW":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckW)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckX":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckX)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckY":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckY)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "CheckZ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.CheckZ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsA":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsA)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsB":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsB)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsC":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsC)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsD":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsD)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsE":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsE)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsF":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsF)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsG":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsG)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsH":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsH)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsI":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsI)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsJ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsJ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsK":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsK)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsL":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsL)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsM":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsM)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsN":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsN)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsO":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsO)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsP":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsP)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsQ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsQ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsR":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsR)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsS":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsS)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsT":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsT)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsU":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsU)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsV":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsV)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsW":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsW)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsX":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsX)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsY":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsY)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
-                    case "AttachmentsZ":
-                        return ss.ReadColumnAccessControls.Allowed(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            type: ss.PermissionType,
-                            mine: mine)
-                                ? hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: resultModel.AttachmentsZ)
-                                : hb.Td(
-                                    context: context,
-                                    column: column,
-                                    value: string.Empty);
                     case "SiteTitle":
                         return ss.ReadColumnAccessControls.Allowed(
                             context: context,
@@ -2929,14 +817,109 @@ namespace Implem.Pleasanter.Models
                                     context: context,
                                     column: column,
                                     value: string.Empty);
-                    default: return hb;
+                    default:
+                        switch (Def.ExtendedColumnTypes.Get(column.Name))
+                        {
+                            case "Class":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: resultModel.Class(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Num":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: resultModel.Num(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Date":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: resultModel.Date(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Description":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: resultModel.Description(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Check":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: resultModel.Check(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            case "Attachments":
+                                return ss.ReadColumnAccessControls.Allowed(
+                                    context: context,
+                                    ss: ss,
+                                    column: column,
+                                    type: ss.PermissionType,
+                                    mine: mine)
+                                        ? hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: resultModel.Attachments(columnName: column.Name))
+                                        : hb.Td(
+                                            context: context,
+                                            column: column,
+                                            value: string.Empty);
+                            default:
+                                return hb;
+                        }
                 }
             }
         }
 
         private static HtmlBuilder TdCustomValue(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string gridDesign,
             ResultModel resultModel)
@@ -2976,474 +959,6 @@ namespace Implem.Pleasanter.Models
                     case "Owner": value = resultModel.Owner.GridText(
                         context: context,
                         column: column); break;
-                    case "ClassA": value = resultModel.ClassA.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassB": value = resultModel.ClassB.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassC": value = resultModel.ClassC.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassD": value = resultModel.ClassD.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassE": value = resultModel.ClassE.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassF": value = resultModel.ClassF.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassG": value = resultModel.ClassG.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassH": value = resultModel.ClassH.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassI": value = resultModel.ClassI.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassJ": value = resultModel.ClassJ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassK": value = resultModel.ClassK.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassL": value = resultModel.ClassL.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassM": value = resultModel.ClassM.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassN": value = resultModel.ClassN.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassO": value = resultModel.ClassO.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassP": value = resultModel.ClassP.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassQ": value = resultModel.ClassQ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassR": value = resultModel.ClassR.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassS": value = resultModel.ClassS.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassT": value = resultModel.ClassT.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassU": value = resultModel.ClassU.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassV": value = resultModel.ClassV.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassW": value = resultModel.ClassW.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassX": value = resultModel.ClassX.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassY": value = resultModel.ClassY.GridText(
-                        context: context,
-                        column: column); break;
-                    case "ClassZ": value = resultModel.ClassZ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumA": value = resultModel.NumA.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumB": value = resultModel.NumB.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumC": value = resultModel.NumC.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumD": value = resultModel.NumD.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumE": value = resultModel.NumE.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumF": value = resultModel.NumF.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumG": value = resultModel.NumG.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumH": value = resultModel.NumH.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumI": value = resultModel.NumI.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumJ": value = resultModel.NumJ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumK": value = resultModel.NumK.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumL": value = resultModel.NumL.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumM": value = resultModel.NumM.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumN": value = resultModel.NumN.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumO": value = resultModel.NumO.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumP": value = resultModel.NumP.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumQ": value = resultModel.NumQ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumR": value = resultModel.NumR.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumS": value = resultModel.NumS.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumT": value = resultModel.NumT.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumU": value = resultModel.NumU.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumV": value = resultModel.NumV.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumW": value = resultModel.NumW.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumX": value = resultModel.NumX.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumY": value = resultModel.NumY.GridText(
-                        context: context,
-                        column: column); break;
-                    case "NumZ": value = resultModel.NumZ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateA": value = resultModel.DateA.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateB": value = resultModel.DateB.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateC": value = resultModel.DateC.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateD": value = resultModel.DateD.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateE": value = resultModel.DateE.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateF": value = resultModel.DateF.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateG": value = resultModel.DateG.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateH": value = resultModel.DateH.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateI": value = resultModel.DateI.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateJ": value = resultModel.DateJ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateK": value = resultModel.DateK.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateL": value = resultModel.DateL.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateM": value = resultModel.DateM.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateN": value = resultModel.DateN.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateO": value = resultModel.DateO.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateP": value = resultModel.DateP.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateQ": value = resultModel.DateQ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateR": value = resultModel.DateR.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateS": value = resultModel.DateS.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateT": value = resultModel.DateT.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateU": value = resultModel.DateU.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateV": value = resultModel.DateV.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateW": value = resultModel.DateW.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateX": value = resultModel.DateX.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateY": value = resultModel.DateY.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DateZ": value = resultModel.DateZ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionA": value = resultModel.DescriptionA.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionB": value = resultModel.DescriptionB.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionC": value = resultModel.DescriptionC.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionD": value = resultModel.DescriptionD.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionE": value = resultModel.DescriptionE.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionF": value = resultModel.DescriptionF.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionG": value = resultModel.DescriptionG.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionH": value = resultModel.DescriptionH.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionI": value = resultModel.DescriptionI.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionJ": value = resultModel.DescriptionJ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionK": value = resultModel.DescriptionK.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionL": value = resultModel.DescriptionL.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionM": value = resultModel.DescriptionM.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionN": value = resultModel.DescriptionN.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionO": value = resultModel.DescriptionO.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionP": value = resultModel.DescriptionP.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionQ": value = resultModel.DescriptionQ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionR": value = resultModel.DescriptionR.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionS": value = resultModel.DescriptionS.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionT": value = resultModel.DescriptionT.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionU": value = resultModel.DescriptionU.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionV": value = resultModel.DescriptionV.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionW": value = resultModel.DescriptionW.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionX": value = resultModel.DescriptionX.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionY": value = resultModel.DescriptionY.GridText(
-                        context: context,
-                        column: column); break;
-                    case "DescriptionZ": value = resultModel.DescriptionZ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckA": value = resultModel.CheckA.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckB": value = resultModel.CheckB.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckC": value = resultModel.CheckC.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckD": value = resultModel.CheckD.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckE": value = resultModel.CheckE.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckF": value = resultModel.CheckF.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckG": value = resultModel.CheckG.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckH": value = resultModel.CheckH.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckI": value = resultModel.CheckI.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckJ": value = resultModel.CheckJ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckK": value = resultModel.CheckK.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckL": value = resultModel.CheckL.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckM": value = resultModel.CheckM.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckN": value = resultModel.CheckN.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckO": value = resultModel.CheckO.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckP": value = resultModel.CheckP.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckQ": value = resultModel.CheckQ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckR": value = resultModel.CheckR.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckS": value = resultModel.CheckS.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckT": value = resultModel.CheckT.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckU": value = resultModel.CheckU.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckV": value = resultModel.CheckV.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckW": value = resultModel.CheckW.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckX": value = resultModel.CheckX.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckY": value = resultModel.CheckY.GridText(
-                        context: context,
-                        column: column); break;
-                    case "CheckZ": value = resultModel.CheckZ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsA": value = resultModel.AttachmentsA.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsB": value = resultModel.AttachmentsB.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsC": value = resultModel.AttachmentsC.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsD": value = resultModel.AttachmentsD.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsE": value = resultModel.AttachmentsE.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsF": value = resultModel.AttachmentsF.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsG": value = resultModel.AttachmentsG.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsH": value = resultModel.AttachmentsH.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsI": value = resultModel.AttachmentsI.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsJ": value = resultModel.AttachmentsJ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsK": value = resultModel.AttachmentsK.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsL": value = resultModel.AttachmentsL.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsM": value = resultModel.AttachmentsM.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsN": value = resultModel.AttachmentsN.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsO": value = resultModel.AttachmentsO.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsP": value = resultModel.AttachmentsP.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsQ": value = resultModel.AttachmentsQ.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsR": value = resultModel.AttachmentsR.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsS": value = resultModel.AttachmentsS.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsT": value = resultModel.AttachmentsT.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsU": value = resultModel.AttachmentsU.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsV": value = resultModel.AttachmentsV.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsW": value = resultModel.AttachmentsW.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsX": value = resultModel.AttachmentsX.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsY": value = resultModel.AttachmentsY.GridText(
-                        context: context,
-                        column: column); break;
-                    case "AttachmentsZ": value = resultModel.AttachmentsZ.GridText(
-                        context: context,
-                        column: column); break;
                     case "SiteTitle": value = resultModel.SiteTitle.GridText(
                         context: context,
                         column: column); break;
@@ -3459,6 +974,41 @@ namespace Implem.Pleasanter.Models
                     case "CreatedTime": value = resultModel.CreatedTime.GridText(
                         context: context,
                         column: column); break;
+                    default:
+                        switch (Def.ExtendedColumnTypes.Get(column.Name))
+                        {
+                            case "Class":
+                                value = resultModel.Class(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Num":
+                                value = resultModel.Num(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Date":
+                                value = resultModel.Date(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Description":
+                                value = resultModel.Description(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Check":
+                                value = resultModel.Check(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                            case "Attachments":
+                                value = resultModel.Attachments(columnName: column.Name).GridText(
+                                    context: context,
+                                    column: column);
+                                break;
+                        }
+                        break;
                 }
                 gridDesign = gridDesign.Replace("[" + column.ColumnName + "]", value);
             });
@@ -3467,11 +1017,13 @@ namespace Implem.Pleasanter.Models
                     .Text(text: gridDesign)));
         }
 
-        public static string EditorNew(IContext context, SiteSettings ss)
+        public static string EditorNew(Context context, SiteSettings ss)
         {
             if (context.ContractSettings.ItemsLimit(context: context, siteId: ss.SiteId))
             {
-                return HtmlTemplates.Error(context, Error.Types.ItemsLimit);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.ItemsLimit));
             }
             return Editor(
                 context: context,
@@ -3480,11 +1032,11 @@ namespace Implem.Pleasanter.Models
                     context: context,
                     ss: ss,
                     methodType: BaseModel.MethodTypes.New,
-                    setByForm: true));
+                    formData: context.Forms));
         }
 
         public static string Editor(
-            IContext context, SiteSettings ss, long resultId, bool clearSessions)
+            Context context, SiteSettings ss, long resultId, bool clearSessions)
         {
             var resultModel = new ResultModel(
                 context: context,
@@ -3504,7 +1056,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string Editor(
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel,
             bool editInDialog = false)
@@ -3513,10 +1065,12 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return HtmlTemplates.Error(context, invalid);
+                default: return HtmlTemplates.Error(
+                    context: context,
+                    errorData: invalid);
             }
             var hb = new HtmlBuilder();
             ss.SetColumnAccessControls(
@@ -3525,8 +1079,10 @@ namespace Implem.Pleasanter.Models
             return editInDialog
                 ? hb.DialogEditorForm(
                     context: context,
+                    ss: ss,
                     siteId: resultModel.SiteId,
                     referenceId: resultModel.ResultId,
+                    isHistory: resultModel.VerType == Versions.VerTypes.History,
                     action: () => hb
                         .FieldSetGeneral(
                             context: context,
@@ -3557,6 +1113,7 @@ namespace Implem.Pleasanter.Models
                             ss: ss,
                             resultModel: resultModel)
                         .Hidden(controlId: "TableName", value: "Results")
+                        .Hidden(controlId: "Controller", value: context.Controller)
                         .Hidden(controlId: "Id", value: resultModel.ResultId.ToString())
                         .Hidden(controlId: "TriggerRelatingColumns", value: Jsons.ToJson(ss.RelatingColumns))
                         .Hidden(controlId: "DropDownSearchPageSize", value: Parameters.General.DropDownSearchPageSize.ToString()))
@@ -3565,7 +1122,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder Editor(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel)
         {
@@ -3577,8 +1134,8 @@ namespace Implem.Pleasanter.Models
             return hb.Div(id: "Editor", action: () => hb
                 .Form(
                     attributes: new HtmlAttributes()
-                        .Id("ResultForm")
-                        .Class("main-form confirm-reload")
+                        .Id("MainForm")
+                        .Class("main-form confirm-unload")
                         .Action(Locations.ItemAction(
                             context: context,
                             id: resultModel.ResultId != 0 
@@ -3621,14 +1178,13 @@ namespace Implem.Pleasanter.Models
                                     .Id("FieldSetRecordAccessControl")
                                     .DataAction("Permissions")
                                     .DataMethod("post"),
-                                _using: context.CanManagePermission(ss: ss) &&
-                                    resultModel.MethodType != BaseModel.MethodTypes.New)
+                                _using: context.CanManagePermission(ss: ss)
+                                    && !ss.Locked()
+                                    && resultModel.MethodType != BaseModel.MethodTypes.New)
                             .MainCommands(
                                 context: context,
                                 ss: ss,
-                                siteId: resultModel.SiteId,
                                 verType: resultModel.VerType,
-                                referenceId: resultModel.ResultId,
                                 updateButton: true,
                                 copyButton: true,
                                 moveButton: true,
@@ -3688,7 +1244,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder EditorTabs(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel)
         {
@@ -3712,7 +1268,7 @@ namespace Implem.Pleasanter.Models
                             text: Displays.RecordAccessControl(context: context))));
         }
 
-        public static string PreviewTemplate(IContext context, SiteSettings ss)
+        public static string PreviewTemplate(Context context, SiteSettings ss)
         {
             var hb = new HtmlBuilder();
             var name = Strings.NewGuid();
@@ -3744,6 +1300,7 @@ namespace Implem.Pleasanter.Models
                                 .THead(action: () => hb
                                     .GridHeader(
                                         context: context,
+                                        ss: ss,
                                         columns: ss.GetGridColumns(context: context),
                                         view: new View(context: context, ss: ss),
                                         sort: false,
@@ -3753,7 +1310,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder FieldSetGeneral(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel,
             bool editInDialog = false)
@@ -3769,1811 +1326,19 @@ namespace Implem.Pleasanter.Models
 
         public static HtmlBuilder FieldSetGeneralColumns(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel,
             bool preview = false,
             bool editInDialog = false)
         {
             ss.GetEditorColumns(context: context).ForEach(column =>
-            {
-                switch (column.Name)
-                {
-                    case "ResultId":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ResultId
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Ver":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.Ver
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Title":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.Title
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Body":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.Body
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Status":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.Status
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Manager":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.Manager
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "Owner":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.Owner
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassA":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassA
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassB":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassB
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassC":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassC
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassD":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassD
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassE":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassE
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassF":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassF
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassG":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassG
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassH":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassH
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassI":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassI
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassJ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassJ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassK":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassK
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassL":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassL
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassM":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassM
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassN":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassN
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassO":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassO
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassP":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassP
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassQ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassQ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassR":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassR
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassS":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassS
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassT":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassT
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassU":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassU
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassV":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassV
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassW":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassW
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassX":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassX
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassY":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassY
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "ClassZ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.ClassZ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumA":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumA
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumB":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumB
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumC":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumC
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumD":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumD
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumE":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumE
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumF":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumF
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumG":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumG
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumH":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumH
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumI":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumI
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumJ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumJ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumK":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumK
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumL":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumL
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumM":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumM
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumN":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumN
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumO":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumO
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumP":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumP
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumQ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumQ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumR":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumR
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumS":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumS
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumT":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumT
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumU":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumU
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumV":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumV
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumW":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumW
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumX":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumX
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumY":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumY
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "NumZ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.NumZ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateA":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateA
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateB":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateB
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateC":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateC
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateD":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateD
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateE":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateE
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateF":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateF
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateG":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateG
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateH":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateH
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateI":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateI
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateJ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateJ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateK":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateK
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateL":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateL
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateM":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateM
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateN":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateN
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateO":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateO
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateP":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateP
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateQ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateQ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateR":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateR
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateS":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateS
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateT":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateT
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateU":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateU
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateV":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateV
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateW":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateW
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateX":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateX
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateY":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateY
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DateZ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DateZ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionA":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionA
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionB":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionB
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionC":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionC
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionD":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionD
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionE":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionE
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionF":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionF
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionG":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionG
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionH":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionH
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionI":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionI
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionJ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionJ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionK":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionK
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionL":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionL
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionM":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionM
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionN":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionN
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionO":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionO
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionP":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionP
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionQ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionQ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionR":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionR
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionS":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionS
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionT":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionT
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionU":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionU
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionV":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionV
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionW":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionW
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionX":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionX
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionY":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionY
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "DescriptionZ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.DescriptionZ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckA":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckA
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckB":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckB
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckC":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckC
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckD":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckD
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckE":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckE
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckF":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckF
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckG":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckG
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckH":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckH
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckI":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckI
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckJ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckJ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckK":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckK
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckL":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckL
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckM":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckM
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckN":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckN
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckO":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckO
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckP":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckP
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckQ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckQ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckR":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckR
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckS":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckS
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckT":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckT
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckU":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckU
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckV":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckV
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckW":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckW
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckX":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckX
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckY":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckY
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "CheckZ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.CheckZ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsA":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsA
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsB":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsB
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsC":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsC
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsD":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsD
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsE":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsE
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsF":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsF
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsG":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsG
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsH":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsH
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsI":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsI
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsJ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsJ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsK":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsK
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsL":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsL
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsM":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsM
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsN":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsN
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsO":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsO
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsP":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsP
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsQ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsQ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsR":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsR
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsS":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsS
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsT":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsT
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsU":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsU
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsV":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsV
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsW":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsW
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsX":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsX
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsY":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsY
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                    case "AttachmentsZ":
-                        hb.Field(
-                            context: context,
-                            ss: ss,
-                            column: column,
-                            methodType: resultModel.MethodType,
-                            value: resultModel.AttachmentsZ
-                                .ToControl(context: context, ss: ss, column: column),
-                            columnPermissionType: column.ColumnPermissionType(context: context),
-                            preview: preview);
-                        break;
-                }
-            });
+                hb.Field(
+                    context: context,
+                    ss: ss,
+                    resultModel: resultModel,
+                    column: column,
+                    preview: preview));
             if (!preview)
             {
                 hb.VerUpCheckBox(
@@ -5599,9 +1364,134 @@ namespace Implem.Pleasanter.Models
             return hb;
         }
 
+        public static void Field(
+            this HtmlBuilder hb,
+            Context context,
+            SiteSettings ss,
+            ResultModel resultModel,
+            Column column,
+            bool controlOnly = false,
+            bool alwaysSend = false,
+            string idSuffix = null,
+            bool preview = false)
+        {
+            var value = resultModel.ControlValue(
+                context: context,
+                ss: ss,
+                column: column);
+            if (value != null)
+            {
+                hb.Field(
+                    context: context,
+                    ss: ss,
+                    column: column,
+                    methodType: resultModel.MethodType,
+                    value: value,
+                    columnPermissionType: column.ColumnPermissionType(context: context),
+                    controlOnly: controlOnly,
+                    alwaysSend: alwaysSend,
+                    idSuffix: idSuffix,
+                    preview: preview);
+            }
+        }
+
+        public static string ControlValue(
+            this ResultModel resultModel,
+            Context context,
+            SiteSettings ss,
+            Column column)
+        {
+            switch (column.Name)
+            {
+                case "ResultId":
+                    return resultModel.ResultId
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Ver":
+                    return resultModel.Ver
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Title":
+                    return resultModel.Title
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Body":
+                    return resultModel.Body
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Status":
+                    return resultModel.Status
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Manager":
+                    return resultModel.Manager
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                case "Owner":
+                    return resultModel.Owner
+                        .ToControl(
+                            context: context,
+                            ss: ss,
+                            column: column);
+                default:
+                    switch (Def.ExtendedColumnTypes.Get(column.Name))
+                    {
+                        case "Class":
+                            return resultModel.Class(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Num":
+                            return resultModel.Num(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Date":
+                            return resultModel.Date(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Description":
+                            return resultModel.Description(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Check":
+                            return resultModel.Check(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        case "Attachments":
+                            return resultModel.Attachments(columnName: column.Name)
+                                .ToControl(
+                                    context: context,
+                                    ss: ss,
+                                    column: column);
+                        default: return null;
+                    }
+            }
+        }
+
         private static HtmlBuilder MainCommandExtensions(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel)
         {
@@ -5610,21 +1500,21 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder EditorExtensions(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel)
         {
             return hb;
         }
 
-        public static string EditorJson(IContext context, SiteSettings ss, long resultId)
+        public static string EditorJson(Context context, SiteSettings ss, long resultId)
         {
             return EditorResponse(context, ss, new ResultModel(
                 context, ss, resultId)).ToJson();
         }
 
         private static ResponseCollection EditorResponse(
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel,
             Message message = null,
@@ -5654,14 +1544,24 @@ namespace Implem.Pleasanter.Models
                     .Events("on_editor_load");
         }
 
-        private static List<long> GetSwitchTargets(IContext context, SiteSettings ss, long resultId, long siteId)
+        private static List<long> GetSwitchTargets(Context context, SiteSettings ss, long resultId, long siteId)
         {
             var view = Views.GetBySession(
                 context: context,
                 ss: ss,
                 setSession: false);
             var where = view.Where(context: context, ss: ss);
-            var join = ss.Join(context: context);
+            var orderBy = view.OrderBy(
+                context: context,
+                ss: ss)
+                    .Results_UpdatedTime(SqlOrderBy.Types.desc);
+            var join = ss.Join(
+                context: context,
+                join: new IJoin[]
+                {
+                    where,
+                    orderBy
+                });
             var switchTargets = Rds.ExecuteScalar_int(
                 context: context,
                 statements: Rds.SelectResults(
@@ -5674,11 +1574,10 @@ namespace Implem.Pleasanter.Models
                                 column: Rds.ResultsColumn().ResultId(),
                                 join: join,
                                 where: where,
-                                orderBy: view.OrderBy(context: context, ss: ss)
-                                    .Results_UpdatedTime(SqlOrderBy.Types.desc)))
-                                        .AsEnumerable()
-                                        .Select(o => o["ResultId"].ToLong())
-                                        .ToList()
+                                orderBy: orderBy))
+                                    .AsEnumerable()
+                                    .Select(o => o["ResultId"].ToLong())
+                                    .ToList()
                         : new List<long>();
             if (!switchTargets.Contains(resultId))
             {
@@ -5688,14 +1587,17 @@ namespace Implem.Pleasanter.Models
         }
 
         public static ResponseCollection FieldResponse(
-            this ResultsResponseCollection res,
-            IContext context,
+            this ResponseCollection res,
+            Context context,
             SiteSettings ss,
-            ResultModel resultModel)
+            ResultModel resultModel,
+            string idSuffix = null)
         {
             var mine = resultModel.Mine(context: context);
             ss.EditorColumns
-                .Select(columnName => ss.GetColumn(context: context, columnName: columnName))
+                .Select(columnName => ss.GetColumn(
+                    context: context,
+                    columnName: columnName))
                 .Where(column => column != null)
                 .ForEach(column =>
                 {
@@ -5703,1014 +1605,188 @@ namespace Implem.Pleasanter.Models
                     {
                         case "ResultId":
                             res.Val(
-                                "#Results_ResultId",
+                                "#Results_ResultId" + idSuffix,
                                 resultModel.ResultId.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Title":
                             res.Val(
-                                "#Results_Title",
+                                "#Results_Title" + idSuffix,
                                 resultModel.Title.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Body":
                             res.Val(
-                                "#Results_Body",
+                                "#Results_Body" + idSuffix,
                                 resultModel.Body.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Status":
                             res.Val(
-                                "#Results_Status",
+                                "#Results_Status" + idSuffix,
                                 resultModel.Status.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Manager":
                             res.Val(
-                                "#Results_Manager",
+                                "#Results_Manager" + idSuffix,
                                 resultModel.Manager.ToResponse(context: context, ss: ss, column: column));
                             break;
                         case "Owner":
                             res.Val(
-                                "#Results_Owner",
+                                "#Results_Owner" + idSuffix,
                                 resultModel.Owner.ToResponse(context: context, ss: ss, column: column));
                             break;
-                        case "ClassA":
-                            res.Val(
-                                "#Results_ClassA",
-                                resultModel.ClassA.ToResponse(context: context, ss: ss, column: column));
+                        default:
+                            switch (Def.ExtendedColumnTypes.Get(column.Name))
+                            {
+                                case "Class":
+                                    res.Val(
+                                        $"#Results_{column.Name}{idSuffix}",
+                                        resultModel.Class(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Num":
+                                    res.Val(
+                                        $"#Results_{column.Name}{idSuffix}",
+                                        resultModel.Num(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Date":
+                                    res.Val(
+                                        $"#Results_{column.Name}{idSuffix}",
+                                        resultModel.Date(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Description":
+                                    res.Val(
+                                        $"#Results_{column.Name}{idSuffix}",
+                                        resultModel.Description(columnName: column.Name).ToResponse(
+                                            context: context,
+                                            ss: ss,
+                                            column: column));
+                                    break;
+                                case "Check":
+                                    res.Val(
+                                        $"#Results_{column.Name}{idSuffix}",
+                                        resultModel.Check(columnName: column.Name));
+                                    break;
+                                case "Attachments":
+                                    res.ReplaceAll(
+                                        $"#Results_{column.Name}Field",
+                                        new HtmlBuilder()
+                                            .FieldAttachments(
+                                                context: context,
+                                                fieldId: $"Results_{column.Name}Field",
+                                                controlId: $"Results_{column.Name}",
+                                                columnName: column.ColumnName,
+                                                fieldCss: column.FieldCss,
+                                                fieldDescription: column.Description,
+                                                controlCss: column.ControlCss,
+                                                labelText: column.LabelText,
+                                                value: resultModel.Attachments(columnName: column.Name).ToJson(),
+                                                placeholder: column.LabelText,
+                                                readOnly: column.ColumnPermissionType(context: context)
+                                                    != Permissions.ColumnPermissionTypes.Update));
+                                    break;
+                            }
                             break;
-                        case "ClassB":
-                            res.Val(
-                                "#Results_ClassB",
-                                resultModel.ClassB.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassC":
-                            res.Val(
-                                "#Results_ClassC",
-                                resultModel.ClassC.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassD":
-                            res.Val(
-                                "#Results_ClassD",
-                                resultModel.ClassD.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassE":
-                            res.Val(
-                                "#Results_ClassE",
-                                resultModel.ClassE.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassF":
-                            res.Val(
-                                "#Results_ClassF",
-                                resultModel.ClassF.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassG":
-                            res.Val(
-                                "#Results_ClassG",
-                                resultModel.ClassG.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassH":
-                            res.Val(
-                                "#Results_ClassH",
-                                resultModel.ClassH.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassI":
-                            res.Val(
-                                "#Results_ClassI",
-                                resultModel.ClassI.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassJ":
-                            res.Val(
-                                "#Results_ClassJ",
-                                resultModel.ClassJ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassK":
-                            res.Val(
-                                "#Results_ClassK",
-                                resultModel.ClassK.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassL":
-                            res.Val(
-                                "#Results_ClassL",
-                                resultModel.ClassL.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassM":
-                            res.Val(
-                                "#Results_ClassM",
-                                resultModel.ClassM.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassN":
-                            res.Val(
-                                "#Results_ClassN",
-                                resultModel.ClassN.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassO":
-                            res.Val(
-                                "#Results_ClassO",
-                                resultModel.ClassO.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassP":
-                            res.Val(
-                                "#Results_ClassP",
-                                resultModel.ClassP.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassQ":
-                            res.Val(
-                                "#Results_ClassQ",
-                                resultModel.ClassQ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassR":
-                            res.Val(
-                                "#Results_ClassR",
-                                resultModel.ClassR.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassS":
-                            res.Val(
-                                "#Results_ClassS",
-                                resultModel.ClassS.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassT":
-                            res.Val(
-                                "#Results_ClassT",
-                                resultModel.ClassT.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassU":
-                            res.Val(
-                                "#Results_ClassU",
-                                resultModel.ClassU.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassV":
-                            res.Val(
-                                "#Results_ClassV",
-                                resultModel.ClassV.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassW":
-                            res.Val(
-                                "#Results_ClassW",
-                                resultModel.ClassW.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassX":
-                            res.Val(
-                                "#Results_ClassX",
-                                resultModel.ClassX.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassY":
-                            res.Val(
-                                "#Results_ClassY",
-                                resultModel.ClassY.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "ClassZ":
-                            res.Val(
-                                "#Results_ClassZ",
-                                resultModel.ClassZ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumA":
-                            res.Val(
-                                "#Results_NumA",
-                                resultModel.NumA.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumB":
-                            res.Val(
-                                "#Results_NumB",
-                                resultModel.NumB.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumC":
-                            res.Val(
-                                "#Results_NumC",
-                                resultModel.NumC.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumD":
-                            res.Val(
-                                "#Results_NumD",
-                                resultModel.NumD.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumE":
-                            res.Val(
-                                "#Results_NumE",
-                                resultModel.NumE.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumF":
-                            res.Val(
-                                "#Results_NumF",
-                                resultModel.NumF.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumG":
-                            res.Val(
-                                "#Results_NumG",
-                                resultModel.NumG.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumH":
-                            res.Val(
-                                "#Results_NumH",
-                                resultModel.NumH.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumI":
-                            res.Val(
-                                "#Results_NumI",
-                                resultModel.NumI.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumJ":
-                            res.Val(
-                                "#Results_NumJ",
-                                resultModel.NumJ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumK":
-                            res.Val(
-                                "#Results_NumK",
-                                resultModel.NumK.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumL":
-                            res.Val(
-                                "#Results_NumL",
-                                resultModel.NumL.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumM":
-                            res.Val(
-                                "#Results_NumM",
-                                resultModel.NumM.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumN":
-                            res.Val(
-                                "#Results_NumN",
-                                resultModel.NumN.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumO":
-                            res.Val(
-                                "#Results_NumO",
-                                resultModel.NumO.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumP":
-                            res.Val(
-                                "#Results_NumP",
-                                resultModel.NumP.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumQ":
-                            res.Val(
-                                "#Results_NumQ",
-                                resultModel.NumQ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumR":
-                            res.Val(
-                                "#Results_NumR",
-                                resultModel.NumR.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumS":
-                            res.Val(
-                                "#Results_NumS",
-                                resultModel.NumS.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumT":
-                            res.Val(
-                                "#Results_NumT",
-                                resultModel.NumT.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumU":
-                            res.Val(
-                                "#Results_NumU",
-                                resultModel.NumU.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumV":
-                            res.Val(
-                                "#Results_NumV",
-                                resultModel.NumV.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumW":
-                            res.Val(
-                                "#Results_NumW",
-                                resultModel.NumW.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumX":
-                            res.Val(
-                                "#Results_NumX",
-                                resultModel.NumX.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumY":
-                            res.Val(
-                                "#Results_NumY",
-                                resultModel.NumY.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "NumZ":
-                            res.Val(
-                                "#Results_NumZ",
-                                resultModel.NumZ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateA":
-                            res.Val(
-                                "#Results_DateA",
-                                resultModel.DateA.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateB":
-                            res.Val(
-                                "#Results_DateB",
-                                resultModel.DateB.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateC":
-                            res.Val(
-                                "#Results_DateC",
-                                resultModel.DateC.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateD":
-                            res.Val(
-                                "#Results_DateD",
-                                resultModel.DateD.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateE":
-                            res.Val(
-                                "#Results_DateE",
-                                resultModel.DateE.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateF":
-                            res.Val(
-                                "#Results_DateF",
-                                resultModel.DateF.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateG":
-                            res.Val(
-                                "#Results_DateG",
-                                resultModel.DateG.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateH":
-                            res.Val(
-                                "#Results_DateH",
-                                resultModel.DateH.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateI":
-                            res.Val(
-                                "#Results_DateI",
-                                resultModel.DateI.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateJ":
-                            res.Val(
-                                "#Results_DateJ",
-                                resultModel.DateJ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateK":
-                            res.Val(
-                                "#Results_DateK",
-                                resultModel.DateK.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateL":
-                            res.Val(
-                                "#Results_DateL",
-                                resultModel.DateL.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateM":
-                            res.Val(
-                                "#Results_DateM",
-                                resultModel.DateM.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateN":
-                            res.Val(
-                                "#Results_DateN",
-                                resultModel.DateN.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateO":
-                            res.Val(
-                                "#Results_DateO",
-                                resultModel.DateO.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateP":
-                            res.Val(
-                                "#Results_DateP",
-                                resultModel.DateP.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateQ":
-                            res.Val(
-                                "#Results_DateQ",
-                                resultModel.DateQ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateR":
-                            res.Val(
-                                "#Results_DateR",
-                                resultModel.DateR.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateS":
-                            res.Val(
-                                "#Results_DateS",
-                                resultModel.DateS.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateT":
-                            res.Val(
-                                "#Results_DateT",
-                                resultModel.DateT.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateU":
-                            res.Val(
-                                "#Results_DateU",
-                                resultModel.DateU.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateV":
-                            res.Val(
-                                "#Results_DateV",
-                                resultModel.DateV.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateW":
-                            res.Val(
-                                "#Results_DateW",
-                                resultModel.DateW.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateX":
-                            res.Val(
-                                "#Results_DateX",
-                                resultModel.DateX.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateY":
-                            res.Val(
-                                "#Results_DateY",
-                                resultModel.DateY.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DateZ":
-                            res.Val(
-                                "#Results_DateZ",
-                                resultModel.DateZ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionA":
-                            res.Val(
-                                "#Results_DescriptionA",
-                                resultModel.DescriptionA.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionB":
-                            res.Val(
-                                "#Results_DescriptionB",
-                                resultModel.DescriptionB.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionC":
-                            res.Val(
-                                "#Results_DescriptionC",
-                                resultModel.DescriptionC.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionD":
-                            res.Val(
-                                "#Results_DescriptionD",
-                                resultModel.DescriptionD.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionE":
-                            res.Val(
-                                "#Results_DescriptionE",
-                                resultModel.DescriptionE.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionF":
-                            res.Val(
-                                "#Results_DescriptionF",
-                                resultModel.DescriptionF.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionG":
-                            res.Val(
-                                "#Results_DescriptionG",
-                                resultModel.DescriptionG.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionH":
-                            res.Val(
-                                "#Results_DescriptionH",
-                                resultModel.DescriptionH.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionI":
-                            res.Val(
-                                "#Results_DescriptionI",
-                                resultModel.DescriptionI.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionJ":
-                            res.Val(
-                                "#Results_DescriptionJ",
-                                resultModel.DescriptionJ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionK":
-                            res.Val(
-                                "#Results_DescriptionK",
-                                resultModel.DescriptionK.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionL":
-                            res.Val(
-                                "#Results_DescriptionL",
-                                resultModel.DescriptionL.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionM":
-                            res.Val(
-                                "#Results_DescriptionM",
-                                resultModel.DescriptionM.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionN":
-                            res.Val(
-                                "#Results_DescriptionN",
-                                resultModel.DescriptionN.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionO":
-                            res.Val(
-                                "#Results_DescriptionO",
-                                resultModel.DescriptionO.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionP":
-                            res.Val(
-                                "#Results_DescriptionP",
-                                resultModel.DescriptionP.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionQ":
-                            res.Val(
-                                "#Results_DescriptionQ",
-                                resultModel.DescriptionQ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionR":
-                            res.Val(
-                                "#Results_DescriptionR",
-                                resultModel.DescriptionR.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionS":
-                            res.Val(
-                                "#Results_DescriptionS",
-                                resultModel.DescriptionS.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionT":
-                            res.Val(
-                                "#Results_DescriptionT",
-                                resultModel.DescriptionT.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionU":
-                            res.Val(
-                                "#Results_DescriptionU",
-                                resultModel.DescriptionU.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionV":
-                            res.Val(
-                                "#Results_DescriptionV",
-                                resultModel.DescriptionV.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionW":
-                            res.Val(
-                                "#Results_DescriptionW",
-                                resultModel.DescriptionW.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionX":
-                            res.Val(
-                                "#Results_DescriptionX",
-                                resultModel.DescriptionX.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionY":
-                            res.Val(
-                                "#Results_DescriptionY",
-                                resultModel.DescriptionY.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "DescriptionZ":
-                            res.Val(
-                                "#Results_DescriptionZ",
-                                resultModel.DescriptionZ.ToResponse(context: context, ss: ss, column: column));
-                            break;
-                        case "CheckA":
-                            res.Val(
-                                "#Results_CheckA",
-                                resultModel.CheckA);
-                            break;
-                        case "CheckB":
-                            res.Val(
-                                "#Results_CheckB",
-                                resultModel.CheckB);
-                            break;
-                        case "CheckC":
-                            res.Val(
-                                "#Results_CheckC",
-                                resultModel.CheckC);
-                            break;
-                        case "CheckD":
-                            res.Val(
-                                "#Results_CheckD",
-                                resultModel.CheckD);
-                            break;
-                        case "CheckE":
-                            res.Val(
-                                "#Results_CheckE",
-                                resultModel.CheckE);
-                            break;
-                        case "CheckF":
-                            res.Val(
-                                "#Results_CheckF",
-                                resultModel.CheckF);
-                            break;
-                        case "CheckG":
-                            res.Val(
-                                "#Results_CheckG",
-                                resultModel.CheckG);
-                            break;
-                        case "CheckH":
-                            res.Val(
-                                "#Results_CheckH",
-                                resultModel.CheckH);
-                            break;
-                        case "CheckI":
-                            res.Val(
-                                "#Results_CheckI",
-                                resultModel.CheckI);
-                            break;
-                        case "CheckJ":
-                            res.Val(
-                                "#Results_CheckJ",
-                                resultModel.CheckJ);
-                            break;
-                        case "CheckK":
-                            res.Val(
-                                "#Results_CheckK",
-                                resultModel.CheckK);
-                            break;
-                        case "CheckL":
-                            res.Val(
-                                "#Results_CheckL",
-                                resultModel.CheckL);
-                            break;
-                        case "CheckM":
-                            res.Val(
-                                "#Results_CheckM",
-                                resultModel.CheckM);
-                            break;
-                        case "CheckN":
-                            res.Val(
-                                "#Results_CheckN",
-                                resultModel.CheckN);
-                            break;
-                        case "CheckO":
-                            res.Val(
-                                "#Results_CheckO",
-                                resultModel.CheckO);
-                            break;
-                        case "CheckP":
-                            res.Val(
-                                "#Results_CheckP",
-                                resultModel.CheckP);
-                            break;
-                        case "CheckQ":
-                            res.Val(
-                                "#Results_CheckQ",
-                                resultModel.CheckQ);
-                            break;
-                        case "CheckR":
-                            res.Val(
-                                "#Results_CheckR",
-                                resultModel.CheckR);
-                            break;
-                        case "CheckS":
-                            res.Val(
-                                "#Results_CheckS",
-                                resultModel.CheckS);
-                            break;
-                        case "CheckT":
-                            res.Val(
-                                "#Results_CheckT",
-                                resultModel.CheckT);
-                            break;
-                        case "CheckU":
-                            res.Val(
-                                "#Results_CheckU",
-                                resultModel.CheckU);
-                            break;
-                        case "CheckV":
-                            res.Val(
-                                "#Results_CheckV",
-                                resultModel.CheckV);
-                            break;
-                        case "CheckW":
-                            res.Val(
-                                "#Results_CheckW",
-                                resultModel.CheckW);
-                            break;
-                        case "CheckX":
-                            res.Val(
-                                "#Results_CheckX",
-                                resultModel.CheckX);
-                            break;
-                        case "CheckY":
-                            res.Val(
-                                "#Results_CheckY",
-                                resultModel.CheckY);
-                            break;
-                        case "CheckZ":
-                            res.Val(
-                                "#Results_CheckZ",
-                                resultModel.CheckZ);
-                            break;
-                        case "AttachmentsA":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsAField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsA.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsB":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsBField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsB.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsC":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsCField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsC.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsD":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsDField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsD.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsE":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsEField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsE.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsF":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsFField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsF.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsG":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsGField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsG.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsH":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsHField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsH.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsI":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsIField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsI.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsJ":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsJField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsJ.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsK":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsKField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsK.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsL":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsLField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsL.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsM":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsMField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsM.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsN":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsNField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsN.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsO":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsOField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsO.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsP":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsPField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsP.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsQ":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsQField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsQ.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsR":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsRField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsR.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsS":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsSField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsS.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsT":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsTField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsT.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsU":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsUField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsU.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsV":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsVField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsV.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsW":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsWField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsW.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsX":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsXField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsX.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsY":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsYField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsY.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        case "AttachmentsZ":
-                            res.ReplaceAll(
-                                "#Results_AttachmentsZField",
-                                new HtmlBuilder()
-                                    .Field(
-                                        context: context,
-                                        ss: ss,
-                                        column: column,
-                                        value: resultModel.AttachmentsZ.ToJson(),
-                                        columnPermissionType: column.ColumnPermissionType(
-                                            context: context)));
-                            break;
-                        default: break;
                     }
                 });
             return res;
         }
 
-        public static System.Web.Mvc.ContentResult GetByApi(IContext context, SiteSettings ss)
+        public static HtmlBuilder NewOnGrid(
+            this HtmlBuilder hb,
+            Context context,
+            SiteSettings ss,
+            List<Column> columns,
+            ResultModel resultModel,
+            long newRowId)
         {
-            var invalid = IssueValidators.OnEntry(
+            return hb.Tr(
+                attributes: new HtmlAttributes()
+                    .Class("grid-row new")
+                    .DataId(newRowId.ToString())
+                    .DataLatest(1),
+                action: () =>
+                {
+                    hb.Td(action: () => hb
+                        .Button(
+                            title: Displays.Cancel(context: context),
+                            controlCss: "button-icon",
+                            onClick: $"$p.cancelNewRow($(this));",
+                            icon: "ui-icon-close",
+                            action: "CancelNewRow",
+                            method: "post"));
+                    columns.ForEach(column =>
+                    {
+                        if (!column.Joined
+                            && column.CanCreate
+                            && !column.Id_Ver
+                            && column.EditorColumn
+                            && column.TypeCs != "Attachments"
+                            && column.GridDesign.IsNullOrEmpty())
+                        {
+                            hb.Td(action: () => hb
+                                .Field(
+                                    context: context,
+                                    ss: ss,
+                                    resultModel: resultModel,
+                                    column: column,
+                                    controlOnly: true,
+                                    alwaysSend: true,
+                                    idSuffix: $"_{ss.SiteId}_{newRowId}"));
+                        }
+                        else if (!column.Joined
+                            && column.CanRead
+                            && !column.Id_Ver)
+                        {
+                            hb.TdValue(
+                                context: context,
+                                ss: column.SiteSettings,
+                                column: column,
+                                resultModel: resultModel);
+                        }
+                        else
+                        {
+                            hb.Td();
+                        }
+                    });
+                });
+        }
+
+        public static string CancelNewRow(Context context, SiteSettings ss, long id)
+        {
+            var res = new ResponseCollection()
+                .Remove($"[data-id=\"{id}\"][data-latest]")
+                .ClearFormData("CancelRowId");
+            new FormDataSet(
+                context: context,
+                ss: ss)
+                    .Where(o => !o.Suffix.IsNullOrEmpty())
+                    .Where(o => o.SiteId == ss.SiteId)
+                    .Where(o => o.Id == id)
+                    .ForEach(formData =>
+                        formData.Data.Keys.ForEach(controlId =>
+                            res.ClearFormData(controlId + formData.Suffix)));
+            return res.ToJson();
+        }
+
+        public static System.Web.Mvc.ContentResult GetByApi(Context context, SiteSettings ss)
+        {
+            var invalid = ResultValidators.OnEntry(
                 context: context,
                 ss: ss,
                 api: true);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return ApiResults.Error(
                     context: context,
-                    type: invalid);
+                    errorData: invalid);
             }
             var api = context.RequestDataString.Deserialize<Api>();
             if (api == null)
@@ -6719,6 +1795,7 @@ namespace Implem.Pleasanter.Models
             }
             var view = api.View ?? new View();
             var pageSize = Parameters.Api.PageSize;
+            var tableType = (api?.TableType) ?? Sqls.TableTypes.Normal;
             var resultCollection = new ResultCollection(
                 context: context,
                 ss: ss,
@@ -6727,10 +1804,12 @@ namespace Implem.Pleasanter.Models
                     SqlJoin.JoinTypes.Inner,
                     "[Results].[ResultId]=[Items].[ReferenceId]")),
                 where: view.Where(context: context, ss: ss),
-                orderBy: view.OrderBy(context: context, ss: ss, pageSize: pageSize),
+                orderBy: view.OrderBy(
+                    context: context,
+                    ss: ss),
                 offset: api.Offset,
                 pageSize: pageSize,
-                countRecord: true);
+                tableType: tableType);
             return ApiResults.Get(new
             {
                 StatusCode = 200,
@@ -6747,7 +1826,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static System.Web.Mvc.ContentResult GetByApi(
-            IContext context, SiteSettings ss, long resultId)
+            Context context, SiteSettings ss, long resultId)
         {
             var resultModel = new ResultModel(
                 context: context,
@@ -6763,12 +1842,12 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 resultModel: resultModel,
                 api: true);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return ApiResults.Error(
                     context: context,
-                    type: invalid);
+                    errorData: invalid);
             }
             ss.SetColumnAccessControls(
                 context: context,
@@ -6785,24 +1864,28 @@ namespace Implem.Pleasanter.Models
             }.ToJson());
         }
 
-        public static string Create(IContext context, SiteSettings ss)
+        public static string Create(Context context, SiteSettings ss)
         {
             if (context.ContractSettings.ItemsLimit(context: context, siteId: ss.SiteId))
             {
                 return Error.Types.ItemsLimit.MessageJson(context: context);
             }
-            var resultModel = new ResultModel(context, ss, 0, setByForm: true);
+            var resultModel = new ResultModel(
+                context: context,
+                ss: ss,
+                resultId: 0,
+                formData: context.Forms);
             var invalid = ResultValidators.OnCreating(
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
-            var error = resultModel.Create(context: context, ss: ss, notice: true);
-            switch (error)
+            var errorData = resultModel.Create(context: context, ss: ss, notice: true);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -6825,20 +1908,20 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         data: ss.GetColumn(
                             context: context,
-                            columnName: ss.DuplicatedColumn)?.LabelText)
+                            columnName: errorData.ColumnName)?.LabelText)
                                 .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
-        public static System.Web.Mvc.ContentResult CreateByApi(IContext context, SiteSettings ss)
+        public static System.Web.Mvc.ContentResult CreateByApi(Context context, SiteSettings ss)
         {
             if (context.ContractSettings.ItemsLimit(context: context, siteId: ss.SiteId))
             {
                 return ApiResults.Error(
                     context: context,
-                    type: Error.Types.ItemsLimit);
+                    errorData: new ErrorData(type: Error.Types.ItemsLimit));
             }
             var resultModel = new ResultModel(
                 context: context,
@@ -6850,20 +1933,20 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 resultModel: resultModel,
                 api: true);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return ApiResults.Error(
                     context: context,
-                    type: invalid);
+                    errorData: invalid);
             }
             resultModel.SiteId = ss.SiteId;
             resultModel.SetTitle(context: context, ss: ss);
-            var error = resultModel.Create(
+            var errorData = resultModel.Create(
                 context: context,
                 ss: ss,
                 notice: true);
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     return ApiResults.Success(
@@ -6874,41 +1957,44 @@ namespace Implem.Pleasanter.Models
                 case Error.Types.Duplicated:
                     return ApiResults.Error(
                         context: context,
-                        type: error,
+                        errorData: errorData,
                         data: ss.GetColumn(
                             context: context,
-                            columnName: ss.DuplicatedColumn)?.LabelText);
+                            columnName: errorData.ColumnName)?.LabelText);
                 default:
                     return ApiResults.Error(
                         context: context,
-                        type: error);
+                        errorData: errorData);
             }
         }
 
-        public static string Update(IContext context, SiteSettings ss, long resultId)
+        public static string Update(Context context, SiteSettings ss, long resultId)
         {
             var resultModel = new ResultModel(
-                context: context, ss: ss, resultId: resultId, setByForm: true);
+                context: context,
+                ss: ss,
+                resultId: resultId,
+                formData: context.Forms);
             var invalid = ResultValidators.OnUpdating(
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             if (resultModel.AccessStatus != Databases.AccessStatuses.Selected)
             {
                 return Messages.ResponseDeleteConflicts(context: context).ToJson();
             }
-            var error = resultModel.Update(
+            var errorData = resultModel.Update(
                 context: context,
                 ss: ss,
                 notice: true,
                 permissions: context.Forms.List("CurrentPermissionsAll"),
                 permissionChanged: context.Forms.Exists("CurrentPermissionsAll"));
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     var res = new ResultsResponseCollection(resultModel);
@@ -6925,7 +2011,7 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         data: ss.GetColumn(
                             context: context,
-                            columnName: ss.DuplicatedColumn)?.LabelText)
+                            columnName: errorData.ColumnName)?.LabelText)
                                 .ToJson();
                 case Error.Types.UpdateConflicts:
                     return Messages.ResponseUpdateConflicts(
@@ -6933,13 +2019,13 @@ namespace Implem.Pleasanter.Models
                         data: resultModel.Updator.Name)
                             .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         private static ResponseCollection ResponseByUpdate(
             ResultsResponseCollection res,
-            IContext context,
+            Context context,
             SiteSettings ss,
             ResultModel resultModel)
         {
@@ -6953,17 +2039,19 @@ namespace Implem.Pleasanter.Models
                     context: context,
                     ss: ss,
                     view: view,
+                    tableType: Sqls.TableTypes.Normal,
                     where: Rds.ResultsWhere().ResultId(resultModel.ResultId));
                 var columns = ss.GetGridColumns(
                     context: context,
+                    view: view,
                     checkPermission: true);
                 return res
                     .ReplaceAll(
-                        $"[data-id=\"{resultModel.ResultId}\"]",
-                        gridData.TBody(
-                            hb: new HtmlBuilder(),
+                        $"[data-id=\"{resultModel.ResultId}\"][data-latest]",
+                        new HtmlBuilder().GridRows(
                             context: context,
                             ss: ss,
+                            dataRows: gridData.DataRows,
                             columns: columns,
                             checkAll: false))
                     .CloseDialog()
@@ -7002,8 +2090,252 @@ namespace Implem.Pleasanter.Models
             }
         }
 
+        public static string BulkUpdate(Context context, SiteSettings ss)
+        {
+            var formDataSet = new FormDataSet(
+                context: context,
+                ss: ss)
+                    .Where(o => !o.Suffix.IsNullOrEmpty())
+                    .Where(o => o.SiteId == ss.SiteId)
+                    .ToList();
+            var statements = new List<SqlStatement>();
+            var resultCollection = new ResultCollection(
+                context: context,
+                ss: ss,
+                where: Rds.ResultsWhere()
+                    .ResultId_In(formDataSet
+                        .Where(formData => formData.Id > 0)
+                        .Select(formData => formData.Id)),
+                formDataSet: formDataSet);
+            var notificationHash = resultCollection.ToDictionary(
+                o => o.ResultId,
+                o => o.GetNotifications(
+                    context: context,
+                    ss: ss,
+                    notice: true,
+                    before: true));
+            foreach (var formData in formDataSet)
+            {
+                var resultModel = resultCollection
+                    .FirstOrDefault(o => o.ResultId == formData.Id);
+                if (resultModel != null)
+                {
+                    ss.SetColumnAccessControls(
+                        context: context,
+                        mine: resultModel.Mine(context: context));
+                    var invalid = ResultValidators.OnUpdating(
+                        context: context,
+                        ss: ss,
+                        resultModel: resultModel);
+                    switch (invalid.Type)
+                    {
+                        case Error.Types.None: break;
+                        default: return invalid.Type.MessageJson(context: context);
+                    }
+                    resultModel.VerUp = Versions.MustVerUp(
+                        context: context,
+                        baseModel: resultModel);
+                    statements.AddRange(resultModel.UpdateStatements(
+                        context: context,
+                        ss: ss,
+                        dataTableName: formData.Id.ToString()));
+                }
+                else if (formData.Id < 0)
+                {
+                    resultModel = new ResultModel(
+                        context: context,
+                        ss: ss,
+                        formData: formData.Data);
+                    ss.SetColumnAccessControls(
+                        context: context,
+                        mine: resultModel.Mine(context: context));
+                    var invalid = ResultValidators.OnCreating(
+                        context: context,
+                        ss: ss,
+                        resultModel: resultModel);
+                    switch (invalid.Type)
+                    {
+                        case Error.Types.None: break;
+                        default: return invalid.Type.MessageJson(context: context);
+                    }
+                    statements.AddRange(resultModel.CreateStatements(
+                        context: context,
+                        ss: ss,
+                        dataTableName: formData.Id.ToString()));
+                }
+                else
+                {
+                    return ItemUtilities.ClearItemDataResponse(
+                        context: context,
+                        ss: ss,
+                        id: formData.Id)
+                            .Remove($"[data-id=\"{formData.Id}\"][data-latest]")
+                            .Message(Messages.NotFound(context: context))
+                            .ToJson();
+                }
+            }
+            var responses = Rds.ExecuteDataSet_responses(
+                context: context,
+                transactional: true,
+                statements: statements.ToArray());
+            var response = responses.FirstOrDefault(o => !o.Event.IsNullOrEmpty());
+            switch (response?.Event)
+            {
+                case "Duplicated":
+                    return BulkUpdateDuplicated(
+                        context: context,
+                        ss: ss,
+                        response: response);
+                case "Conflicted":
+                    return BulkUpdateConflicted(
+                        context: context,
+                        ss: ss,
+                        response: response);
+                default:
+                    return BulkUpdatedSuccess(
+                        context: context,
+                        ss: ss,
+                        formDataSet: formDataSet,
+                        resultCollection: resultCollection,
+                        responses: responses,
+                        notificationHash: notificationHash);
+            }
+        }
+
+        private static string BulkUpdateDuplicated(
+            Context context, SiteSettings ss, SqlResponse response)
+        {
+            return Messages.ResponseDuplicated(
+                context: context,
+                target: "row_" + response.Id,
+                data: ss.GetColumn(
+                    context: context,
+                    columnName: response.ColumnName)?.LabelText)
+                        .ToJson();
+        }
+
+        private static string BulkUpdateConflicted(
+            Context context, SiteSettings ss, SqlResponse response)
+        {
+            var target = "row_" + response.Id;
+            var resultModel = new ResultModel(
+                context: context,
+                ss: ss,
+                resultId: response.Id.ToLong());
+            return resultModel.AccessStatus == Databases.AccessStatuses.Selected
+                ? Messages.ResponseUpdateConflicts(
+                    context: context,
+                    target: target,
+                    data: resultModel.Updator.Name)
+                        .ToJson()
+                : Messages.ResponseNotFound(
+                    context: context,
+                    target: target)
+                        .ToJson();
+        }
+
+        private static string BulkUpdatedSuccess(
+            Context context,
+            SiteSettings ss,
+            List<FormData> formDataSet,
+            ResultCollection resultCollection,
+            List<SqlResponse> responses,
+            Dictionary<long, List<Notification>> notificationHash)
+        {
+            responses
+                .Where(o => o.DataTableName.ToInt() < 0)
+                .ForEach(response =>
+                    resultCollection.Add(new ResultModel(
+                        context: context,
+                        ss: ss,
+                        resultId: response.Id.ToLong())));
+            resultCollection.ForEach(resultModel =>
+            {
+                resultModel.SynchronizeSummary(
+                    context: context,
+                    ss: ss);
+                var response = responses.FirstOrDefault(o => o.Id == resultModel.ResultId);
+                if (response?.DataTableName.ToInt() < 0)
+                {
+                    resultModel.Notice(
+                        context: context,
+                        ss: ss,
+                        notifications: resultModel.GetNotifications(
+                            context: context,
+                            ss: ss,
+                            notice: true),
+                        type: "Created");
+                }
+                else
+                {
+                    resultModel.Notice(
+                        context: context,
+                        ss: ss,
+                        notifications: NotificationUtilities.MeetConditions(
+                            ss: ss,
+                            before: notificationHash.Get(resultModel.ResultId),
+                            after: resultModel.GetNotifications(
+                                context: context,
+                                ss: ss,
+                                notice: true)),
+                        type: "Updated");
+                }
+            });
+            Rds.ExecuteNonQuery(
+                context: context,
+                transactional: true,
+                statements: new ResultCollection(
+                    context: context,
+                    ss: ss,
+                    column: Rds.ResultsEditorColumns(ss: ss),
+                    where: Rds.ResultsWhere()
+                        .SiteId(ss.SiteId)
+                        .ResultId_In(responses.Select(o => o.Id.ToLong())))
+                            .SelectMany(o => o.UpdateRelatedRecordsStatements(
+                                context: context,
+                                ss: ss))
+                                    .ToArray());
+            var res = new ResponseCollection();
+            var view = Views.GetBySession(
+                context: context,
+                ss: ss);
+            var gridData = new GridData(
+                context: context,
+                ss: ss,
+                view: view,
+                tableType: Sqls.TableTypes.Normal,
+                where: Rds.ResultsWhere()
+                    .SiteId(ss.SiteId)
+                    .ResultId_In(responses.Select(o => o.Id.ToLong())));
+            var columns = ss.GetGridColumns(
+                context: context,
+                view: view,
+                checkPermission: true);
+            gridData.DataRows.ForEach(dataRow =>
+                res.ReplaceAll(
+                    $"[data-id=\"{dataRow.Long("ResultId")}\"][data-latest]",
+                    new HtmlBuilder().Tr(
+                        context: context,
+                        ss: ss,
+                        dataRow: dataRow,
+                        columns: columns,
+                        checkAll: false,
+                        editRow: true,
+                        checkRow: false,
+                        idColumn: "ResultId")));
+            formDataSet.ForEach(formData =>
+                formData.Data.Keys.ForEach(controlId =>
+                    res.ClearFormData(controlId + formData.Suffix)));
+            return res
+                .SetMemory("formChanged", false)
+                .Message(Messages.BulkUpdated(
+                    context: context,
+                    data: gridData.TotalCount.ToString()))
+                .ToJson();
+        }
+
         public static System.Web.Mvc.ContentResult UpdateByApi(
-            IContext context, SiteSettings ss, long resultId)
+            Context context, SiteSettings ss, long resultId)
         {
             var resultModel = new ResultModel(
                 context: context,
@@ -7019,20 +2351,25 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 resultModel: resultModel,
                 api: true);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return ApiResults.Error(
                     context: context,
-                    type: invalid);
+                    errorData: invalid);
             }
             resultModel.SiteId = ss.SiteId;
-            resultModel.SetTitle(context: context, ss: ss);
-            var error = resultModel.Update(
+            resultModel.SetTitle(
+                context: context,
+                ss: ss);
+            resultModel.VerUp = Versions.MustVerUp(
+                context: context,
+                baseModel: resultModel);
+            var errorData = resultModel.Update(
                 context: context,
                 ss: ss,
                 notice: true);
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     return ApiResults.Success(
@@ -7043,33 +2380,36 @@ namespace Implem.Pleasanter.Models
                 case Error.Types.Duplicated:
                     return ApiResults.Error(
                         context: context,
-                        type: error,
+                        errorData: errorData,
                         data: ss.GetColumn(
                             context: context,
-                            columnName: ss.DuplicatedColumn)?.LabelText);
+                            columnName: errorData.ColumnName)?.LabelText);
                 default:
                     return ApiResults.Error(
                         context: context,
-                        type: error);
+                        errorData: errorData);
             }
         }
 
-        public static string Copy(IContext context, SiteSettings ss, long resultId)
+        public static string Copy(Context context, SiteSettings ss, long resultId)
         {
             if (context.ContractSettings.ItemsLimit(context: context, siteId: ss.SiteId))
             {
                 return Error.Types.ItemsLimit.MessageJson(context: context);
             }
             var resultModel = new ResultModel(
-                context: context, ss: ss, resultId: resultId, setByForm: true);
+                context: context,
+                ss: ss,
+                resultId: resultId,
+                formData: context.Forms);
             var invalid = ResultValidators.OnCreating(
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             resultModel.ResultId = 0;
             if (ss.EditorColumns.Contains("Title"))
@@ -7080,16 +2420,12 @@ namespace Implem.Pleasanter.Models
             {
                 resultModel.Comments.Clear();
             }
-            ss.Columns
-                .Where(column => column.CopyByDefault == true
-                    || column.TypeCs == "Attachments")
-                .ForEach(column => resultModel.SetDefault(
-                    context: context,
-                    ss: ss,
-                    column: column));
-            var error = resultModel.Create(
+            resultModel.SetCopyDefault(
+                context: context,
+                ss: ss);
+            var errorData = resultModel.Create(
                 context, ss, forceSynchronizeSourceSummary: true, otherInitValue: true);
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     if (ss.SwitchRecordWithAjax == true)
@@ -7123,14 +2459,14 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         data: ss.GetColumn(
                             context: context,
-                            columnName: ss.DuplicatedColumn)?.LabelText)
+                            columnName: errorData.ColumnName)?.LabelText)
                                 .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
-        public static string Move(IContext context, SiteSettings ss, long resultId)
+        public static string Move(Context context, SiteSettings ss, long resultId)
         {
             var siteId = context.Forms.Long("MoveTargets");
             if (context.ContractSettings.ItemsLimit(context: context, siteId: siteId))
@@ -7148,19 +2484,19 @@ namespace Implem.Pleasanter.Models
                     context: context,
                     siteId: siteId,
                     referenceId: resultId));
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             var targetSs = SiteSettingsUtilities.Get(
                 context: context,
                 siteId: siteId);
-            var error = resultModel.Move(
+            var errorData = resultModel.Move(
                 context: context,
                 ss: ss,
                 targetSs: targetSs);
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     if (ss.SwitchRecordWithAjax == true)
@@ -7196,27 +2532,27 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         data: targetSs.GetColumn(
                             context: context,
-                            columnName: targetSs.DuplicatedColumn)?.LabelText)
+                            columnName: errorData.ColumnName)?.LabelText)
                                 .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
-        public static string Delete(IContext context, SiteSettings ss, long resultId)
+        public static string Delete(Context context, SiteSettings ss, long resultId)
         {
             var resultModel = new ResultModel(context, ss, resultId);
             var invalid = ResultValidators.OnDeleting(
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
-            var error = resultModel.Delete(context: context, ss: ss, notice: true);
-            switch (error)
+            var errorData = resultModel.Delete(context: context, ss: ss, notice: true);
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -7239,12 +2575,12 @@ namespace Implem.Pleasanter.Models
                             }));
                     return res.ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         public static System.Web.Mvc.ContentResult DeleteByApi(
-            IContext context, SiteSettings ss, long resultId)
+            Context context, SiteSettings ss, long resultId)
         {
             var resultModel = new ResultModel(
                 context: context,
@@ -7260,20 +2596,20 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 resultModel: resultModel,
                 api: true);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return ApiResults.Error(
                     context: context,
-                    type: invalid);
+                    errorData: invalid);
             }
             resultModel.SiteId = ss.SiteId;
             resultModel.SetTitle(context: context, ss: ss);
-            var error = resultModel.Delete(
+            var errorData = resultModel.Delete(
                 context: context,
                 ss: ss,
                 notice: true);
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     return ApiResults.Success(
@@ -7284,11 +2620,11 @@ namespace Implem.Pleasanter.Models
                 default:
                     return ApiResults.Error(
                         context: context,
-                        type: error);
+                        errorData: errorData);
             }
         }
 
-        public static string Restore(IContext context, SiteSettings ss)
+        public static string Restore(Context context, SiteSettings ss)
         {
             if (!Parameters.Deleted.Restore)
             {
@@ -7336,7 +2672,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static int Restore(
-            IContext context, SiteSettings ss, List<long> selected, bool negative = false)
+            Context context, SiteSettings ss, List<long> selected, bool negative = false)
         {
             var where = Rds.ResultsWhere()
                 .SiteId(
@@ -7366,12 +2702,13 @@ namespace Implem.Pleasanter.Models
                             column: Rds.ResultsColumn()
                                 .ResultId(tableName: "Results_Deleted"),
                             where: where))),
-                    Rds.RestoreResults(where: where, countRecord: true)
+                    Rds.RestoreResults(where: where),
+                    Rds.RowCount()
                 }).Count.ToInt();
         }
 
         public static string RestoreFromHistory(
-            IContext context, SiteSettings ss, long resultId)
+            Context context, SiteSettings ss, long resultId)
         {
             if (!Parameters.History.Restore)
             {
@@ -7382,10 +2719,10 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             var ver = context.Forms.Data("GridCheckedItems")
                 .Split(',')
@@ -7404,11 +2741,11 @@ namespace Implem.Pleasanter.Models
                     .ResultId(resultId)
                     .Ver(ver.First())));
             resultModel.VerUp = true;
-            var error = resultModel.Update(
+            var errorData = resultModel.Update(
                 context: context,
                 ss: ss,
                 otherInitValue: true);
-            switch (error)
+            switch (errorData.Type)
             {
                 case Error.Types.None:
                     SessionUtilities.Set(
@@ -7423,12 +2760,12 @@ namespace Implem.Pleasanter.Models
                             id: resultId))
                         .ToJson();
                 default:
-                    return error.MessageJson(context: context);
+                    return errorData.Type.MessageJson(context: context);
             }
         }
 
         public static string Histories(
-            IContext context, SiteSettings ss, long resultId, Message message = null)
+            Context context, SiteSettings ss, long resultId, Message message = null)
         {
             var resultModel = new ResultModel(context: context, ss: ss, resultId: resultId);
             ss.SetColumnAccessControls(
@@ -7448,6 +2785,7 @@ namespace Implem.Pleasanter.Models
                         .THead(action: () => hb
                             .GridHeader(
                                 context: context,
+                                ss: ss,
                                 columns: columns,
                                 sort: false,
                                 checkRow: true))
@@ -7465,7 +2803,7 @@ namespace Implem.Pleasanter.Models
 
         private static void HistoriesTableBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             List<Column> columns,
             ResultModel resultModel)
@@ -7511,11 +2849,12 @@ namespace Implem.Pleasanter.Models
             var sqlColumn = new Rds.ResultsColumnCollection()
                 .ResultId()
                 .Ver();
-            columns.ForEach(column => sqlColumn.ResultsColumn(column.ColumnName));
+            columns.ForEach(column =>
+                sqlColumn.ResultsColumn(columnName: column.ColumnName));
             return sqlColumn;
         }
 
-        public static string History(IContext context, SiteSettings ss, long resultId)
+        public static string History(Context context, SiteSettings ss, long resultId)
         {
             var resultModel = new ResultModel(context: context, ss: ss, resultId: resultId);
             ss.SetColumnAccessControls(
@@ -7534,16 +2873,24 @@ namespace Implem.Pleasanter.Models
             return EditorResponse(context, ss, resultModel).ToJson();
         }
 
-        public static string BulkMove(IContext context, SiteSettings ss)
+        public static string BulkMove(Context context, SiteSettings ss)
         {
-            var siteId = context.Forms.Long("MoveTargets");
-            var selector = new GridSelector(context: context);
-            var count = BulkMoveCount(
+            var where = SelectedWhere(
                 context: context,
-                ss: ss,
+                ss: ss);
+            if (where == null)
+            {
+                return Messages.ResponseSelectTargets(context: context).ToJson();
+            }
+            var siteId = context.Forms.Long("MoveTargets");
+            if (context.ContractSettings.ItemsLimit(
+                context: context,
                 siteId: siteId,
-                selector: selector);
-            if (context.ContractSettings.ItemsLimit(context: context, siteId: siteId, number: count))
+                number: BulkMoveCount(
+                    context: context,
+                    ss: ss,
+                    siteId: siteId,
+                    where: where)))
             {
                 return Error.Types.ItemsLimit.MessageJson(context: context);
             }
@@ -7555,29 +2902,17 @@ namespace Implem.Pleasanter.Models
                     siteId: siteId,
                     referenceId: siteId)))
             {
-                if (selector.All)
-                {
-                    count = BulkMove(
+                var count = BulkMove(
+                    context: context,
+                    ss: ss,
+                    siteId: siteId,
+                    where: Views.GetBySession(
                         context: context,
-                        ss: ss,
-                        siteId: siteId,
-                        selector: selector);
-                }
-                else
-                {
-                    if (selector.Selected.Any())
-                    {
-                        count = BulkMove(
-                            context: context,
-                            ss: ss,
-                            siteId: siteId,
-                            selector: selector);
-                    }
-                    else
-                    {
-                        return Messages.ResponseSelectTargets(context: context).ToJson();
-                    }
-                }
+                        ss: ss)
+                            .Where(
+                                context: context,
+                                ss: ss,
+                                where: where));
                 Summaries.Synchronize(context: context, ss: ss);
                 return GridRows(
                     context: context,
@@ -7594,50 +2929,32 @@ namespace Implem.Pleasanter.Models
         }
 
         private static int BulkMoveCount(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
-            GridSelector selector)
+            SqlWhereCollection where)
         {
             return Rds.ExecuteScalar_int(
                 context: context,
                 statements: Rds.SelectResults(
                     column: Rds.ResultsColumn().ResultsCount(),
-                    join: ss.Join(context: context),
-                    where: Views.GetBySession(context: context, ss: ss).Where(
+                    join: ss.Join(
                         context: context,
-                        ss: ss,
-                        where: Rds.ResultsWhere()
-                            .SiteId(ss.SiteId)
-                            .ResultId_In(
-                                value: selector.Selected,
-                                negative: selector.All,
-                                _using: selector.Selected.Any()))));
+                        join: where),
+                    where: where));
         }
 
         private static int BulkMove(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
-            GridSelector selector)
+            SqlWhereCollection where)
         {
             return Rds.ExecuteScalar_response(
                 context: context,
                 transactional: true,
                 statements: new SqlStatement[]
                 {
-                    Rds.UpdateResults(
-                        where: Views.GetBySession(context: context, ss: ss).Where(
-                            context: context,
-                            ss: ss,
-                            where: Rds.ResultsWhere()
-                                .SiteId(ss.SiteId)
-                                .ResultId_In(
-                                    value: selector.Selected,
-                                    negative: selector.All,
-                                    _using: selector.Selected.Any())),
-                        param: Rds.ResultsParam().SiteId(siteId),
-                        countRecord: true),
                     Rds.UpdateItems(
                         where: Rds.ItemsWhere()
                             .ReferenceId_In(
@@ -7645,38 +2962,35 @@ namespace Implem.Pleasanter.Models
                                     column: Rds.ResultsColumn().ResultId(),
                                     where: Rds.ResultsWhere().SiteId(siteId)))
                             .SiteId(siteId, _operator: "<>"),
-                        param: Rds.ItemsParam().SiteId(siteId))
+                        param: Rds.ItemsParam().SiteId(siteId)),
+                    Rds.UpdateResults(
+                        where: where,
+                        param: Rds.ResultsParam().SiteId(siteId)),
+                    Rds.RowCount()
                 }).Count.ToInt();
         }
 
-        public static string BulkDelete(IContext context, SiteSettings ss)
+        public static string BulkDelete(Context context, SiteSettings ss)
         {
             if (context.CanDelete(ss: ss))
             {
-                var selector = new GridSelector(context: context);
-                var count = 0;
-                if (selector.All)
+                var where = SelectedWhere(
+                    context: context,
+                    ss: ss);
+                if (where == null)
                 {
-                    count = BulkDelete(
+                    return Messages.ResponseSelectTargets(context: context).ToJson();
+                }
+                var count = BulkDelete(
+                    context: context,
+                    ss: ss,
+                    where: Views.GetBySession(
                         context: context,
-                        ss: ss,
-                        selected: selector.Selected,
-                        negative: true);
-                }
-                else
-                {
-                    if (selector.Selected.Any())
-                    {
-                        count = BulkDelete(
-                            context: context,
-                            ss: ss,
-                            selected: selector.Selected);
-                    }
-                    else
-                    {
-                        return Messages.ResponseSelectTargets(context: context).ToJson();
-                    }
-                }
+                        ss: ss)
+                            .Where(
+                                context: context,
+                                ss: ss,
+                                where: where));
                 Summaries.Synchronize(context: context, ss: ss);
                 return GridRows(
                     context: context,
@@ -7693,22 +3007,15 @@ namespace Implem.Pleasanter.Models
         }
 
         private static int BulkDelete(
-            IContext context,
+            Context context,
             SiteSettings ss,
-            IEnumerable<long> selected,
-            bool negative = false)
+            SqlWhereCollection where)
         {
-            var where = Views.GetBySession(context: context, ss: ss).Where(
-                context: context,
-                ss: ss,
-                where: Rds.ResultsWhere()
-                    .SiteId(ss.SiteId)
-                    .ResultId_In(
-                        value: selected,
-                        negative: negative,
-                        _using: selected.Any()));
             var sub = Rds.SelectResults(
                 column: Rds.ResultsColumn().ResultId(),
+                join: ss.Join(
+                    context: context,
+                    join: where),
                 where: where);
             var statements = new List<SqlStatement>();
             statements.OnBulkDeletingExtendedSqls(ss.SiteId);
@@ -7719,9 +3026,8 @@ namespace Implem.Pleasanter.Models
                 where: Rds.BinariesWhere()
                     .TenantId(context.TenantId)
                     .ReferenceId_In(sub: sub)));
-            statements.Add(Rds.DeleteResults(
-                where: where, 
-                countRecord: true));
+            statements.Add(Rds.DeleteResults(where: where));
+            statements.Add(Rds.RowCount());
             statements.OnBulkDeletedExtendedSqls(ss.SiteId);
             return Rds.ExecuteScalar_response(
                 context: context,
@@ -7730,7 +3036,7 @@ namespace Implem.Pleasanter.Models
                     .Count.ToInt();
         }
 
-        public static string DeleteHistory(IContext context, SiteSettings ss, long resultId)
+        public static string DeleteHistory(Context context, SiteSettings ss, long resultId)
         {
             if (!Parameters.History.PhysicalDelete)
             {
@@ -7783,7 +3089,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static int DeleteHistory(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long resultId,
             List<int> selected,
@@ -7792,31 +3098,37 @@ namespace Implem.Pleasanter.Models
             return Rds.ExecuteScalar_response(
                 context: context,
                 transactional: true,
-                statements: Rds.PhysicalDeleteResults(
-                    tableType: Sqls.TableTypes.History,
-                    where: Rds.ResultsWhere()
-                        .SiteId(
-                            value: ss.SiteId,
-                            tableName: "Results_History")
-                        .ResultId(
-                            value: resultId,
-                            tableName: "Results_History")
-                        .Ver_In(
-                            value: selected,
-                            tableName: "Results_History",
-                            negative: negative,
-                            _using: selected.Any())
-                        .ResultId_In(
-                            tableName: "Results_History",
-                            sub: Rds.SelectResults(
-                                tableType: Sqls.TableTypes.History,
-                                column: Rds.ResultsColumn().ResultId(),
-                                where: Views.GetBySession(context: context, ss: ss).Where(
-                                    context: context, ss: ss))),
-                    countRecord: true)).Count.ToInt();
+                statements: new SqlStatement[]
+                {
+                    Rds.PhysicalDeleteResults(
+                        tableType: Sqls.TableTypes.History,
+                        where: Rds.ResultsWhere()
+                            .SiteId(
+                                value: ss.SiteId,
+                                tableName: "Results_History")
+                            .ResultId(
+                                value: resultId,
+                                tableName: "Results_History")
+                            .Ver_In(
+                                value: selected,
+                                tableName: "Results_History",
+                                negative: negative,
+                                _using: selected.Any())
+                            .ResultId_In(
+                                tableName: "Results_History",
+                                sub: Rds.SelectResults(
+                                    tableType: Sqls.TableTypes.History,
+                                    column: Rds.ResultsColumn().ResultId(),
+                                    where: Views.GetBySession(
+                                        context: context,
+                                        ss: ss).Where(
+                                            context: context,
+                                            ss: ss)))),
+                    Rds.RowCount()
+                }).Count.ToInt();
         }
 
-        public static string PhysicalDelete(IContext context, SiteSettings ss)
+        public static string PhysicalDelete(Context context, SiteSettings ss)
         {
             if (!Parameters.Deleted.PhysicalDelete)
             {
@@ -7863,7 +3175,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static int PhysicalDelete(
-            IContext context,
+            Context context,
             SiteSettings ss,
             List<long> selected,
             bool negative = false)
@@ -7903,12 +3215,12 @@ namespace Implem.Pleasanter.Models
                         where: Rds.ItemsWhere().ReferenceId_In(sub: sub)),
                     Rds.PhysicalDeleteResults(
                         tableType: Sqls.TableTypes.Deleted,
-                        where: where,
-                        countRecord: true)
+                        where: where),
+                    Rds.RowCount()
                 }).Count.ToInt();
         }
 
-        public static string Import(IContext context, SiteModel siteModel)
+        public static string Import(Context context, SiteModel siteModel)
         {
             var ss = siteModel.ResultsSiteSettings(
                 context: context,
@@ -8000,396 +3312,6 @@ namespace Implem.Pleasanter.Models
                             case "Status":
                                 resultModel.Status.Value = recordingData.ToInt();
                                 break;
-                            case "ClassA":
-                                resultModel.ClassA = recordingData.ToString();
-                                break;
-                            case "ClassB":
-                                resultModel.ClassB = recordingData.ToString();
-                                break;
-                            case "ClassC":
-                                resultModel.ClassC = recordingData.ToString();
-                                break;
-                            case "ClassD":
-                                resultModel.ClassD = recordingData.ToString();
-                                break;
-                            case "ClassE":
-                                resultModel.ClassE = recordingData.ToString();
-                                break;
-                            case "ClassF":
-                                resultModel.ClassF = recordingData.ToString();
-                                break;
-                            case "ClassG":
-                                resultModel.ClassG = recordingData.ToString();
-                                break;
-                            case "ClassH":
-                                resultModel.ClassH = recordingData.ToString();
-                                break;
-                            case "ClassI":
-                                resultModel.ClassI = recordingData.ToString();
-                                break;
-                            case "ClassJ":
-                                resultModel.ClassJ = recordingData.ToString();
-                                break;
-                            case "ClassK":
-                                resultModel.ClassK = recordingData.ToString();
-                                break;
-                            case "ClassL":
-                                resultModel.ClassL = recordingData.ToString();
-                                break;
-                            case "ClassM":
-                                resultModel.ClassM = recordingData.ToString();
-                                break;
-                            case "ClassN":
-                                resultModel.ClassN = recordingData.ToString();
-                                break;
-                            case "ClassO":
-                                resultModel.ClassO = recordingData.ToString();
-                                break;
-                            case "ClassP":
-                                resultModel.ClassP = recordingData.ToString();
-                                break;
-                            case "ClassQ":
-                                resultModel.ClassQ = recordingData.ToString();
-                                break;
-                            case "ClassR":
-                                resultModel.ClassR = recordingData.ToString();
-                                break;
-                            case "ClassS":
-                                resultModel.ClassS = recordingData.ToString();
-                                break;
-                            case "ClassT":
-                                resultModel.ClassT = recordingData.ToString();
-                                break;
-                            case "ClassU":
-                                resultModel.ClassU = recordingData.ToString();
-                                break;
-                            case "ClassV":
-                                resultModel.ClassV = recordingData.ToString();
-                                break;
-                            case "ClassW":
-                                resultModel.ClassW = recordingData.ToString();
-                                break;
-                            case "ClassX":
-                                resultModel.ClassX = recordingData.ToString();
-                                break;
-                            case "ClassY":
-                                resultModel.ClassY = recordingData.ToString();
-                                break;
-                            case "ClassZ":
-                                resultModel.ClassZ = recordingData.ToString();
-                                break;
-                            case "NumA":
-                                resultModel.NumA = recordingData.ToDecimal();
-                                break;
-                            case "NumB":
-                                resultModel.NumB = recordingData.ToDecimal();
-                                break;
-                            case "NumC":
-                                resultModel.NumC = recordingData.ToDecimal();
-                                break;
-                            case "NumD":
-                                resultModel.NumD = recordingData.ToDecimal();
-                                break;
-                            case "NumE":
-                                resultModel.NumE = recordingData.ToDecimal();
-                                break;
-                            case "NumF":
-                                resultModel.NumF = recordingData.ToDecimal();
-                                break;
-                            case "NumG":
-                                resultModel.NumG = recordingData.ToDecimal();
-                                break;
-                            case "NumH":
-                                resultModel.NumH = recordingData.ToDecimal();
-                                break;
-                            case "NumI":
-                                resultModel.NumI = recordingData.ToDecimal();
-                                break;
-                            case "NumJ":
-                                resultModel.NumJ = recordingData.ToDecimal();
-                                break;
-                            case "NumK":
-                                resultModel.NumK = recordingData.ToDecimal();
-                                break;
-                            case "NumL":
-                                resultModel.NumL = recordingData.ToDecimal();
-                                break;
-                            case "NumM":
-                                resultModel.NumM = recordingData.ToDecimal();
-                                break;
-                            case "NumN":
-                                resultModel.NumN = recordingData.ToDecimal();
-                                break;
-                            case "NumO":
-                                resultModel.NumO = recordingData.ToDecimal();
-                                break;
-                            case "NumP":
-                                resultModel.NumP = recordingData.ToDecimal();
-                                break;
-                            case "NumQ":
-                                resultModel.NumQ = recordingData.ToDecimal();
-                                break;
-                            case "NumR":
-                                resultModel.NumR = recordingData.ToDecimal();
-                                break;
-                            case "NumS":
-                                resultModel.NumS = recordingData.ToDecimal();
-                                break;
-                            case "NumT":
-                                resultModel.NumT = recordingData.ToDecimal();
-                                break;
-                            case "NumU":
-                                resultModel.NumU = recordingData.ToDecimal();
-                                break;
-                            case "NumV":
-                                resultModel.NumV = recordingData.ToDecimal();
-                                break;
-                            case "NumW":
-                                resultModel.NumW = recordingData.ToDecimal();
-                                break;
-                            case "NumX":
-                                resultModel.NumX = recordingData.ToDecimal();
-                                break;
-                            case "NumY":
-                                resultModel.NumY = recordingData.ToDecimal();
-                                break;
-                            case "NumZ":
-                                resultModel.NumZ = recordingData.ToDecimal();
-                                break;
-                            case "DateA":
-                                resultModel.DateA = recordingData.ToDateTime();
-                                break;
-                            case "DateB":
-                                resultModel.DateB = recordingData.ToDateTime();
-                                break;
-                            case "DateC":
-                                resultModel.DateC = recordingData.ToDateTime();
-                                break;
-                            case "DateD":
-                                resultModel.DateD = recordingData.ToDateTime();
-                                break;
-                            case "DateE":
-                                resultModel.DateE = recordingData.ToDateTime();
-                                break;
-                            case "DateF":
-                                resultModel.DateF = recordingData.ToDateTime();
-                                break;
-                            case "DateG":
-                                resultModel.DateG = recordingData.ToDateTime();
-                                break;
-                            case "DateH":
-                                resultModel.DateH = recordingData.ToDateTime();
-                                break;
-                            case "DateI":
-                                resultModel.DateI = recordingData.ToDateTime();
-                                break;
-                            case "DateJ":
-                                resultModel.DateJ = recordingData.ToDateTime();
-                                break;
-                            case "DateK":
-                                resultModel.DateK = recordingData.ToDateTime();
-                                break;
-                            case "DateL":
-                                resultModel.DateL = recordingData.ToDateTime();
-                                break;
-                            case "DateM":
-                                resultModel.DateM = recordingData.ToDateTime();
-                                break;
-                            case "DateN":
-                                resultModel.DateN = recordingData.ToDateTime();
-                                break;
-                            case "DateO":
-                                resultModel.DateO = recordingData.ToDateTime();
-                                break;
-                            case "DateP":
-                                resultModel.DateP = recordingData.ToDateTime();
-                                break;
-                            case "DateQ":
-                                resultModel.DateQ = recordingData.ToDateTime();
-                                break;
-                            case "DateR":
-                                resultModel.DateR = recordingData.ToDateTime();
-                                break;
-                            case "DateS":
-                                resultModel.DateS = recordingData.ToDateTime();
-                                break;
-                            case "DateT":
-                                resultModel.DateT = recordingData.ToDateTime();
-                                break;
-                            case "DateU":
-                                resultModel.DateU = recordingData.ToDateTime();
-                                break;
-                            case "DateV":
-                                resultModel.DateV = recordingData.ToDateTime();
-                                break;
-                            case "DateW":
-                                resultModel.DateW = recordingData.ToDateTime();
-                                break;
-                            case "DateX":
-                                resultModel.DateX = recordingData.ToDateTime();
-                                break;
-                            case "DateY":
-                                resultModel.DateY = recordingData.ToDateTime();
-                                break;
-                            case "DateZ":
-                                resultModel.DateZ = recordingData.ToDateTime();
-                                break;
-                            case "DescriptionA":
-                                resultModel.DescriptionA = recordingData.ToString();
-                                break;
-                            case "DescriptionB":
-                                resultModel.DescriptionB = recordingData.ToString();
-                                break;
-                            case "DescriptionC":
-                                resultModel.DescriptionC = recordingData.ToString();
-                                break;
-                            case "DescriptionD":
-                                resultModel.DescriptionD = recordingData.ToString();
-                                break;
-                            case "DescriptionE":
-                                resultModel.DescriptionE = recordingData.ToString();
-                                break;
-                            case "DescriptionF":
-                                resultModel.DescriptionF = recordingData.ToString();
-                                break;
-                            case "DescriptionG":
-                                resultModel.DescriptionG = recordingData.ToString();
-                                break;
-                            case "DescriptionH":
-                                resultModel.DescriptionH = recordingData.ToString();
-                                break;
-                            case "DescriptionI":
-                                resultModel.DescriptionI = recordingData.ToString();
-                                break;
-                            case "DescriptionJ":
-                                resultModel.DescriptionJ = recordingData.ToString();
-                                break;
-                            case "DescriptionK":
-                                resultModel.DescriptionK = recordingData.ToString();
-                                break;
-                            case "DescriptionL":
-                                resultModel.DescriptionL = recordingData.ToString();
-                                break;
-                            case "DescriptionM":
-                                resultModel.DescriptionM = recordingData.ToString();
-                                break;
-                            case "DescriptionN":
-                                resultModel.DescriptionN = recordingData.ToString();
-                                break;
-                            case "DescriptionO":
-                                resultModel.DescriptionO = recordingData.ToString();
-                                break;
-                            case "DescriptionP":
-                                resultModel.DescriptionP = recordingData.ToString();
-                                break;
-                            case "DescriptionQ":
-                                resultModel.DescriptionQ = recordingData.ToString();
-                                break;
-                            case "DescriptionR":
-                                resultModel.DescriptionR = recordingData.ToString();
-                                break;
-                            case "DescriptionS":
-                                resultModel.DescriptionS = recordingData.ToString();
-                                break;
-                            case "DescriptionT":
-                                resultModel.DescriptionT = recordingData.ToString();
-                                break;
-                            case "DescriptionU":
-                                resultModel.DescriptionU = recordingData.ToString();
-                                break;
-                            case "DescriptionV":
-                                resultModel.DescriptionV = recordingData.ToString();
-                                break;
-                            case "DescriptionW":
-                                resultModel.DescriptionW = recordingData.ToString();
-                                break;
-                            case "DescriptionX":
-                                resultModel.DescriptionX = recordingData.ToString();
-                                break;
-                            case "DescriptionY":
-                                resultModel.DescriptionY = recordingData.ToString();
-                                break;
-                            case "DescriptionZ":
-                                resultModel.DescriptionZ = recordingData.ToString();
-                                break;
-                            case "CheckA":
-                                resultModel.CheckA = recordingData.ToBool();
-                                break;
-                            case "CheckB":
-                                resultModel.CheckB = recordingData.ToBool();
-                                break;
-                            case "CheckC":
-                                resultModel.CheckC = recordingData.ToBool();
-                                break;
-                            case "CheckD":
-                                resultModel.CheckD = recordingData.ToBool();
-                                break;
-                            case "CheckE":
-                                resultModel.CheckE = recordingData.ToBool();
-                                break;
-                            case "CheckF":
-                                resultModel.CheckF = recordingData.ToBool();
-                                break;
-                            case "CheckG":
-                                resultModel.CheckG = recordingData.ToBool();
-                                break;
-                            case "CheckH":
-                                resultModel.CheckH = recordingData.ToBool();
-                                break;
-                            case "CheckI":
-                                resultModel.CheckI = recordingData.ToBool();
-                                break;
-                            case "CheckJ":
-                                resultModel.CheckJ = recordingData.ToBool();
-                                break;
-                            case "CheckK":
-                                resultModel.CheckK = recordingData.ToBool();
-                                break;
-                            case "CheckL":
-                                resultModel.CheckL = recordingData.ToBool();
-                                break;
-                            case "CheckM":
-                                resultModel.CheckM = recordingData.ToBool();
-                                break;
-                            case "CheckN":
-                                resultModel.CheckN = recordingData.ToBool();
-                                break;
-                            case "CheckO":
-                                resultModel.CheckO = recordingData.ToBool();
-                                break;
-                            case "CheckP":
-                                resultModel.CheckP = recordingData.ToBool();
-                                break;
-                            case "CheckQ":
-                                resultModel.CheckQ = recordingData.ToBool();
-                                break;
-                            case "CheckR":
-                                resultModel.CheckR = recordingData.ToBool();
-                                break;
-                            case "CheckS":
-                                resultModel.CheckS = recordingData.ToBool();
-                                break;
-                            case "CheckT":
-                                resultModel.CheckT = recordingData.ToBool();
-                                break;
-                            case "CheckU":
-                                resultModel.CheckU = recordingData.ToBool();
-                                break;
-                            case "CheckV":
-                                resultModel.CheckV = recordingData.ToBool();
-                                break;
-                            case "CheckW":
-                                resultModel.CheckW = recordingData.ToBool();
-                                break;
-                            case "CheckX":
-                                resultModel.CheckX = recordingData.ToBool();
-                                break;
-                            case "CheckY":
-                                resultModel.CheckY = recordingData.ToBool();
-                                break;
-                            case "CheckZ":
-                                resultModel.CheckZ = recordingData.ToBool();
-                                break;
                             case "Manager":
                                 resultModel.Manager = SiteInfo.User(
                                     context: context,
@@ -8410,6 +3332,12 @@ namespace Implem.Pleasanter.Models
                                         body: data.Row[column.Key]);
                                 }
                                 break;
+                            default:
+                                resultModel.Value(
+                                    context: context,
+                                    columnName: column.Value.ColumnName,
+                                    value: recordingData);
+                                break;
                         }
                     });
                     resultHash.Add(data.Index, resultModel);
@@ -8426,12 +3354,12 @@ namespace Implem.Pleasanter.Models
                             context: context, baseModel: resultModel);
                         if (resultModel.Updated(context: context))
                         {
-                            var error = resultModel.Update(
+                            var errorData = resultModel.Update(
                                 context: context,
                                 ss: ss,
                                 extendedSqls: false,
                                 get: false);
-                            switch (error)
+                            switch (errorData.Type)
                             {
                                 case Error.Types.None:
                                     break;
@@ -8440,22 +3368,22 @@ namespace Implem.Pleasanter.Models
                                         context: context,
                                         data: ss.GetColumn(
                                             context: context,
-                                            columnName: ss.DuplicatedColumn)?.LabelText)
+                                            columnName: errorData.ColumnName)?.LabelText)
                                                 .ToJson();
                                 default:
-                                    return error.MessageJson(context: context);
+                                    return errorData.Type.MessageJson(context: context);
                             }
                             updateCount++;
                         }
                     }
                     else
                     {
-                        var error = resultModel.Create(
+                        var errorData = resultModel.Create(
                             context: context,
                             ss: ss,
                             extendedSqls: false,
                             get: false);
-                        switch (error)
+                        switch (errorData.Type)
                         {
                             case Error.Types.None:
                                 break;
@@ -8464,10 +3392,10 @@ namespace Implem.Pleasanter.Models
                                     context: context,
                                     data: ss.GetColumn(
                                         context: context,
-                                        columnName: ss.DuplicatedColumn)?.LabelText)
+                                        columnName: errorData.ColumnName)?.LabelText)
                                             .ToJson();
                             default:
-                                return error.MessageJson(context: context);
+                                return errorData.Type.MessageJson(context: context);
                         }
                         insertCount++;
                     }
@@ -8496,7 +3424,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static string ImportRecordingData(
-            IContext context, Column column, string value, long inheritPermission)
+            Context context, Column column, string value, long inheritPermission)
         {
             var recordingData = column.RecordingData(
                 context: context,
@@ -8506,19 +3434,21 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string OpenExportSelectorDialog(
-            IContext context, SiteSettings ss, SiteModel siteModel)
+            Context context, SiteSettings ss, SiteModel siteModel)
         {
             if (context.ContractSettings.Export == false)
             {
-                return HtmlTemplates.Error(context, Error.Types.InvalidRequest);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.InvalidRequest));
             }
             var invalid = ResultValidators.OnExporting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             return new ResponseCollection()
                 .Html(
@@ -8530,7 +3460,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static ResponseFile Export(
-            IContext context, SiteSettings ss, SiteModel siteModel)
+            Context context, SiteSettings ss, SiteModel siteModel)
         {
             if (context.ContractSettings.Export == false)
             {
@@ -8539,27 +3469,30 @@ namespace Implem.Pleasanter.Models
             var invalid = ResultValidators.OnExporting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return null;
             }
-            return ExportUtilities.Csv(
+            return ExportUtilities.Export(
                 context: context,
                 ss: ss,
                 export: ss.GetExport(
                     context: context,
-                    id: context.QueryStrings.Int("id")));
+                    id: context.QueryStrings.Int("id")),
+                where: SelectedWhere(
+                    context: context,
+                    ss: ss));
         }
 
         public static ResponseFile ExportCrosstab(
-            IContext context, SiteSettings ss, SiteModel siteModel)
+            Context context, SiteSettings ss, SiteModel siteModel)
         {
             if (context.ContractSettings.Export == false) return null;
             var invalid = ResultValidators.OnExporting(
                 context: context,
                 ss: ss);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
                 default: return null;
@@ -8615,11 +3548,13 @@ namespace Implem.Pleasanter.Models
                     name: Displays.Crosstab(context: context)));
         }
 
-        public static string Calendar(IContext context, SiteSettings ss)
+        public static string Calendar(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "Calendar"))
             {
-                return HtmlTemplates.Error(context, Error.Types.HasNotPermission);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.HasNotPermission));
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -8686,21 +3621,21 @@ namespace Implem.Pleasanter.Models
                         inRange: inRange));
         }
 
-        public static string UpdateByCalendar(IContext context, SiteSettings ss)
+        public static string UpdateByCalendar(Context context, SiteSettings ss)
         {
             var resultModel = new ResultModel(
                 context: context,
                 ss: ss,
                 resultId: context.Forms.Long("Id"),
-                setByForm: true);
+                formData: context.Forms);
             var invalid = ResultValidators.OnUpdating(
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             if (resultModel.AccessStatus != Databases.AccessStatuses.Selected)
             {
@@ -8723,7 +3658,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string CalendarJson(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long changedItemId = 0,
             bool update = false,
@@ -8818,8 +3753,8 @@ namespace Implem.Pleasanter.Models
                     .ToJson();
         }
 
-        private static IEnumerable<DataRow> CalendarDataRows(
-            IContext context,
+        private static EnumerableRowCollection<DataRow> CalendarDataRows(
+            Context context,
             SiteSettings ss,
             View view,
             Column fromColumn,
@@ -8827,10 +3762,11 @@ namespace Implem.Pleasanter.Models
             DateTime begin,
             DateTime end)
         {
-            var where = Rds.ResultsWhere();
+            var where = new SqlWhereCollection();
             if (toColumn == null)
             {
                 where.Add(
+                    tableName: "Results",
                     raw: $"[Results].[{fromColumn.ColumnName}] between '{begin}' and '{end}'");
             }
             else
@@ -8840,30 +3776,39 @@ namespace Implem.Pleasanter.Models
                     .Add(raw: $"[Results].[{toColumn.ColumnName}] between '{begin}' and '{end}'")
                     .Add(raw: $"[Results].[{fromColumn.ColumnName}]<='{begin}' and [Results].[{toColumn.ColumnName}]>='{end}'"));
             }
+            where = view.Where(context: context, ss: ss, where: where);
             return Rds.ExecuteTable(
                 context: context,
                 statements: Rds.SelectResults(
-                    column: Rds.ResultsTitleColumn(context: context, ss: ss)
-                        .ResultId(_as: "Id")
-                        .ResultsColumn(fromColumn.ColumnName, _as: "From")
-                        .ResultsColumn(toColumn?.ColumnName, _as: "To")
-                        .UpdatedTime()
-                        .ItemTitle(ss.ReferenceType, Rds.IdColumn(ss.ReferenceType)),
-                    join: ss.Join(context: context),
-                    where: view.Where(context: context, ss: ss, where: where)))
+                    column: Rds.ResultsTitleColumn(
+                        context: context,
+                        ss: ss)
+                            .ResultId(_as: "Id")
+                            .ResultsColumn(
+                                columnName: fromColumn.ColumnName,
+                                _as: "From")
+                            .ResultsColumn(
+                                columnName: toColumn?.ColumnName,
+                                _as: "To")
+                            .UpdatedTime()
+                            .ItemTitle(ss.ReferenceType),
+                    join: ss.Join(
+                        context: context,
+                        join: where),
+                    where: where))
                         .AsEnumerable();
         }
 
         private static HtmlBuilder Calendar(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string timePeriod,
             Column fromColumn,
             Column toColumn,
             DateTime month,
             DateTime begin,
-            IEnumerable<DataRow> dataRows,
+            EnumerableRowCollection<DataRow> dataRows,
             bool bodyOnly,
             bool inRange,
             long changedItemId = 0)
@@ -8893,11 +3838,13 @@ namespace Implem.Pleasanter.Models
                     changedItemId: changedItemId);
         }
 
-        public static string Crosstab(IContext context, SiteSettings ss)
+        public static string Crosstab(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "Crosstab"))
             {
-                return HtmlTemplates.Error(context, Error.Types.HasNotPermission);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.HasNotPermission));
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -8978,7 +3925,7 @@ namespace Implem.Pleasanter.Models
                         inRange: inRangeX && inRangeY));
         }
 
-        public static string CrosstabJson(IContext context, SiteSettings ss)
+        public static string CrosstabJson(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "Crosstab"))
             {
@@ -9094,7 +4041,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private static List<Column> CrosstabColumns(
-            IContext context, SiteSettings ss, View view)
+            Context context, SiteSettings ss, View view)
         {
             return Libraries.ViewModes.CrosstabUtilities.GetColumns(
                 context: context,
@@ -9104,8 +4051,8 @@ namespace Implem.Pleasanter.Models
                     .ToList());
         }
 
-        private static IEnumerable<DataRow> CrosstabDataRows(
-            IContext context,
+        private static EnumerableRowCollection<DataRow> CrosstabDataRows(
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByX,
@@ -9116,32 +4063,43 @@ namespace Implem.Pleasanter.Models
             string timePeriod,
             DateTime month)
         {
-            IEnumerable<DataRow> dataRows;
-            var join = ss.Join(
-                context: context,
-                columns: Libraries.ViewModes.CrosstabUtilities
-                    .JoinColumns(view, groupByX, groupByY, columns, value));
+            EnumerableRowCollection<DataRow> dataRows;
             if (groupByX?.TypeName != "datetime")
             {
+                var column = Rds.ResultsColumn()
+                    .Add(
+                        context: context,
+                        ss: ss,
+                        column: groupByX)
+                    .CrosstabColumns(
+                        context: context,
+                        ss: ss,
+                        view: view,
+                        groupByY: groupByY,
+                        columns: columns,
+                        value: value,
+                        aggregateType: aggregateType);
+                var where = view.Where(
+                    context: context,
+                    ss: ss);
+                var groupBy = Rds.ResultsGroupBy()
+                    .Add(ss, groupByX)
+                    .Add(ss, groupByY);
                 dataRows = Rds.ExecuteTable(
                     context: context,
                     statements: Rds.SelectResults(
-                        column: Rds.ResultsColumn()
-                            .Add(ss, groupByX)
-                            .CrosstabColumns(
-                                context: context,
-                                ss: ss,
-                                view: view,
-                                groupByY: groupByY,
-                                columns: columns,
-                                value: value,
-                                aggregateType: aggregateType),
-                        join: join,
-                        where: view.Where(context: context, ss: ss),
-                        groupBy: Rds.ResultsGroupBy()
-                            .Add(ss, groupByX)
-                            .Add(ss, groupByY)))
-                                .AsEnumerable();
+                        column: column,
+                        join: ss.Join(
+                            context: context,
+                            join: new IJoin[]
+                            {
+                                column,
+                                where,
+                                groupBy
+                            }),
+                        where: where,
+                        groupBy: groupBy))
+                            .AsEnumerable();
             }
             else
             {
@@ -9150,41 +4108,51 @@ namespace Implem.Pleasanter.Models
                     ss: ss,
                     column: groupByX,
                     timePeriod: timePeriod);
+                var column = Rds.ResultsColumn()
+                    .Add(dateGroup, _as: groupByX.ColumnName)
+                    .CrosstabColumns(
+                        context: context,
+                        ss: ss,
+                        view: view,
+                        groupByY: groupByY,
+                        columns: columns,
+                        value: value,
+                        aggregateType: aggregateType);
+                var where = view.Where(
+                    context: context,
+                    ss: ss,
+                    where: Libraries.ViewModes.CrosstabUtilities.Where(
+                        context: context,
+                        ss: ss,
+                        column: groupByX,
+                        timePeriod: timePeriod,
+                        month: month));
+                var groupBy = Rds.ResultsGroupBy()
+                    .Add(dateGroup)
+                    .Add(ss, groupByY);
                 dataRows = Rds.ExecuteTable(
                     context: context,
                     statements: Rds.SelectResults(
-                        column: Rds.ResultsColumn()
-                            .Add(dateGroup, _as: groupByX.ColumnName)
-                            .CrosstabColumns(
-                                context: context,
-                                ss: ss,
-                                view: view,
-                                groupByY: groupByY,
-                                columns: columns,
-                                value: value,
-                                aggregateType: aggregateType),
-                        join: join,
-                        where: view.Where(
+                        column: column,
+                        join: ss.Join(
                             context: context,
-                            ss: ss,
-                            where: Libraries.ViewModes.CrosstabUtilities.Where(
-                                context: context,
-                                ss: ss,
-                                column: groupByX,
-                                timePeriod: timePeriod,
-                                month: month)),
-                        groupBy: Rds.ResultsGroupBy()
-                            .Add(dateGroup)
-                            .Add(ss, groupByY)))
-                                .AsEnumerable();
+                            join: new IJoin[]
+                            {
+                                column,
+                                where,
+                                groupBy
+                            }),
+                        where: where,
+                        groupBy: groupBy))
+                            .AsEnumerable();
             }
-            ss.SetChoiceHash(dataRows);
+            ss.SetChoiceHash(dataRows: dataRows);
             return dataRows;
         }
 
         private static SqlColumnCollection CrosstabColumns(
             this SqlColumnCollection self,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByY,
@@ -9196,9 +4164,11 @@ namespace Implem.Pleasanter.Models
             {
                 return self
                     .Add(
+                        context: context,
                         ss: ss,
                         column: groupByY)
                     .Add(
+                        context: context,
                         ss: ss,
                         column: value,
                         _as: "Value",
@@ -9208,6 +4178,7 @@ namespace Implem.Pleasanter.Models
             {
                 columns.ForEach(column =>
                     self.Add(
+                        context: context,
                         ss: ss,
                         column: column,
                         _as: column.ColumnName,
@@ -9216,11 +4187,13 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public static string TimeSeries(IContext context, SiteSettings ss)
+        public static string TimeSeries(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "TimeSeries"))
             {
-                return HtmlTemplates.Error(context, Error.Types.HasNotPermission);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.HasNotPermission));
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -9254,7 +4227,7 @@ namespace Implem.Pleasanter.Models
                         inRange: inRange));
         }
 
-        public static string TimeSeriesJson(IContext context, SiteSettings ss)
+        public static string TimeSeriesJson(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "TimeSeries"))
             {
@@ -9305,7 +4278,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder TimeSeries(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             bool bodyOnly,
@@ -9349,25 +4322,39 @@ namespace Implem.Pleasanter.Models
                     inRange: inRange);
         }
 
-        private static IEnumerable<DataRow> TimeSeriesDataRows(
-            IContext context, SiteSettings ss, View view, Column groupBy, Column value)
+        private static EnumerableRowCollection<DataRow> TimeSeriesDataRows(
+            Context context, SiteSettings ss, View view, Column groupBy, Column value)
         {
             if (groupBy != null && value != null)
             {
+                var column = Rds.ResultsColumn()
+                    .ResultId(_as: "Id")
+                    .Ver()
+                    .UpdatedTime()
+                    .Add(
+                        context: context,
+                        ss: ss,
+                        column: groupBy)
+                    .Add(
+                        context: context,
+                        ss: ss,
+                        column: value);
+                var where = view.Where(context: context, ss: ss);
                 var dataRows = Rds.ExecuteTable(
                     context: context,
                     statements: Rds.SelectResults(
                         tableType: Sqls.TableTypes.NormalAndHistory,
-                        column: Rds.ResultsColumn()
-                            .ResultId(_as: "Id")
-                            .Ver()
-                            .UpdatedTime()
-                            .Add(ss: ss, column: groupBy)
-                            .Add(ss: ss, column: value),
-                        join: ss.Join(context: context),
-                        where: view.Where(context: context, ss: ss)))
+                        column: column,
+                        join: ss.Join(
+                            context: context,
+                            join: new IJoin[]
+                                {
+                                    column,
+                                    where
+                                }),
+                        where: where))
                             .AsEnumerable();
-                ss.SetChoiceHash(dataRows);
+                ss.SetChoiceHash(dataRows: dataRows);
                 return dataRows;
             }
             else
@@ -9376,11 +4363,13 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public static string Kamban(IContext context, SiteSettings ss)
+        public static string Kamban(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "Kamban"))
             {
-                return HtmlTemplates.Error(context, Error.Types.HasNotPermission);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.HasNotPermission));
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -9414,7 +4403,7 @@ namespace Implem.Pleasanter.Models
                         inRange: inRange));
         }
 
-        public static string KambanJson(IContext context, SiteSettings ss)
+        public static string KambanJson(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "Kamban"))
             {
@@ -9465,7 +4454,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder Kamban(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             bool bodyOnly,
@@ -9493,6 +4482,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 columnName: view.GetKambanValue(ss));
             var aggregationView = view.KambanAggregationView ?? false;
+            var columns = view.GetKambanColumns();
             var data = KambanData(
                 context: context,
                 ss: ss,
@@ -9509,7 +4499,7 @@ namespace Implem.Pleasanter.Models
                     groupByY: groupByY,
                     aggregateType: aggregateType,
                     value: value,
-                    columns: view.KambanColumns,
+                    columns: columns,
                     aggregationView: aggregationView,
                     data: data,
                     inRange: inRange)
@@ -9521,7 +4511,7 @@ namespace Implem.Pleasanter.Models
                     groupByY: groupByY,
                     aggregateType: aggregateType,
                     value: value,
-                    columns: view.KambanColumns,
+                    columns: columns,
                     aggregationView: aggregationView,
                     data: data,
                     changedItemId: changedItemId,
@@ -9529,23 +4519,41 @@ namespace Implem.Pleasanter.Models
         }
 
         private static IEnumerable<Libraries.ViewModes.KambanElement> KambanData(
-            IContext context, 
+            Context context, 
             SiteSettings ss,
             View view,
             Column groupByX,
             Column groupByY,
             Column value)
         {
+            var column = Rds.ResultsColumn()
+                .ResultId()
+                .ItemTitle(ss.ReferenceType)
+                .Add(
+                    context: context,
+                    ss: ss,
+                    column: groupByX)
+                .Add(
+                    context: context,
+                    ss: ss,
+                    column: groupByY)
+                .Add(
+                    context: context,
+                    ss: ss,
+                    column: value);
+            var where = view.Where(context: context, ss: ss);
             return Rds.ExecuteTable(
                 context: context,
                 statements: Rds.SelectResults(
-                    column: Rds.ResultsColumn()
-                        .ResultId()
-                        .ItemTitle(ss.ReferenceType, Rds.IdColumn(ss.ReferenceType))
-                        .Add(ss: ss, column: groupByX)
-                        .Add(ss: ss, column: groupByY)
-                        .Add(ss: ss, column: value),
-                    where: view.Where(context: context, ss: ss)))
+                    column: column,
+                    join: ss.Join(
+                        context: context,
+                        join: new IJoin[]
+                        {
+                            column,
+                            where
+                        }),
+                    where: where))
                         .AsEnumerable()
                         .Select(o => new Libraries.ViewModes.KambanElement()
                         {
@@ -9557,21 +4565,21 @@ namespace Implem.Pleasanter.Models
                         });
         }
 
-        public static string UpdateByKamban(IContext context, SiteSettings ss)
+        public static string UpdateByKamban(Context context, SiteSettings ss)
         {
             var resultModel = new ResultModel(
                 context: context,
                 ss: ss,
                 resultId: context.Forms.Long("KambanId"),
-                setByForm: true);
+                formData: context.Forms);
             var invalid = ResultValidators.OnUpdating(
                 context: context,
                 ss: ss,
                 resultModel: resultModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             if (resultModel.AccessStatus != Databases.AccessStatuses.Selected)
             {
@@ -9586,11 +4594,13 @@ namespace Implem.Pleasanter.Models
             return KambanJson(context: context, ss: ss);
         }
 
-        public static string ImageLib(IContext context, SiteSettings ss)
+        public static string ImageLib(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "ImageLib"))
             {
-                return HtmlTemplates.Error(context, Error.Types.HasNotPermission);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.HasNotPermission));
             }
             var hb = new HtmlBuilder();
             var view = Views.GetBySession(context: context, ss: ss);
@@ -9610,7 +4620,7 @@ namespace Implem.Pleasanter.Models
                         bodyOnly: false));
         }
 
-        public static string ImageLibJson(IContext context, SiteSettings ss)
+        public static string ImageLibJson(Context context, SiteSettings ss)
         {
             if (!ss.EnableViewMode(context: context, name: "ImageLib"))
             {
@@ -9637,7 +4647,7 @@ namespace Implem.Pleasanter.Models
 
         private static HtmlBuilder ImageLib(
             this HtmlBuilder hb,
-            IContext context, 
+            Context context, 
             SiteSettings ss,
             View view,
             bool bodyOnly,
@@ -9664,7 +4674,7 @@ namespace Implem.Pleasanter.Models
                         pageSize: ss.ImageLibPageSize.ToInt()));
         }
 
-        public static string ImageLibNext(IContext context, SiteSettings ss, int offset)
+        public static string ImageLibNext(Context context, SiteSettings ss, int offset)
         {
             var view = Views.GetBySession(context: context, ss: ss);
             var imageLibData = new ImageLibData(
@@ -9697,7 +4707,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static void SetLinks(
-            this List<ResultModel> results, IContext context, SiteSettings ss)
+            this List<ResultModel> results, Context context, SiteSettings ss)
         {
             var links = ss.GetUseSearchLinks(context: context);
             links?.ForEach(link =>
@@ -9716,13 +4726,20 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        private static bool InRange(IContext context, SiteSettings ss, View view, int limit)
+        private static bool InRange(Context context, SiteSettings ss, View view, int limit)
         {
+            var where = view.Where(context: context, ss: ss);
             return Rds.ExecuteScalar_int(
                 context: context,
                 statements: Rds.SelectResults(
                     column: Rds.ResultsColumn().ResultsCount(),
-                    where: view.Where(context: context, ss: ss))) <= limit;
+                    join: ss.Join(
+                        context: context,
+                        join: new IJoin[]
+                        {
+                            where
+                        }),
+                    where: where)) <= limit;
         }
     }
 }

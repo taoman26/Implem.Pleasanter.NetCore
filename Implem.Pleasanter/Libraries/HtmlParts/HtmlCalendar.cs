@@ -17,7 +17,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Calendar(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string timePeriod,
             Column fromColumn,
@@ -94,7 +94,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             changedItemId: changedItemId)));
         }
 
-        private static Dictionary<string, ControlData> CalendarMonth(IContext context)
+        private static Dictionary<string, ControlData> CalendarMonth(Context context)
         {
             var now = DateTime.Now;
             var month = new DateTime(
@@ -112,7 +112,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder CalendarBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string timePeriod,
             Column fromColumn,
@@ -171,7 +171,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder CalendarBodyTable(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             string timePeriod,
             DateTime month,
             DateTime begin)
@@ -194,7 +194,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder YearlyTable(
-            this HtmlBuilder hb, IContext context, DateTime month, DateTime begin)
+            this HtmlBuilder hb, Context context, DateTime month, DateTime begin)
         {
             return hb.Table(id: "Grid", action: () => hb
                 .THead(action: () => hb
@@ -230,7 +230,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static HtmlBuilder MonthlyTable(
-            this HtmlBuilder hb, IContext context, DateTime month, DateTime begin)
+            this HtmlBuilder hb, Context context, DateTime month, DateTime begin)
         {
             return hb.Table(id: "Grid", action: () => hb
                 .THead(action: () => hb
@@ -277,7 +277,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static string Json(
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column from,
             Column to,
@@ -309,7 +309,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static DateTime ConvertIfCompletionTime(
-            IContext context, Column column, DateTime dateTime)
+            Context context, Column column, DateTime dateTime)
         {
             switch (column?.ColumnName)
             {
@@ -329,7 +329,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                 : ((DayOfWeek)(Parameters.General.FirstDayOfWeek + x)).ToString().ToLower();
         }
 
-        private static string DayOfWeekString(IContext context, int x)
+        private static string DayOfWeekString(Context context, int x)
         {
             return Displays.Get(
                 context: context,

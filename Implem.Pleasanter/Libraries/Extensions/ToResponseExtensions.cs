@@ -3,25 +3,24 @@ using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using System;
-using System.Collections.Generic;
 namespace Implem.Pleasanter.Libraries.Extensions
 {
     public static class ToResponseExtensions
     {
         public static string ToResponse(
-            this Enum self, IContext context, SiteSettings ss, Column column)
+            this Enum self, Context context, SiteSettings ss, Column column)
         {
             return self.ToString();
         }
 
         public static string ToResponse(
-            this bool self, IContext context, SiteSettings ss, Column column)
+            this bool self, Context context, SiteSettings ss, Column column)
         {
             return self.ToString();
         }
 
         public static string ToResponse(
-            this DateTime self, IContext context, SiteSettings ss, Column column)
+            this DateTime self, Context context, SiteSettings ss, Column column)
         {
             return self.InRange()
                 ? column.DisplayControl(
@@ -31,19 +30,19 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static string ToResponse(
-            this int self, IContext context, SiteSettings ss, Column column)
+            this int self, Context context, SiteSettings ss, Column column)
         {
             return self.ToString();
         }
 
         public static string ToResponse(
-            this long self, IContext context, SiteSettings ss, Column column)
+            this long self, Context context, SiteSettings ss, Column column)
         {
             return self.ToString();
         }
 
         public static string ToResponse(
-            this decimal self, IContext context, SiteSettings ss, Column column)
+            this decimal self, Context context, SiteSettings ss, Column column)
         {
             return column.ControlType == "Spinner"
                 ? column.Display(
@@ -58,7 +57,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static string ToResponse(
-            this string self, IContext context, SiteSettings ss, Column column)
+            this string self, Context context, SiteSettings ss, Column column)
         {
             return column.EditorReadOnly != true || !column.HasChoices()
                 ? self.ToString()

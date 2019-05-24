@@ -26,7 +26,7 @@ namespace Implem.Pleasanter.Models
         public int TotalCount;
 
         public PermissionCollection(
-            IContext context,
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -37,39 +37,47 @@ namespace Implem.Pleasanter.Models
             int top = 0,
             int offset = 0,
             int pageSize = 0,
-            bool countRecord = false,
             bool get = true)
         {
             if (get)
             {
-                Set(context, Get(
+                Set(
                     context: context,
-                    column: column,
-                    join: join,
-                    where: where,
-                    orderBy: orderBy,
-                    param: param,
-                    tableType: tableType,
-                    distinct: distinct,
-                    top: top,
-                    offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord));
+                    dataRows: Get(
+                        context: context,
+                        column: column,
+                        join: join,
+                        where: where,
+                        orderBy: orderBy,
+                        param: param,
+                        tableType: tableType,
+                        distinct: distinct,
+                        top: top,
+                        offset: offset,
+                        pageSize: pageSize));
             }
         }
 
-        public PermissionCollection(IContext context, IEnumerable<DataRow> dataRows)
+        public PermissionCollection(
+            Context context,
+            EnumerableRowCollection<DataRow> dataRows)
         {
-            Set(context, dataRows);
+                Set(
+                    context: context,
+                    dataRows: dataRows);
         }
 
-        private PermissionCollection Set(IContext context, IEnumerable<DataRow> dataRows)
+        private PermissionCollection Set(
+            Context context,
+            EnumerableRowCollection<DataRow> dataRows)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new PermissionModel(context, dataRow));
+                    Add(new PermissionModel(
+                        context: context,
+                        dataRow: dataRow));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -80,8 +88,8 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        private IEnumerable<DataRow> Get(
-            IContext context,
+        private EnumerableRowCollection<DataRow> Get(
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -91,9 +99,7 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0,
             int offset = 0,
-            int pageSize = 0,
-            bool history = false,
-            bool countRecord = false)
+            int pageSize = 0)
         {
             var statements = new List<SqlStatement>
             {
@@ -108,8 +114,12 @@ namespace Implem.Pleasanter.Models
                     distinct: distinct,
                     top: top,
                     offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord)
+                    pageSize: pageSize),
+                Rds.SelectCount(
+                    tableName: "Permissions",
+                    tableType: tableType,
+                    join: join ?? Rds.PermissionsJoinDefault(),
+                    where: where)
             };
             var dataSet = Rds.ExecuteDataSet(
                 context: context,
@@ -123,7 +133,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public PermissionCollection(
-            IContext context, long referenceId, IEnumerable<string> permissions)
+            Context context, long referenceId, IEnumerable<string> permissions)
         {
             permissions?.ForEach(line =>
             {
@@ -144,7 +154,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public bool InTenant(IContext context)
+        public bool InTenant(Context context)
         {
             var depts = this.Where(o => o.DeptId > 0).Select(o => o.DeptId);
             var groups = this.Where(o => o.GroupId > 0).Select(o => o.GroupId);

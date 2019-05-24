@@ -14,7 +14,7 @@ namespace Implem.Pleasanter.Libraries.Search
 {
     public static class Indexes
     {
-        public static void Create(IContext context, SiteSettings ss, long id, bool force = false)
+        public static void Create(Context context, SiteSettings ss, long id, bool force = false)
         {
             if (Parameters.Search.Provider.IsNullOrEmpty() && Parameters.Search.CreateIndexes)
             {
@@ -198,7 +198,7 @@ namespace Implem.Pleasanter.Libraries.Search
         }
 
         public static void CreateIndexes(
-            IContext context, SiteSettings ss, Dictionary<string, int> hash, long id)
+            Context context, SiteSettings ss, Dictionary<string, int> hash, long id)
         {
             if (ss.SiteId == id && ss.ReferenceType == "Wikis")
             {
@@ -248,7 +248,7 @@ namespace Implem.Pleasanter.Libraries.Search
             return statements.ToArray();
         }
 
-        private static void CreateFullText(IContext context, long id, string fullText)
+        private static void CreateFullText(Context context, long id, string fullText)
         {
             if (fullText != null)
             {
@@ -264,7 +264,7 @@ namespace Implem.Pleasanter.Libraries.Search
             }
         }
 
-        public static void Create(IContext context, SiteSettings ss, SiteModel siteModel)
+        public static void Create(Context context, SiteSettings ss, SiteModel siteModel)
         {
             if (Parameters.Search.Provider.IsNullOrEmpty() && Parameters.Search.CreateIndexes)
             {
@@ -278,7 +278,7 @@ namespace Implem.Pleasanter.Libraries.Search
             }
         }
 
-        public static void Create(IContext context, SiteSettings ss, IssueModel issueModel)
+        public static void Create(Context context, SiteSettings ss, IssueModel issueModel)
         {
             if (Parameters.Search.Provider.IsNullOrEmpty() && Parameters.Search.CreateIndexes)
             {
@@ -292,7 +292,7 @@ namespace Implem.Pleasanter.Libraries.Search
             }
         }
 
-        public static void Create(IContext context, SiteSettings ss, ResultModel resultModel)
+        public static void Create(Context context, SiteSettings ss, ResultModel resultModel)
         {
             if (Parameters.Search.Provider.IsNullOrEmpty() && Parameters.Search.CreateIndexes)
             {
@@ -306,7 +306,7 @@ namespace Implem.Pleasanter.Libraries.Search
             }
         }
 
-        public static void Create(IContext context, SiteSettings ss, WikiModel wikiModel)
+        public static void Create(Context context, SiteSettings ss, WikiModel wikiModel)
         {
             if (Parameters.Search.Provider.IsNullOrEmpty() && Parameters.Search.CreateIndexes)
             {

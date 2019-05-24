@@ -5,7 +5,7 @@ namespace Implem.Pleasanter.Libraries.Requests
 {
     public static class Calendars
     {
-        public static DateTime BeginDate(IContext context, DateTime date, string timePeriod)
+        public static DateTime BeginDate(Context context, DateTime date, string timePeriod)
         {
             date = date.ToLocal(context: context).Date;
             date = new DateTime(date.Year, date.Month, 1);
@@ -31,7 +31,7 @@ namespace Implem.Pleasanter.Libraries.Requests
             }
         }
 
-        public static DateTime EndDate(IContext context, DateTime date, string timePeriod)
+        public static DateTime EndDate(Context context, DateTime date, string timePeriod)
         {
             switch (timePeriod)
             {

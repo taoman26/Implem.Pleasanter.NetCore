@@ -194,7 +194,8 @@ namespace Implem.Pleasanter.NetFramework.Controllers
             var context = new ContextImplement();
             var controller = new Implem.Pleasanter.Controllers.UsersController();
             var result = controller.SamlLogin(context: context);
-            return result;
+            var redirectResult = new RedirectResult(result.redirectResultUrl);
+            return redirectResult;
         }
 
         /// <summary>

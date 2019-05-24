@@ -16,14 +16,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Gantt(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column groupBy,
             Column sortBy,
             int period,
             DateTime startDate,
             GanttRange range,
-            IEnumerable<DataRow> dataRows,
+            EnumerableRowCollection<DataRow> dataRows,
             bool inRange = true)
         {
             return hb.Div(css: "both", action: () => hb
@@ -110,7 +110,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static Dictionary<string, ControlData> GanttDays(
-            IContext context, IEnumerable<DataRow> dataRows)
+            Context context, EnumerableRowCollection<DataRow> dataRows)
         {
             var now = DateTime.Now;
             var month = new DateTime(
@@ -128,14 +128,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder GanttBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column groupBy,
             Column sortBy,
             int period,
             DateTime startDate,
             GanttRange range,
-            IEnumerable<DataRow> dataRows,
+            EnumerableRowCollection<DataRow> dataRows,
             bool inRange)
         {
             hb

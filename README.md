@@ -8,8 +8,8 @@
 技術概要資料(PDF)は[こちら](docs/20190308.pdf)です。
 
 ## 製品版の README
-Windows 版の README のコピーは[こちら](README_PLEASANTER.md)です。  
-製品版のリポジトリは[こちら](https://github.com/Implem/Implem.Pleasanter)です。
+製品版（Windows 版）の README は[こちら](https://github.com/Implem/Implem.Pleasanter/blob/master/README.md)です。  
+製品版（Windows 版）のリポジトリは[こちら](https://github.com/Implem/Implem.Pleasanter)です。
 
 ## ダウンロード
 クロスプラットフォーム beta 版のセットアップモジュールはまだありません。  
@@ -57,7 +57,7 @@ Visual Studio からクロスプラットフォーム（.NET Core）実行環境
 * SQL Server 2017 [[download](https://www.microsoft.com/ja-jp/sql-server/sql-server-downloads)]
 
 ## 実行環境を構築する（Linuxの場合）
-* .NET Core 2.2 [[download](https://dotnet.microsoft.com/download)]  または [[パッケージ管理システム]([https://dotnet.microsoft.com/download/linux-package-manager/rhel/sdk-2.2.105)]
+* .NET Core 2.2 [[download](https://dotnet.microsoft.com/download)]  または [[パッケージ管理システム](https://dotnet.microsoft.com/download/linux-package-manager/rhel/sdk-2.2.105)]
 * SQL Server 2017 [[download](https://www.microsoft.com/ja-jp/sql-server/sql-server-downloads)] または [[パッケージ管理システム](https://docs.microsoft.com/ja-jp/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-linux-2017)]
 
 * GDI+ のインストール
@@ -79,6 +79,10 @@ apt-get install -y libgdiplus
 ※フォルダ構成を維持したままコピーしてください。
 1. Implem.CodeDefiner.NetCore プロジェクトの発行先フォルダへ移動します。  
 通常は Implem.CodeDefiner.NetCore\bin\Debug\netcoreapp2.2\publish\ または Implem.CodeDefiner.NetCore\bin\Release\netcoreapp2.2\publish\ です。
+1. SQL Server の接続情報を書き換えます。  
+接続情報が記載されたファイルは `Implem.Pleasanter\App_Data\Parameters\Rds.json` です。下記行のパスワード部分をSAのパスワード(※)に書き換えてください。  
+```"SaConnectionString": "Server=(local);Database=master;UID=sa;PWD=********;Connection Timeout=30;",  ```  
+※ SAのパスワードはSQL Serverのインストール時に設定したSQL Serverのシステム管理者のパスワードです。
 1. 次のコマンドで SQL Server を構築します。
 ```
 dotnet Implem.CodeDefiner.NetCore.dll _rds
@@ -109,6 +113,38 @@ http://localhost:5000/
 1. ```codedefiner.sh``` を実行し SQL Server を構成します。
 1. ```pleasanter.sh``` を実行しプリザンターを実行します。
 1. ブラウザで ```http://localhost:5000/``` へアクセスします。
+
+## 常駐プログラムのスクリプトの動作環境を構築する（Linux）
+リマインダー機能やActive Directoryのユーザ情報を同期する場合は、スクリプトの動作環境として Python3 系をインストールします。  
+Linux に既に Python3 系がインストールされている場合は作業は不要です。  
+
+参考：  
+CentOS [[パッケージ管理システム](https://www.softwarecollections.org/en/scls/rhscl/rh-python36/)]
+
+## プリザンターのリマインダー機能を有効化する（Linux）
+
+リマインダーを使用すると指定した時間にタスクの状況などを通知することが可能です。リマインダーを動作させるためには、常駐プログラムによりプリザンターの URL にリクエストを送信し続けます。
+### **スクリプトの配置**
+---
+[Reminder.py](https://github.com/Implem/Implem.Pleasanter.NetCore/tree/master/Implem.Pleasanter.NetCore/Tools/Reminder.py)を /opt/pleasanter-tools 等任意のディレクトリにコピーします。[Reminder.py](https://github.com/Implem/Implem.Pleasanter.NetCore/tree/master/Implem.Pleasanter.NetCore/Tools/Reminder.py) を vim 等の任意のエディターで編集し http://localhost/ の部分を、クライアントからアクセス可能なURLに変更します。localhost のままでもリマインダーを動かす事ができますが、送信されたメールに記載されるレコードの URL が http://localhost/ となり、クライアントからアクセスできません。
+### **cron の設定**
+---
+スクリプトを cron に登録します。以下のコマンドを参考に設定を行ってください。  
+   
+1. crontab を編集します。  
+crontab -e
+
+1. crontab をサーバの起動時にリマインダー機能を実行するように設定します。  
+@reboot python3 /opt/pleasanter-tools/Reminder.py
+
+1. スクリプトを実行します。次回サーバ起動時には自動実行されるため初回のみ必要です。  
+python3 /opt/pleasanter-tools/Reminder.py
+
+
+## データベースバックアップスクリプトの動作環境を構成する（Linux）
+データベースバックアップスクリプト ```Implem.Pleasanter.NetCore/Tools/DbBackup.py``` を使用する場合は、Microsoft ODBC Driver 17 for SQL Server をインストールします。
+
+* Microsoft ODBC Driver 17 for SQL Server [[パッケージ管理システム](https://docs.microsoft.com/ja-jp/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-2017)]
 
 ## デバッグする
 

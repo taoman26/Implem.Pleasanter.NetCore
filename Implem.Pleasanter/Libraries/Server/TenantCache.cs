@@ -16,13 +16,13 @@ namespace Implem.Pleasanter.Libraries.Server
 
         public UpdateMonitor UpdateMonitor;
 
-        public TenantCache(IContext context)
+        public TenantCache(Context context)
         {
             TenantId = context.TenantId;
             UpdateMonitor = new UpdateMonitor(context: context);
         }
 
-        public UpdateMonitor GetUpdateMonitor(IContext context)
+        public UpdateMonitor GetUpdateMonitor(Context context)
         {
             UpdateMonitor.Monitor(context: context);
             return UpdateMonitor;

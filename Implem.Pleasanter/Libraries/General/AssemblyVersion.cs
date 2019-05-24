@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Libraries.General
         public int Build;
         public int Revision;
 
-        public AssemblyVersion(IContext context)
+        public AssemblyVersion(Context context)
         {
             SetByString(StatusUtilities.AssemblyVersion(context: context));
         }

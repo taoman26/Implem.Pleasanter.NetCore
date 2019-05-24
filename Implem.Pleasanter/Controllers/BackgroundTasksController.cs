@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class BackgroundTasksController
     {
-        public string Do(IContext context, IBackgroundTasks backgroundTasks)
+        public string Do(Context context, IBackgroundTasks backgroundTasks)
         {
             if (Parameters.BackgroundTask.Enabled)
             {

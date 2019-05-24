@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -28,7 +29,7 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         public static HtmlBuilder OutgoingMailsForm(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string referenceType,
             long referenceId,
@@ -63,7 +64,7 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         public static HtmlBuilder OutgoingMailListItem(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             OutgoingMailModel outgoingMailModel)
         {
@@ -146,7 +147,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Editor(IContext context, string reference, long id)
+        public static string Editor(Context context, string reference, long id)
         {
             var ss = SiteSettingsUtilities.GetByReference(
                 context: context,
@@ -225,7 +226,7 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         private static HtmlBuilder Editor(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             OutgoingMailModel outgoingMailModel)
         {
@@ -294,7 +295,7 @@ namespace Implem.Pleasanter.Models
                         icon: "ui-icon-cancel"))
                 .Hidden(
                     controlId: "OutgoingMails_Location",
-                    value: Location(context: context))
+                    value: Locations.OutGoingMailAbsoluteUri(context: context))
                 .Hidden(
                     controlId: "OutgoingMails_Reply",
                     value: outgoingMailModel.AccessStatus == Databases.AccessStatuses.Selected
@@ -340,11 +341,11 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static string ReplyBody(IContext context, OutgoingMailModel outgoingMailModel)
+        private static string ReplyBody(Context context, OutgoingMailModel outgoingMailModel)
         {
             return outgoingMailModel.AccessStatus == Databases.AccessStatuses.Selected
                 ? Displays.OriginalMessage(context: context).Params(
-                    Location(context: context),
+                    Locations.OutGoingMailAbsoluteUri(context: context),
                     outgoingMailModel.From,
                     outgoingMailModel.SentTime.DisplayValue.ToString(
                         Displays.Get(
@@ -360,7 +361,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static string MailDefault(
-            IContext context,
+            Context context,
             SiteSettings ss,
             OutgoingMailModel outgoingMailModel,
             string mailDefault,
@@ -394,17 +395,8 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static string Location(IContext context)
-        {
-            var location = context.AbsoluteUri.ToLower();
-            return location.Substring(0, location.IndexOf("/outgoingmails"));
-        }
-
-        /// <summary>
-        /// Fixed:
-        /// </summary>
         private static HtmlBuilder Destinations(
-            this HtmlBuilder hb, IContext context, SiteSettings ss)
+            this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             var addressBook = AddressBook(ss);
             var searchRangeDefault = ss.SiteId != 0
@@ -479,7 +471,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static Dictionary<string, ControlData> SearchRangeOptionCollection(
-            IContext context,
+            Context context,
             string searchRangeDefault,
             Dictionary<string, ControlData> addressBook)
         {
@@ -528,7 +520,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static Dictionary<string, ControlData> Destinations(
-            IContext context,
+            Context context,
             SiteSettings ss,
             long referenceId,
             Dictionary<string, ControlData> addressBook,
@@ -589,6 +581,7 @@ namespace Implem.Pleasanter.Models
         {
             return self
                 .SqlWhereLike(
+                    tableName: null,
                     name: "SearchText",
                     searchText: searchText,
                     clauseCollection: new List<string>()
@@ -609,7 +602,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static Dictionary<string, ControlData> DestinationCollection(
-            IContext context, SqlJoinCollection join, SqlWhereCollection where)
+            Context context, SqlJoinCollection join, SqlWhereCollection where)
         {
             return Rds.ExecuteTable(
                 context: context,
@@ -633,7 +626,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static System.Net.Mail.MailAddress From(IContext context, int userId)
+        public static System.Net.Mail.MailAddress From(Context context, int userId)
         {
             return new System.Net.Mail.MailAddress(
                 MailAddressUtilities.Get(
@@ -645,7 +638,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Send(IContext context, string reference, long id)
+        public static string Send(Context context, string reference, long id)
         {
             var ss = SiteSettingsUtilities.GetByReference(
                 context: context,
@@ -665,23 +658,23 @@ namespace Implem.Pleasanter.Models
                 ss: ss,
                 outgoingMailModel: outgoingMailModel,
                 data: out invalidMailAddress);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None:
                     break;
                 case Error.Types.BadMailAddress:
                 case Error.Types.ExternalMailAddress:
-                    return invalid.MessageJson(
+                    return invalid.Type.MessageJson(
                         context: context,
                         data: invalidMailAddress);
                 default:
-                    return invalid.MessageJson(context: context);
+                    return invalid.Type.MessageJson(context: context);
             }
             var error = outgoingMailModel.Send(
                 context: context,
                 ss: ss);
-            return error.Has()
-                ? error.MessageJson(context: context)
+            return error.Type.Has()
+                ? error.Type.MessageJson(context: context)
                 : new OutgoingMailsResponseCollection(outgoingMailModel)
                     .CloseDialog()
                     .ClearFormData()

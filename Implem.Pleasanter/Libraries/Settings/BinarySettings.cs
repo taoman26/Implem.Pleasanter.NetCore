@@ -4,7 +4,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 {
     public class BinarySettings
     {
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return this.ToJson() == "[]";
         }

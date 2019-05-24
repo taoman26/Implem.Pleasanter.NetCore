@@ -9,13 +9,23 @@ namespace Implem.Pleasanter.Libraries.Settings
 {
     public static class ColumnUtilities
     {
+        public static List<string> ExtendedColumns(string tableName = null)
+        {
+            return Def.ColumnDefinitionCollection
+                .Where(columnDefinition => !columnDefinition.ExtendedColumnType.IsNullOrEmpty())
+                .Where(columnDefinition => columnDefinition.TableName == tableName || tableName == null)
+                .Select(columnDefinition => columnDefinition.ColumnName)
+                .OrderBy(columnName => columnName)
+                .ToList();
+        }
+
         public enum CheckFilterTypes : int
         {
             On = 1,
             Off = 2
         }
 
-        public static Dictionary<string, string> CheckFilterTypeOptions(IContext context)
+        public static Dictionary<string, string> CheckFilterTypeOptions(Context context)
         {
             return new Dictionary<string, string>
             {
@@ -30,7 +40,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             OnAndOff = 2
         }
 
-        public static Dictionary<string, string> CheckFilterControlTypeOptions(IContext context)
+        public static Dictionary<string, string> CheckFilterControlTypeOptions(Context context)
         {
             return new Dictionary<string, string>
             {
@@ -39,9 +49,24 @@ namespace Implem.Pleasanter.Libraries.Settings
             };
         }
 
+        public enum DateFilterSetMode : int
+        {
+            Default = 1,
+            Range = 2
+        }
+
+        public static Dictionary<string, string> DateFilterSetModeOptions(Context context)
+        {
+            return new Dictionary<string, string>
+            {
+                { DateFilterSetMode.Default.ToInt().ToString(), Displays.DateFilterSetModeDefault(context: context) },
+                { DateFilterSetMode.Range.ToInt().ToString(), Displays.DateFilterSetModeRange(context: context) }
+            };
+        }
+
         public static IEnumerable<ColumnDefinition> GridDefinitions(
             this Dictionary<string, ColumnDefinition> definitions,
-            IContext context,
+            Context context,
             bool enableOnly = false)
         {
             return definitions.Values
@@ -63,7 +88,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static IEnumerable<ColumnDefinition> EditorDefinitions(
             this Dictionary<string, ColumnDefinition> definitions,
-            IContext context,
+            Context context,
             bool enableOnly = false)
         {
             return definitions.Values
@@ -86,7 +111,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static IEnumerable<ColumnDefinition> LinkDefinitions(
             this Dictionary<string, ColumnDefinition> definitions,
-            IContext context,
+            Context context,
             bool enableOnly = false)
         {
             return definitions.Values
@@ -99,7 +124,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static IEnumerable<ColumnDefinition> HistoryDefinitions(
             this Dictionary<string, ColumnDefinition> definitions,
-            IContext context,
+            Context context,
             bool enableOnly = false)
         {
             return definitions.Values
@@ -132,7 +157,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static Dictionary<string, ControlData> SelectableOptions(
-            IContext context,
+            Context context,
             SiteSettings ss,
             IEnumerable<string> columns,
             string labelType = null,
@@ -151,7 +176,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static Dictionary<string, ControlData> SelectableSourceOptions(
-            IContext context,
+            Context context,
             SiteSettings ss,
             IEnumerable<string> columns,
             string labelType = null,
@@ -168,7 +193,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         private static ControlData SelectableOptionsControlData(
-            IContext context,
+            Context context,
             SiteSettings ss,
             string columnName,
             string labelType,
@@ -259,12 +284,12 @@ namespace Implem.Pleasanter.Libraries.Settings
         {
             return tableAlias.IsNullOrEmpty()
                 ? siteId
-                : tableAlias.Split('-').Last().Split_2nd('~').ToLong();
+                : GetSiteIdByTableAlias(tableAlias);
         }
 
         public static long GetSiteIdByTableAlias(string tableAlias)
         {
-            return tableAlias.Split('-').Last().Split_2nd('~').ToLong();
+            return tableAlias.Split('-').Last().Split('~').Last().ToLong();
         }
     }
 }

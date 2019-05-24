@@ -22,7 +22,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         public bool? GroupSummary;
 
         public GanttElement(
-            IContext context,
+            Context context,
             string groupBy,
             object sortBy,
             long id,

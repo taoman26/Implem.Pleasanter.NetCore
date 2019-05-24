@@ -8,7 +8,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
     public static class ToExportExtensions
     {
         public static string ToExport(
-            this string value, IContext context, Column column, ExportColumn exportColumn = null)
+            this string value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return column.HasChoices()
                 ? column.ChoicePart(
@@ -19,19 +19,19 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static string ToExport(
-            this int value, IContext context, Column column, ExportColumn exportColumn = null)
+            this int value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return value.ToString(column.StringFormat);
         }
 
         public static string ToExport(
-            this long value, IContext context, Column column, ExportColumn exportColumn = null)
+            this long value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return value.ToString(column.StringFormat);
         }
 
         public static string ToExport(
-            this decimal value, IContext context, Column column, ExportColumn exportColumn = null)
+            this decimal value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return column.Display(
                 context: context,
@@ -40,7 +40,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static string ToExport(
-            this DateTime value, IContext context, Column column, ExportColumn exportColumn = null)
+            this DateTime value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return value.InRange()
                 ? value.ToLocal(context: context).Display(
@@ -52,7 +52,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static string ToExport(
-            this bool value, IContext context, Column column, ExportColumn exportColumn = null)
+            this bool value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return value
                 ? "1"
@@ -60,7 +60,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static string ToExport(
-            this Enum value, IContext context, Column column, ExportColumn exportColumn = null)
+            this Enum value, Context context, Column column, ExportColumn exportColumn = null)
         {
             return value.ToString();
         }

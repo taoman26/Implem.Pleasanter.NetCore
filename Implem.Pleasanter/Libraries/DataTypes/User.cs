@@ -37,7 +37,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         {
         }
 
-        public User(IContext context, int userId)
+        public User(Context context, int userId)
         {
             if (userId != 0 && userId != 2)
             {
@@ -73,14 +73,14 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public User(IContext context, DataRow dataRow)
+        public User(Context context, DataRow dataRow)
         {
             Set(
                 context: context,
                 dataRow: dataRow);
         }
 
-        private void Set(IContext context, DataRow dataRow)
+        private void Set(Context context, DataRow dataRow)
         {
             TenantId = dataRow.Int("TenantId");
             Id = dataRow.Int("UserId");
@@ -107,12 +107,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             ServiceManager = false;
         }
 
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return Id.ToString();
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return column.EditorReadOnly != true
                 ? Id.ToString()
@@ -121,7 +121,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     userId: Id);
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return Id != UserTypes.Anonymous.ToInt()
                 ? hb.Td(action: () => hb
@@ -134,7 +134,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 : hb.Td(action: () => { });
         }
 
-        public string GridText(IContext context, Column column)
+        public string GridText(Context context, Column column)
         {
             return Id != UserTypes.Anonymous.ToInt()
                 ? SiteInfo.UserName(
@@ -143,7 +143,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 : string.Empty;
         }
 
-        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             return !Anonymous()
                 ? column.ChoicePart(
@@ -154,7 +154,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public string ToNotice(
-            IContext context,
+            Context context,
             int saved,
             Column column,
             bool updated,
@@ -175,7 +175,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Id == UserTypes.Anonymous.ToInt();
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return Id == 0;
         }

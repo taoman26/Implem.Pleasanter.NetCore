@@ -24,9 +24,8 @@ namespace Implem.Pleasanter.Models
         [NonSerialized]
         public Databases.AccessStatuses AccessStatus = Databases.AccessStatuses.Initialized;
         public int TotalCount;
-
         public WikiCollection(
-            IContext context,
+            Context context,
             SiteSettings ss,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -38,40 +37,58 @@ namespace Implem.Pleasanter.Models
             int top = 0,
             int offset = 0,
             int pageSize = 0,
-            bool countRecord = false,
-            bool get = true)
+            bool get = true,
+            List<FormData> formDataSet = null)
         {
             if (get)
             {
-                Set(context, ss, Get(
+                Set(
                     context: context,
                     ss: ss,
-                    column: column,
-                    join: join,
-                    where: where,
-                    orderBy: orderBy,
-                    param: param,
-                    tableType: tableType,
-                    distinct: distinct,
-                    top: top,
-                    offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord));
+                    dataRows: Get(
+                        context: context,
+                        ss: ss,
+                        column: column,
+                        join: join,
+                        where: where,
+                        orderBy: orderBy,
+                        param: param,
+                        tableType: tableType,
+                        distinct: distinct,
+                        top: top,
+                        offset: offset,
+                        pageSize: pageSize),
+                    formDataSet: formDataSet);
             }
         }
-
-        public WikiCollection(IContext context,SiteSettings ss, IEnumerable<DataRow> dataRows)
+        public WikiCollection(
+            Context context,
+            SiteSettings ss,
+            EnumerableRowCollection<DataRow> dataRows,
+            List<FormData> formDataSet = null)
         {
-            Set(context, ss, dataRows);
+                Set(
+                    context: context,
+                    ss: ss,
+                    dataRows: dataRows,
+                    formDataSet: formDataSet);
         }
-
-        private WikiCollection Set(IContext context, SiteSettings ss, IEnumerable<DataRow> dataRows)
+        private WikiCollection Set(
+            Context context,
+            SiteSettings ss,
+            EnumerableRowCollection<DataRow> dataRows,
+            List<FormData> formDataSet = null)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new WikiModel(context, ss, dataRow));
+                    Add(new WikiModel(
+                        context: context,
+                        ss: ss,
+                        dataRow: dataRow,
+                        formData: formDataSet?.FirstOrDefault(o =>
+                            o.Id == dataRow.Long("WikiId"))?.Data));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -82,8 +99,8 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        private IEnumerable<DataRow> Get(
-            IContext context,
+        private EnumerableRowCollection<DataRow> Get(
+            Context context,
             SiteSettings ss,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -94,9 +111,7 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0,
             int offset = 0,
-            int pageSize = 0,
-            bool history = false,
-            bool countRecord = false)
+            int pageSize = 0)
         {
             var statements = new List<SqlStatement>
             {
@@ -111,8 +126,12 @@ namespace Implem.Pleasanter.Models
                     distinct: distinct,
                     top: top,
                     offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord)
+                    pageSize: pageSize),
+                Rds.SelectCount(
+                    tableName: "Wikis",
+                    tableType: tableType,
+                    join: join ?? Rds.WikisJoinDefault(),
+                    where: where)
             };
             var dataSet = Rds.ExecuteDataSet(
                 context: context,

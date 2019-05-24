@@ -30,7 +30,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static Rds.IssuesWhereCollection Where(
-            IContext context, SiteSettings ss, View view)
+            Context context, SiteSettings ss, View view)
         {
             var start = view.GanttStartDate.ToDateTime().ToUniversal(context: context);
             var end = start.AddDays(view.GanttPeriod.ToInt()).AddMilliseconds(-3);
@@ -51,7 +51,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
                         end)));
         }
 
-        private static string CompletionTimeSql(IContext context, SiteSettings ss)
+        private static string CompletionTimeSql(Context context, SiteSettings ss)
         {
             return Def.Sql.CompletionTimeColumn.Replace(
                 "#DifferenceOfDates#",

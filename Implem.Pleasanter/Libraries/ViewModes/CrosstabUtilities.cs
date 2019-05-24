@@ -32,7 +32,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return data;
         }
 
-        public static bool InRangeX(IContext context, IEnumerable<DataRow> dataRows)
+        public static bool InRangeX(Context context, EnumerableRowCollection<DataRow> dataRows)
         {
             var inRange = dataRows.Select(o => o.String("GroupByX")).Distinct().Count() <=
                 Parameters.General.CrosstabXLimit;
@@ -47,7 +47,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return inRange;
         }
 
-        public static bool InRangeY(IContext context, IEnumerable<DataRow> dataRows)
+        public static bool InRangeY(Context context, EnumerableRowCollection<DataRow> dataRows)
         {
             var inRange = dataRows.Select(o => o.String("GroupByY")).Distinct().Count() <=
                 Parameters.General.CrosstabYLimit;
@@ -63,7 +63,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static string DateGroup(
-            IContext context, SiteSettings ss, Column column, string timePeriod)
+            Context context, SiteSettings ss, Column column, string timePeriod)
         {
             var columnBracket = ColumnBracket(
                 context: context,
@@ -95,7 +95,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static SqlWhereCollection Where(
-            IContext context, SiteSettings ss, Column column, string timePeriod, DateTime month)
+            Context context, SiteSettings ss, Column column, string timePeriod, DateTime month)
         {
             switch (timePeriod)
             {
@@ -145,7 +145,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             }
         }
 
-        private static string ColumnBracket(IContext context, Column column)
+        private static string ColumnBracket(Context context, Column column)
         {
             var columnBracket = "[{0}].[{1}]".Params(column.TableName(), column.Name);
             var diff = Diff(
@@ -158,7 +158,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             return columnBracket;
         }
 
-        private static int Diff(IContext context, Column column)
+        private static int Diff(Context context, Column column)
         {
             var now = DateTime.Now.ToLocal(context: context);
             switch (column.Name)
@@ -178,7 +178,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static List<Column> GetColumns(
-            IContext context, SiteSettings ss, List<Column> columns)
+            Context context, SiteSettings ss, List<Column> columns)
         {
             return columns?.Any() == true
                 ? columns
@@ -189,7 +189,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static string Csv(
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByX,
@@ -199,7 +199,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
             Column value,
             string timePeriod,
             DateTime month,
-            IEnumerable<DataRow> dataRows)
+            EnumerableRowCollection<DataRow> dataRows)
         {
             var csv = new StringBuilder();
             if (groupByY != null)
@@ -261,7 +261,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
 
         private static void Body(
             this StringBuilder csv,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Dictionary<string, ControlData> choicesX,
@@ -304,7 +304,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static List<CrosstabElement> Elements(
-            Column groupByX, Column groupByY, IEnumerable<DataRow> dataRows)
+            Column groupByX, Column groupByY, EnumerableRowCollection<DataRow> dataRows)
         {
             return dataRows
                 .Select(dataRow => new CrosstabElement(
@@ -315,7 +315,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static List<CrosstabElement> ColumnsElements(
-            Column groupByX, IEnumerable<DataRow> dataRows, List<Column> columnList)
+            Column groupByX, EnumerableRowCollection<DataRow> dataRows, List<Column> columnList)
         {
             var data = new List<CrosstabElement>();
             dataRows.ForEach(dataRow =>
@@ -328,7 +328,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static Dictionary<string, ControlData> ChoicesX(
-            IContext context, Column groupByX, View view, string timePeriod, DateTime month)
+            Context context, Column groupByX, View view, string timePeriod, DateTime month)
         {
             return groupByX?.TypeName == "datetime"
                 ? CorrectedChoices(groupByX, timePeriod, month)
@@ -402,7 +402,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static Dictionary<string, ControlData> ChoicesY(
-            IContext context, Column groupByY, View view)
+            Context context, Column groupByY, View view)
         {
             return groupByY?.EditChoices(
                 context: context,
@@ -427,7 +427,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         }
 
         public static string CellText(
-            IContext context, Column value, string aggregateType, decimal data)
+            Context context, Column value, string aggregateType, decimal data)
         {
             return value?.Display(
                 context: context,

@@ -23,7 +23,7 @@ using System.Web.Mvc;
 using System.Web.Routing;
 namespace Implem.Pleasanter.NetFramework.Libraries.Requests
 {
-    public class ContextImplement : IContext
+    public class ContextImplement : Context
     {
         public override bool Authenticated { get; set; }
         public override bool SwitchUser { get; set; }
@@ -53,11 +53,13 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
         public override int TenantId { get; set; }
         public override long SiteId { get; set; }
         public override long Id { get; set; }
+        public override Dictionary<long, Permissions.Types> PermissionHash { get; set; }
         public override string Guid { get; set; }
         public override TenantModel.LogoTypes LogoType { get; set; }
         public override string TenantTitle { get; set; }
         public override string SiteTitle { get; set; }
         public override string RecordTitle { get; set; }
+        public override  bool DisableAllUsersPermission { get; set; }
         public override string HtmlTitleTop { get; set; }
         public override string HtmlTitleSite { get; set; }
         public override string HtmlTitleRecord { get; set; }
@@ -75,6 +77,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
         public override UserSettings UserSettings { get; set; }
         public override bool HasPrivilege { get; set; }
         public override ContractSettings ContractSettings { get; set; } = new ContractSettings();
+        public override decimal ApiVersion { get; set; }
         public override string ApiRequestBody { get; set; }
         public override string RequestDataString { get => ApiRequestBody ?? FormString; }
 
@@ -107,10 +110,11 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
             UserId = userId;
             Language = language ?? Language;
             UserHostAddress = HasRoute
-                ? HttpContext.Current?.Request?.UserHostAddress
+                ? GetUserHostAddress(HttpContext.Current.Request)
                 : null;
             SetTenantProperties();
             SetPublish();
+            SetPermissions();
             SetTenantCaches();
         }
 
@@ -135,6 +139,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
             if (user) SetUserProperties(sessionStatus, setData);
             SetTenantProperties();
             if (request) SetPublish();
+            if (request) SetPermissions();
             SetTenantCaches();
         }
 
@@ -145,6 +150,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
                 var request = HttpContext.Current.Request;
                 FormStringRaw = HttpContext.Current.Request.Form.ToString();
                 FormString = HttpUtility.UrlDecode(FormStringRaw, System.Text.Encoding.UTF8);
+                HttpMethod = request.HttpMethod;
                 Ajax = new HttpRequestWrapper(request).IsAjaxRequest();
                 Mobile = request.Browser.IsMobileDevice;
                 RouteData = GetRouteData();
@@ -162,17 +168,15 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
                 Id = RouteData.Get("id")?.ToLong() ?? 0;
                 Guid = RouteData.Get("guid");
                 UserHostName = request.UserHostName;
-                UserHostAddress = request.UserHostAddress;
+                UserHostAddress = GetUserHostAddress(request);
                 UserAgent = request.UserAgent;
             }
         }
 
         private void SetSessionGuid()
         {
-            if (HttpContext.Current?.Session != null)
-            {
-                SessionGuid = HttpContext.Current?.Session.SessionID;
-            }
+            SessionGuid = HttpContext.Current?.Request?.Cookies["ASP.NET_SessionId"]?.Value
+                ?? SessionGuid;
         }
 
         private void SetItemProperties()
@@ -227,6 +231,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
                 var api = RequestDataString.Deserialize<Api>();
                 if (api?.ApiKey.IsNullOrEmpty() == false)
                 {
+                    ApiVersion = api.ApiVersion;
                     SetUser(userModel: GetUser(where: Rds.UsersWhere()
                         .ApiKey(api.ApiKey)));
                 }
@@ -269,7 +274,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
                 Dept = SiteInfo.Dept(tenantId: TenantId, deptId: DeptId);
                 User = SiteInfo.User(context: this, userId: UserId);
                 Language = userModel.Language;
-                UserHostAddress = HttpContext.Current?.Request?.UserHostAddress;
+                UserHostAddress = GetUserHostAddress(HttpContext.Current.Request);
                 Developer = userModel.Developer;
                 TimeZoneInfo = userModel.TimeZoneInfo;
                 UserSettings = userModel.UserSettings;
@@ -289,6 +294,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
                             .ContractSettings()
                             .ContractDeadline()
                             .LogoType()
+                            .DisableAllUsersPermission()
                             .HtmlTitleTop()
                             .HtmlTitleSite()
                             .HtmlTitleRecord(),
@@ -311,7 +317,9 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
 
         private void SetData()
         {
-            SessionData = SessionUtilities.Get(this);
+            SessionData = SessionUtilities.Get(
+                context: this,
+                includeUserArea: Controller == "sessions");
             var request = HttpContext.Current.Request;
             request.QueryString.AllKeys
                 .Where(o => o != null)
@@ -320,7 +328,7 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
             request.Form.AllKeys
                 .Where(o => o != null)
                 .ForEach(key =>
-                    Forms.Add(key, request.Form[key]));
+                    Forms.AddIfNotConainsKey(key, request.Form[key]));
         }
 
         private void SetPostedFiles(HttpPostedFileBase[] files)
@@ -474,21 +482,28 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
             }
         }
 
-        public override IContext CreateContext() { return new ContextImplement(); }
-        public override IContext CreateContext(int tenantId) { return new ContextImplement(tenantId: tenantId); }
-        public override IContext CreateContext(int tenantId, int userId, int deptId) { return new ContextImplement(tenantId: tenantId, userId: userId, deptId: deptId); }
-        public override IContext CreateContext(int tenantId, string language) { return new ContextImplement(tenantId: tenantId, language: language); }
-        public override IContext CreateContext(int tenantId, int userId, string language) { return new ContextImplement(tenantId: tenantId, userId: userId, language: language); }
-        public override IContext CreateContext(bool request, bool sessionStatus, bool sessionData, bool user) { return new ContextImplement(request: request, sessionStatus: sessionStatus, sessionData: sessionData, user: user); }
+        public override Context CreateContext() { return new ContextImplement(); }
+        public override Context CreateContext(int tenantId) { return new ContextImplement(tenantId: tenantId); }
+        public override Context CreateContext(int tenantId, int userId, int deptId) { return new ContextImplement(tenantId: tenantId, userId: userId, deptId: deptId); }
+        public override Context CreateContext(int tenantId, string language) { return new ContextImplement(tenantId: tenantId, language: language); }
+        public override Context CreateContext(int tenantId, int userId, string language) { return new ContextImplement(tenantId: tenantId, userId: userId, language: language); }
+        public override Context CreateContext(bool request, bool sessionStatus, bool sessionData, bool user) { return new ContextImplement(request: request, sessionStatus: sessionStatus, sessionData: sessionData, user: user); }
 
-        public static void Init() { IContext.SetFactory(item => new ContextImplement(item: item)); }
+        public static void Init() { Context.SetFactory(item => new ContextImplement(item: item)); }
 
         public override string VirtualPathToAbsolute(string virtualPath) { return VirtualPathUtility.ToAbsolute(virtualPath); }
 
         public override void FormsAuthenticationSignIn(string userName, bool createPersistentCookie) { System.Web.Security.FormsAuthentication.SetAuthCookie(userName, createPersistentCookie); }
         public override void FormsAuthenticationSignOut() { System.Web.Security.FormsAuthentication.SignOut(); }
 
-        public override void SessionAbandon() { HttpContext.Current.Session.Abandon(); }
+        public override void SessionAbandon()
+        {
+            var current = System.Web.HttpContext.Current;
+            current.Session.Clear();
+            current.Session.Abandon();
+            current.Response.Cookies.Add(
+                new System.Web.HttpCookie("ASP.NET_SessionId", string.Empty));
+        }
 
         public override void FederatedAuthenticationSessionAuthenticationModuleDeleteSessionTokenCookie()
         {
@@ -499,6 +514,21 @@ namespace Implem.Pleasanter.NetFramework.Libraries.Requests
         {
             return ((AuthenticationSection)ConfigurationManager
                 .GetSection("system.web/authentication")).Mode.ToString() == "Windows";
+        }
+
+        private string GetUserHostAddress(HttpRequest request)
+        {
+            var address = request?.Headers["X-Forwarded-For"]?.Split(',')?.FirstOrDefault();
+            if (address == null)
+            {
+                return request?.UserHostAddress;
+            }
+            if (address.StartsWith("["))
+            {
+                return address.Trim('[', ']');
+            }
+            var n = address.IndexOf(":");
+            return (n > 0) ? address.Substring(0, n) : address;
         }
     }
 }

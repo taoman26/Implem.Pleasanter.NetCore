@@ -31,16 +31,16 @@ namespace Implem.Pleasanter.Models
         public string GroupName = string.Empty;
         public string Name = string.Empty;
         public Permissions.Types PermissionType = (Permissions.Types)31;
-        [NonSerialized] public long SavedReferenceId = 0;
-        [NonSerialized] public int SavedDeptId = 0;
-        [NonSerialized] public int SavedGroupId = 0;
-        [NonSerialized] public int SavedUserId = 0;
-        [NonSerialized] public string SavedDeptName = string.Empty;
-        [NonSerialized] public string SavedGroupName = string.Empty;
-        [NonSerialized] public string SavedName = string.Empty;
-        [NonSerialized] public long SavedPermissionType = 31;
+        public long SavedReferenceId = 0;
+        public int SavedDeptId = 0;
+        public int SavedGroupId = 0;
+        public int SavedUserId = 0;
+        public string SavedDeptName = string.Empty;
+        public string SavedGroupName = string.Empty;
+        public string SavedName = string.Empty;
+        public long SavedPermissionType = 31;
 
-        public bool ReferenceId_Updated(IContext context, Column column = null)
+        public bool ReferenceId_Updated(Context context, Column column = null)
         {
             return ReferenceId != SavedReferenceId &&
                 (column == null ||
@@ -48,7 +48,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != ReferenceId);
         }
 
-        public bool DeptId_Updated(IContext context, Column column = null)
+        public bool DeptId_Updated(Context context, Column column = null)
         {
             return DeptId != SavedDeptId &&
                 (column == null ||
@@ -56,7 +56,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != DeptId);
         }
 
-        public bool GroupId_Updated(IContext context, Column column = null)
+        public bool GroupId_Updated(Context context, Column column = null)
         {
             return GroupId != SavedGroupId &&
                 (column == null ||
@@ -64,7 +64,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != GroupId);
         }
 
-        public bool UserId_Updated(IContext context, Column column = null)
+        public bool UserId_Updated(Context context, Column column = null)
         {
             return UserId != SavedUserId &&
                 (column == null ||
@@ -72,7 +72,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != UserId);
         }
 
-        public bool PermissionType_Updated(IContext context, Column column = null)
+        public bool PermissionType_Updated(Context context, Column column = null)
         {
             return PermissionType.ToLong() != SavedPermissionType &&
                 (column == null ||
@@ -80,28 +80,37 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != PermissionType.ToLong());
         }
 
-        public PermissionModel(IContext context, DataRow dataRow, string tableAlias = null)
+        public PermissionModel(
+            Context context,
+            DataRow dataRow,
+            string tableAlias = null)
         {
             OnConstructing(context: context);
             Context = context;
-            if (dataRow != null) Set(context, dataRow, tableAlias);
+            if (dataRow != null)
+            {
+                Set(
+                    context: context,
+                    dataRow: dataRow,
+                    tableAlias: tableAlias);
+            }
             OnConstructed(context: context);
         }
 
-        private void OnConstructing(IContext context)
+        private void OnConstructing(Context context)
         {
         }
 
-        private void OnConstructed(IContext context)
+        private void OnConstructed(Context context)
         {
         }
 
-        public void ClearSessions(IContext context)
+        public void ClearSessions(Context context)
         {
         }
 
         public PermissionModel Get(
-            IContext context,
+            Context context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -142,13 +151,19 @@ namespace Implem.Pleasanter.Models
             UpdatedTime = permissionModel.UpdatedTime;
             VerUp = permissionModel.VerUp;
             Comments = permissionModel.Comments;
+            ClassHash = permissionModel.ClassHash;
+            NumHash = permissionModel.NumHash;
+            DateHash = permissionModel.DateHash;
+            DescriptionHash = permissionModel.DescriptionHash;
+            CheckHash = permissionModel.CheckHash;
+            AttachmentsHash = permissionModel.AttachmentsHash;
         }
 
-        private void SetBySession(IContext context)
+        private void SetBySession(Context context)
         {
         }
 
-        private void Set(IContext context, DataTable dataTable)
+        private void Set(Context context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
@@ -158,7 +173,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
+        private void Set(Context context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -236,31 +251,88 @@ namespace Implem.Pleasanter.Models
                             UpdatedTime = new Time(context, dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
-                        case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
+                        case "IsHistory":
+                            VerType = dataRow.Bool(column.ColumnName)
+                                ? Versions.VerTypes.History
+                                : Versions.VerTypes.Latest; break;
+                        default:
+                            switch (Def.ExtendedColumnTypes.Get(column.Name))
+                            {
+                                case "Class":
+                                    Class(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString());
+                                    SavedClass(
+                                        columnName: column.Name,
+                                        value: Class(columnName: column.Name));
+                                    break;
+                                case "Num":
+                                    Num(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToDecimal());
+                                    SavedNum(
+                                        columnName: column.Name,
+                                        value: Num(columnName: column.Name));
+                                    break;
+                                case "Date":
+                                    Date(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToDateTime());
+                                    SavedDate(
+                                        columnName: column.Name,
+                                        value: Date(columnName: column.Name));
+                                    break;
+                                case "Description":
+                                    Description(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString());
+                                    SavedDescription(
+                                        columnName: column.Name,
+                                        value: Description(columnName: column.Name));
+                                    break;
+                                case "Check":
+                                    Check(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToBool());
+                                    SavedCheck(
+                                        columnName: column.Name,
+                                        value: Check(columnName: column.Name));
+                                    break;
+                                case "Attachments":
+                                    Attachments(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString()
+                                            .Deserialize<Attachments>() ?? new Attachments());
+                                    SavedAttachments(
+                                        columnName: column.Name,
+                                        value: Attachments(columnName: column.Name).ToJson());
+                                    break;
+                            }
+                            break;
                     }
                 }
             }
         }
 
-        public bool Updated(IContext context)
+        public bool Updated(Context context)
         {
-            return
-                ReferenceId_Updated(context: context) ||
-                DeptId_Updated(context: context) ||
-                GroupId_Updated(context: context) ||
-                UserId_Updated(context: context) ||
-                Ver_Updated(context: context) ||
-                PermissionType_Updated(context: context) ||
-                Comments_Updated(context: context) ||
-                Creator_Updated(context: context) ||
-                Updator_Updated(context: context);
+            return Updated()
+                || ReferenceId_Updated(context: context)
+                || DeptId_Updated(context: context)
+                || GroupId_Updated(context: context)
+                || UserId_Updated(context: context)
+                || Ver_Updated(context: context)
+                || PermissionType_Updated(context: context)
+                || Comments_Updated(context: context)
+                || Creator_Updated(context: context)
+                || Updator_Updated(context: context);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
         public PermissionModel(
-            IContext context,
+            Context context,
             long referenceId,
             int deptId,
             int groupId,
@@ -301,7 +373,7 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         /// <param name="dataRow"></param>
         public PermissionModel(
-            IContext context,
+            Context context,
             long referenceId,
             Permissions.Types permissionType,
             DataRow dataRow)

@@ -9,7 +9,9 @@
         return d.Method === 'Html' ||
             d.Method === 'ReplaceAll' ||
             d.Method === 'Append' ||
-            d.Method === 'Prepend';
+            d.Method === 'Prepend' ||
+            d.Method === 'After' ||
+            d.Method === 'Before';
     }).length > 0) {
         $p.apply();
         $p.applyValidator();
@@ -113,7 +115,7 @@ $p.setByJsonElement = function (jsonElement, data, $control) {
             $p[target]();
             break;
         case 'Events':
-            $p.execOnEditorLoad();
+            $p.execEvents(target,'');
             break;
         case 'WindowScrollTop':
             $(window).scrollTop(value);

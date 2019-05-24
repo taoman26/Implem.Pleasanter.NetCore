@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.Responses
     {
         public static ResponseCollection PrependComment(
             this ResponseCollection res,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             Comments comments,
@@ -34,7 +34,7 @@ namespace Implem.Pleasanter.Libraries.Responses
 
         public static ResponseCollection Comment(
             this ResponseCollection res,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Column column,
             Comments comments,

@@ -16,7 +16,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
 {
     public static class Ldap
     {
-        public static bool Authenticate(IContext context, string loginId, string password)
+        public static bool Authenticate(Context context, string loginId, string password)
         {
             foreach (var ldap in Parameters.Authentication.LdapParameters)
             {
@@ -51,7 +51,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             return false;
         }
 
-        public static void UpdateOrInsert(IContext context, string loginId)
+        public static void UpdateOrInsert(Context context, string loginId)
         {
             foreach (var ldap in Parameters.Authentication.LdapParameters)
             {
@@ -78,7 +78,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         private static void UpdateOrInsert(
-            IContext context,
+            Context context,
             string loginId,
             DirectoryEntry entry,
             ParameterAccessor.Parts.Ldap ldap,
@@ -128,7 +128,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         private static void UpdateOrInsert(
-            IContext context,
+            Context context,
             string loginId,
             LdapEntry entry,
             ParameterAccessor.Parts.Ldap ldap,
@@ -178,7 +178,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         private static void UpdateOrInsert(
-            IContext context,
+            Context context,
             string loginId,
             string deptCode,
             string deptName,
@@ -251,7 +251,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
                 statements: statements.ToArray());
         }
 
-        public static void Sync(IContext context)
+        public static void Sync(Context context)
         {
             var synchronizedTime = DateTime.Now;
             Parameters.Authentication.LdapParameters
@@ -295,7 +295,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         private static void Sync(
-            IContext context,
+            Context context,
             ParameterAccessor.Parts.Ldap ldap,
             string pattern,
             DateTime synchronizedTime)
@@ -381,7 +381,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
 
         private static string Property(
             this DirectoryEntry entry,
-            IContext context,
+            Context context,
             string name,
             string pattern = null)
         {
@@ -409,7 +409,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         private static string Name(
-            IContext context,
+            Context context,
             string loginId,
             DirectoryEntry entry,
             ParameterAccessor.Parts.Ldap ldap)
@@ -430,7 +430,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
 
         private static string Property(
             this LdapEntry entry,
-            IContext context,
+            Context context,
             string name,
             string pattern = null)
         {
@@ -458,7 +458,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         private static string Name(
-            IContext context,
+            Context context,
             string loginId,
             LdapEntry entry,
             ParameterAccessor.Parts.Ldap ldap)
@@ -478,7 +478,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
         }
 
         public static string NetBiosName(
-            IContext context, LdapEntry entry, ParameterAccessor.Parts.Ldap ldap)
+            Context context, LdapEntry entry, ParameterAccessor.Parts.Ldap ldap)
         {
             return ldap.NetBiosDomainName + "\\" + entry.Property(
                 context: context,

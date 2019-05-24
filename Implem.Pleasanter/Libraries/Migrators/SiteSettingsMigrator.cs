@@ -24,25 +24,30 @@ namespace Implem.Pleasanter.Libraries.Migrators
             if (ss.Version < 1.012M) ss.Migrate1_012();
             if (ss.Version < 1.013M) ss.Migrate1_013();
             if (ss.Version < 1.014M) ss.Migrate1_014();
+            if (ss.Version < 1.015M) ss.Migrate1_015();
+            if (ss.Version < 1.016M) ss.Migrate1_016();
         }
 
-        public static void Migrate(IContext context)
+        public static void Migrate(Context context)
         {
-            Rds.ExecuteTable(
-                context: context,
-                statements: Rds.SelectSites(
-                    column: Rds.SitesColumn()
-                        .SiteId()
-                        .SiteSettings())).AsEnumerable().ForEach(dataRow =>
-                            MigrateSiteSettingsFormat(
-                                context: context,
-                                ss: dataRow.String("SiteSettings")
-                                    .Deserialize<SiteSettings>(),
-                                siteId: dataRow.Long("SiteId")));
+            if (context.HasPrivilege)
+            {
+                Rds.ExecuteTable(
+                    context: context,
+                    statements: Rds.SelectSites(
+                        column: Rds.SitesColumn()
+                            .SiteId()
+                            .SiteSettings())).AsEnumerable().ForEach(dataRow =>
+                                MigrateSiteSettingsFormat(
+                                    context: context,
+                                    ss: dataRow.String("SiteSettings")
+                                        .DeserializeSiteSettings(context: context),
+                                    siteId: dataRow.Long("SiteId")));
+            }
         }
 
         private static void MigrateSiteSettingsFormat(
-            IContext context, SiteSettings ss, long siteId)
+            Context context, SiteSettings ss, long siteId)
         {
             if (ss == null) return;
             if (ss.Migrated)

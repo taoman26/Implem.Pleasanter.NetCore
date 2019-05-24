@@ -11,7 +11,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     public static class HtmlRecordInfo
     {
         public static HtmlBuilder RecordInfo(
-            this HtmlBuilder hb, IContext context, BaseModel baseModel, string tableName)
+            this HtmlBuilder hb, Context context, BaseModel baseModel, string tableName)
         {
             return hb
                 .RecordedTime(
@@ -32,7 +32,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder RecordedTime(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             string controlId,
             string labelText,
             string format,
@@ -54,7 +54,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder RecordedTime(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             string format,
             string controlId,
             Time time)

@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Libraries.Migrators.Statuses
 {
     public static class Version00_037_010
     {
-        public static void Migrate(IContext context)
+        public static void Migrate(Context context)
         {
             Rds.ExecuteTable(
                 context: context,

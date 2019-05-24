@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder RecordHeader(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             BaseModel baseModel,
             string tableName,

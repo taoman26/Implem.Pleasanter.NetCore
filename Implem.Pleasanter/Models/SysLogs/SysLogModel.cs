@@ -68,44 +68,44 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        [NonSerialized] public long SavedSysLogId = 0;
-        [NonSerialized] public DateTime SavedStartTime = 0.ToDateTime();
-        [NonSerialized] public DateTime SavedEndTime = 0.ToDateTime();
-        [NonSerialized] public int SavedSysLogType = 10;
-        [NonSerialized] public bool SavedOnAzure = false;
-        [NonSerialized] public string SavedMachineName = string.Empty;
-        [NonSerialized] public string SavedServiceName = string.Empty;
-        [NonSerialized] public string SavedTenantName = string.Empty;
-        [NonSerialized] public string SavedApplication = string.Empty;
-        [NonSerialized] public string SavedClass = string.Empty;
-        [NonSerialized] public string SavedMethod = string.Empty;
-        [NonSerialized] public string SavedRequestData = string.Empty;
-        [NonSerialized] public string SavedHttpMethod = string.Empty;
-        [NonSerialized] public int SavedRequestSize = 0;
-        [NonSerialized] public int SavedResponseSize = 0;
-        [NonSerialized] public double SavedElapsed = 0;
-        [NonSerialized] public double SavedApplicationAge = 0;
-        [NonSerialized] public double SavedApplicationRequestInterval = 0;
-        [NonSerialized] public double SavedSessionAge = 0;
-        [NonSerialized] public double SavedSessionRequestInterval = 0;
-        [NonSerialized] public long SavedWorkingSet64 = 0;
-        [NonSerialized] public long SavedVirtualMemorySize64 = 0;
-        [NonSerialized] public int SavedProcessId = 0;
-        [NonSerialized] public string SavedProcessName = string.Empty;
-        [NonSerialized] public int SavedBasePriority = 0;
-        [NonSerialized] public string SavedUrl = string.Empty;
-        [NonSerialized] public string SavedUrlReferer = string.Empty;
-        [NonSerialized] public string SavedUserHostName = string.Empty;
-        [NonSerialized] public string SavedUserHostAddress = string.Empty;
-        [NonSerialized] public string SavedUserLanguage = string.Empty;
-        [NonSerialized] public string SavedUserAgent = string.Empty;
-        [NonSerialized] public string SavedSessionGuid = string.Empty;
-        [NonSerialized] public string SavedErrMessage = string.Empty;
-        [NonSerialized] public string SavedErrStackTrace = string.Empty;
-        [NonSerialized] public bool SavedInDebug = false;
-        [NonSerialized] public string SavedAssemblyVersion = string.Empty;
+        public long SavedSysLogId = 0;
+        public DateTime SavedStartTime = 0.ToDateTime();
+        public DateTime SavedEndTime = 0.ToDateTime();
+        public int SavedSysLogType = 10;
+        public bool SavedOnAzure = false;
+        public string SavedMachineName = string.Empty;
+        public string SavedServiceName = string.Empty;
+        public string SavedTenantName = string.Empty;
+        public string SavedApplication = string.Empty;
+        public string SavedClass = string.Empty;
+        public string SavedMethod = string.Empty;
+        public string SavedRequestData = string.Empty;
+        public string SavedHttpMethod = string.Empty;
+        public int SavedRequestSize = 0;
+        public int SavedResponseSize = 0;
+        public double SavedElapsed = 0;
+        public double SavedApplicationAge = 0;
+        public double SavedApplicationRequestInterval = 0;
+        public double SavedSessionAge = 0;
+        public double SavedSessionRequestInterval = 0;
+        public long SavedWorkingSet64 = 0;
+        public long SavedVirtualMemorySize64 = 0;
+        public int SavedProcessId = 0;
+        public string SavedProcessName = string.Empty;
+        public int SavedBasePriority = 0;
+        public string SavedUrl = string.Empty;
+        public string SavedUrlReferer = string.Empty;
+        public string SavedUserHostName = string.Empty;
+        public string SavedUserHostAddress = string.Empty;
+        public string SavedUserLanguage = string.Empty;
+        public string SavedUserAgent = string.Empty;
+        public string SavedSessionGuid = string.Empty;
+        public string SavedErrMessage = string.Empty;
+        public string SavedErrStackTrace = string.Empty;
+        public bool SavedInDebug = false;
+        public string SavedAssemblyVersion = string.Empty;
 
-        public bool SysLogId_Updated(IContext context, Column column = null)
+        public bool SysLogId_Updated(Context context, Column column = null)
         {
             return SysLogId != SavedSysLogId &&
                 (column == null ||
@@ -113,7 +113,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != SysLogId);
         }
 
-        public bool SysLogType_Updated(IContext context, Column column = null)
+        public bool SysLogType_Updated(Context context, Column column = null)
         {
             return SysLogType.ToInt() != SavedSysLogType &&
                 (column == null ||
@@ -121,7 +121,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != SysLogType.ToInt());
         }
 
-        public bool OnAzure_Updated(IContext context, Column column = null)
+        public bool OnAzure_Updated(Context context, Column column = null)
         {
             return OnAzure != SavedOnAzure &&
                 (column == null ||
@@ -129,7 +129,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToBool() != OnAzure);
         }
 
-        public bool MachineName_Updated(IContext context, Column column = null)
+        public bool MachineName_Updated(Context context, Column column = null)
         {
             return MachineName != SavedMachineName && MachineName != null &&
                 (column == null ||
@@ -137,7 +137,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != MachineName);
         }
 
-        public bool ServiceName_Updated(IContext context, Column column = null)
+        public bool ServiceName_Updated(Context context, Column column = null)
         {
             return ServiceName != SavedServiceName && ServiceName != null &&
                 (column == null ||
@@ -145,7 +145,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != ServiceName);
         }
 
-        public bool TenantName_Updated(IContext context, Column column = null)
+        public bool TenantName_Updated(Context context, Column column = null)
         {
             return TenantName != SavedTenantName && TenantName != null &&
                 (column == null ||
@@ -153,7 +153,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != TenantName);
         }
 
-        public bool Application_Updated(IContext context, Column column = null)
+        public bool Application_Updated(Context context, Column column = null)
         {
             return Application != SavedApplication && Application != null &&
                 (column == null ||
@@ -161,7 +161,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != Application);
         }
 
-        public bool Class_Updated(IContext context, Column column = null)
+        public bool Class_Updated(Context context, Column column = null)
         {
             return Class != SavedClass && Class != null &&
                 (column == null ||
@@ -169,7 +169,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != Class);
         }
 
-        public bool Method_Updated(IContext context, Column column = null)
+        public bool Method_Updated(Context context, Column column = null)
         {
             return Method != SavedMethod && Method != null &&
                 (column == null ||
@@ -177,7 +177,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != Method);
         }
 
-        public bool RequestData_Updated(IContext context, Column column = null)
+        public bool RequestData_Updated(Context context, Column column = null)
         {
             return RequestData != SavedRequestData && RequestData != null &&
                 (column == null ||
@@ -185,7 +185,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != RequestData);
         }
 
-        public bool HttpMethod_Updated(IContext context, Column column = null)
+        public bool HttpMethod_Updated(Context context, Column column = null)
         {
             return HttpMethod != SavedHttpMethod && HttpMethod != null &&
                 (column == null ||
@@ -193,7 +193,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != HttpMethod);
         }
 
-        public bool RequestSize_Updated(IContext context, Column column = null)
+        public bool RequestSize_Updated(Context context, Column column = null)
         {
             return RequestSize != SavedRequestSize &&
                 (column == null ||
@@ -201,7 +201,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != RequestSize);
         }
 
-        public bool ResponseSize_Updated(IContext context, Column column = null)
+        public bool ResponseSize_Updated(Context context, Column column = null)
         {
             return ResponseSize != SavedResponseSize &&
                 (column == null ||
@@ -209,7 +209,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != ResponseSize);
         }
 
-        public bool Elapsed_Updated(IContext context, Column column = null)
+        public bool Elapsed_Updated(Context context, Column column = null)
         {
             return Elapsed != SavedElapsed &&
                 (column == null ||
@@ -217,7 +217,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToDouble() != Elapsed);
         }
 
-        public bool ApplicationAge_Updated(IContext context, Column column = null)
+        public bool ApplicationAge_Updated(Context context, Column column = null)
         {
             return ApplicationAge != SavedApplicationAge &&
                 (column == null ||
@@ -225,7 +225,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToDouble() != ApplicationAge);
         }
 
-        public bool ApplicationRequestInterval_Updated(IContext context, Column column = null)
+        public bool ApplicationRequestInterval_Updated(Context context, Column column = null)
         {
             return ApplicationRequestInterval != SavedApplicationRequestInterval &&
                 (column == null ||
@@ -233,7 +233,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToDouble() != ApplicationRequestInterval);
         }
 
-        public bool SessionAge_Updated(IContext context, Column column = null)
+        public bool SessionAge_Updated(Context context, Column column = null)
         {
             return SessionAge != SavedSessionAge &&
                 (column == null ||
@@ -241,7 +241,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToDouble() != SessionAge);
         }
 
-        public bool SessionRequestInterval_Updated(IContext context, Column column = null)
+        public bool SessionRequestInterval_Updated(Context context, Column column = null)
         {
             return SessionRequestInterval != SavedSessionRequestInterval &&
                 (column == null ||
@@ -249,7 +249,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToDouble() != SessionRequestInterval);
         }
 
-        public bool WorkingSet64_Updated(IContext context, Column column = null)
+        public bool WorkingSet64_Updated(Context context, Column column = null)
         {
             return WorkingSet64 != SavedWorkingSet64 &&
                 (column == null ||
@@ -257,7 +257,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != WorkingSet64);
         }
 
-        public bool VirtualMemorySize64_Updated(IContext context, Column column = null)
+        public bool VirtualMemorySize64_Updated(Context context, Column column = null)
         {
             return VirtualMemorySize64 != SavedVirtualMemorySize64 &&
                 (column == null ||
@@ -265,7 +265,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != VirtualMemorySize64);
         }
 
-        public bool ProcessId_Updated(IContext context, Column column = null)
+        public bool ProcessId_Updated(Context context, Column column = null)
         {
             return ProcessId != SavedProcessId &&
                 (column == null ||
@@ -273,7 +273,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != ProcessId);
         }
 
-        public bool ProcessName_Updated(IContext context, Column column = null)
+        public bool ProcessName_Updated(Context context, Column column = null)
         {
             return ProcessName != SavedProcessName && ProcessName != null &&
                 (column == null ||
@@ -281,7 +281,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != ProcessName);
         }
 
-        public bool BasePriority_Updated(IContext context, Column column = null)
+        public bool BasePriority_Updated(Context context, Column column = null)
         {
             return BasePriority != SavedBasePriority &&
                 (column == null ||
@@ -289,7 +289,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToInt() != BasePriority);
         }
 
-        public bool Url_Updated(IContext context, Column column = null)
+        public bool Url_Updated(Context context, Column column = null)
         {
             return Url != SavedUrl && Url != null &&
                 (column == null ||
@@ -297,7 +297,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != Url);
         }
 
-        public bool UrlReferer_Updated(IContext context, Column column = null)
+        public bool UrlReferer_Updated(Context context, Column column = null)
         {
             return UrlReferer != SavedUrlReferer && UrlReferer != null &&
                 (column == null ||
@@ -305,7 +305,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != UrlReferer);
         }
 
-        public bool UserHostName_Updated(IContext context, Column column = null)
+        public bool UserHostName_Updated(Context context, Column column = null)
         {
             return UserHostName != SavedUserHostName && UserHostName != null &&
                 (column == null ||
@@ -313,7 +313,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != UserHostName);
         }
 
-        public bool UserHostAddress_Updated(IContext context, Column column = null)
+        public bool UserHostAddress_Updated(Context context, Column column = null)
         {
             return UserHostAddress != SavedUserHostAddress && UserHostAddress != null &&
                 (column == null ||
@@ -321,7 +321,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != UserHostAddress);
         }
 
-        public bool UserLanguage_Updated(IContext context, Column column = null)
+        public bool UserLanguage_Updated(Context context, Column column = null)
         {
             return UserLanguage != SavedUserLanguage && UserLanguage != null &&
                 (column == null ||
@@ -329,7 +329,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != UserLanguage);
         }
 
-        public bool UserAgent_Updated(IContext context, Column column = null)
+        public bool UserAgent_Updated(Context context, Column column = null)
         {
             return UserAgent != SavedUserAgent && UserAgent != null &&
                 (column == null ||
@@ -337,7 +337,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != UserAgent);
         }
 
-        public bool SessionGuid_Updated(IContext context, Column column = null)
+        public bool SessionGuid_Updated(Context context, Column column = null)
         {
             return SessionGuid != SavedSessionGuid && SessionGuid != null &&
                 (column == null ||
@@ -345,7 +345,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != SessionGuid);
         }
 
-        public bool ErrMessage_Updated(IContext context, Column column = null)
+        public bool ErrMessage_Updated(Context context, Column column = null)
         {
             return ErrMessage != SavedErrMessage && ErrMessage != null &&
                 (column == null ||
@@ -353,7 +353,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != ErrMessage);
         }
 
-        public bool ErrStackTrace_Updated(IContext context, Column column = null)
+        public bool ErrStackTrace_Updated(Context context, Column column = null)
         {
             return ErrStackTrace != SavedErrStackTrace && ErrStackTrace != null &&
                 (column == null ||
@@ -361,7 +361,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != ErrStackTrace);
         }
 
-        public bool InDebug_Updated(IContext context, Column column = null)
+        public bool InDebug_Updated(Context context, Column column = null)
         {
             return InDebug != SavedInDebug &&
                 (column == null ||
@@ -369,7 +369,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToBool() != InDebug);
         }
 
-        public bool AssemblyVersion_Updated(IContext context, Column column = null)
+        public bool AssemblyVersion_Updated(Context context, Column column = null)
         {
             return AssemblyVersion != SavedAssemblyVersion && AssemblyVersion != null &&
                 (column == null ||
@@ -377,28 +377,37 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != AssemblyVersion);
         }
 
-        public SysLogModel(IContext context, DataRow dataRow, string tableAlias = null)
+        public SysLogModel(
+            Context context,
+            DataRow dataRow,
+            string tableAlias = null)
         {
             OnConstructing(context: context);
             Context = context;
-            if (dataRow != null) Set(context, dataRow, tableAlias);
+            if (dataRow != null)
+            {
+                Set(
+                    context: context,
+                    dataRow: dataRow,
+                    tableAlias: tableAlias);
+            }
             OnConstructed(context: context);
         }
 
-        private void OnConstructing(IContext context)
+        private void OnConstructing(Context context)
         {
         }
 
-        private void OnConstructed(IContext context)
+        private void OnConstructed(Context context)
         {
         }
 
-        public void ClearSessions(IContext context)
+        public void ClearSessions(Context context)
         {
         }
 
         public SysLogModel Get(
-            IContext context,
+            Context context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -422,11 +431,11 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        private void SetBySession(IContext context)
+        private void SetBySession(Context context)
         {
         }
 
-        private void Set(IContext context, DataTable dataTable)
+        private void Set(Context context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
@@ -436,7 +445,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
+        private void Set(Context context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -612,75 +621,135 @@ namespace Implem.Pleasanter.Models
                             UpdatedTime = new Time(context, dataRow, column.ColumnName); Timestamp = dataRow.Field<DateTime>(column.ColumnName).ToString("yyyy/M/d H:m:s.fff");
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
-                        case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
+                        case "IsHistory":
+                            VerType = dataRow.Bool(column.ColumnName)
+                                ? Versions.VerTypes.History
+                                : Versions.VerTypes.Latest; break;
+                        default:
+                            switch (Def.ExtendedColumnTypes.Get(column.Name))
+                            {
+                                case "Class":
+                                    Class(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString());
+                                    SavedClass(
+                                        columnName: column.Name,
+                                        value: Class(columnName: column.Name));
+                                    break;
+                                case "Num":
+                                    Num(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToDecimal());
+                                    SavedNum(
+                                        columnName: column.Name,
+                                        value: Num(columnName: column.Name));
+                                    break;
+                                case "Date":
+                                    Date(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToDateTime());
+                                    SavedDate(
+                                        columnName: column.Name,
+                                        value: Date(columnName: column.Name));
+                                    break;
+                                case "Description":
+                                    Description(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString());
+                                    SavedDescription(
+                                        columnName: column.Name,
+                                        value: Description(columnName: column.Name));
+                                    break;
+                                case "Check":
+                                    Check(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToBool());
+                                    SavedCheck(
+                                        columnName: column.Name,
+                                        value: Check(columnName: column.Name));
+                                    break;
+                                case "Attachments":
+                                    Attachments(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString()
+                                            .Deserialize<Attachments>() ?? new Attachments());
+                                    SavedAttachments(
+                                        columnName: column.Name,
+                                        value: Attachments(columnName: column.Name).ToJson());
+                                    break;
+                            }
+                            break;
                     }
                 }
             }
         }
 
-        public bool Updated(IContext context)
+        public bool Updated(Context context)
         {
-            return
-                SysLogId_Updated(context: context) ||
-                Ver_Updated(context: context) ||
-                SysLogType_Updated(context: context) ||
-                OnAzure_Updated(context: context) ||
-                MachineName_Updated(context: context) ||
-                ServiceName_Updated(context: context) ||
-                TenantName_Updated(context: context) ||
-                Application_Updated(context: context) ||
-                Class_Updated(context: context) ||
-                Method_Updated(context: context) ||
-                RequestData_Updated(context: context) ||
-                HttpMethod_Updated(context: context) ||
-                RequestSize_Updated(context: context) ||
-                ResponseSize_Updated(context: context) ||
-                Elapsed_Updated(context: context) ||
-                ApplicationAge_Updated(context: context) ||
-                ApplicationRequestInterval_Updated(context: context) ||
-                SessionAge_Updated(context: context) ||
-                SessionRequestInterval_Updated(context: context) ||
-                WorkingSet64_Updated(context: context) ||
-                VirtualMemorySize64_Updated(context: context) ||
-                ProcessId_Updated(context: context) ||
-                ProcessName_Updated(context: context) ||
-                BasePriority_Updated(context: context) ||
-                Url_Updated(context: context) ||
-                UrlReferer_Updated(context: context) ||
-                UserHostName_Updated(context: context) ||
-                UserHostAddress_Updated(context: context) ||
-                UserLanguage_Updated(context: context) ||
-                UserAgent_Updated(context: context) ||
-                SessionGuid_Updated(context: context) ||
-                ErrMessage_Updated(context: context) ||
-                ErrStackTrace_Updated(context: context) ||
-                InDebug_Updated(context: context) ||
-                AssemblyVersion_Updated(context: context) ||
-                Comments_Updated(context: context) ||
-                Creator_Updated(context: context) ||
-                Updator_Updated(context: context);
+            return Updated()
+                || SysLogId_Updated(context: context)
+                || Ver_Updated(context: context)
+                || SysLogType_Updated(context: context)
+                || OnAzure_Updated(context: context)
+                || MachineName_Updated(context: context)
+                || ServiceName_Updated(context: context)
+                || TenantName_Updated(context: context)
+                || Application_Updated(context: context)
+                || Class_Updated(context: context)
+                || Method_Updated(context: context)
+                || RequestData_Updated(context: context)
+                || HttpMethod_Updated(context: context)
+                || RequestSize_Updated(context: context)
+                || ResponseSize_Updated(context: context)
+                || Elapsed_Updated(context: context)
+                || ApplicationAge_Updated(context: context)
+                || ApplicationRequestInterval_Updated(context: context)
+                || SessionAge_Updated(context: context)
+                || SessionRequestInterval_Updated(context: context)
+                || WorkingSet64_Updated(context: context)
+                || VirtualMemorySize64_Updated(context: context)
+                || ProcessId_Updated(context: context)
+                || ProcessName_Updated(context: context)
+                || BasePriority_Updated(context: context)
+                || Url_Updated(context: context)
+                || UrlReferer_Updated(context: context)
+                || UserHostName_Updated(context: context)
+                || UserHostAddress_Updated(context: context)
+                || UserLanguage_Updated(context: context)
+                || UserAgent_Updated(context: context)
+                || SessionGuid_Updated(context: context)
+                || ErrMessage_Updated(context: context)
+                || ErrStackTrace_Updated(context: context)
+                || InDebug_Updated(context: context)
+                || AssemblyVersion_Updated(context: context)
+                || Comments_Updated(context: context)
+                || Creator_Updated(context: context)
+                || Updator_Updated(context: context);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public void Update(IContext context, bool writeSqlToDebugLog)
+        public void Update(Context context, bool writeSqlToDebugLog)
         {
-            Rds.ExecuteNonQuery(
-                context: context,
-                transactional: true,
-                writeSqlToDebugLog: writeSqlToDebugLog,
-                statements: Rds.UpdateSysLogs(
-                    where: Rds.SysLogsWhereDefault(this),
-                    param: Rds.SysLogsParamDefault(
-                        context: context,
-                        sysLogModel: this)));
+            if (Parameters.SysLog.NotLoggingIp?.Contains(UserHostAddress) != true)
+            {
+                Rds.ExecuteNonQuery(
+                    context: context,
+                    transactional: true,
+                    writeSqlToDebugLog: writeSqlToDebugLog,
+                    statements: Rds.UpdateSysLogs(
+                        where: Rds.SysLogsWhereDefault(this),
+                        param: Rds.SysLogsParamDefault(
+                            context: context,
+                            sysLogModel: this)));
+            }
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        public SysLogModel(IContext context)
+        public SysLogModel(Context context)
         {
             Class = context.Controller;
             Method = context.Action;
@@ -690,7 +759,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public SysLogModel(IContext context, Exception e, Logs logs = null)
+        public SysLogModel(Context context, Exception e, Logs logs = null)
         {
             Class = context.Controller;
             Method = context.Action;
@@ -704,7 +773,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public SysLogModel(IContext context, string errorMessage)
+        public SysLogModel(Context context, string errorMessage)
         {
             Class = context.Controller;
             Method = context.Action;
@@ -715,7 +784,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public SysLogModel(IContext context, System.Web.Mvc.ExceptionContext filterContext)
+        public SysLogModel(Context context, System.Web.Mvc.ExceptionContext filterContext)
         {
             Class = context.Controller;
             Method = context.Action;
@@ -729,7 +798,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public SysLogModel(IContext context, string exceptionMessage, string exceptionStackTrace)
+        public SysLogModel(Context context, string exceptionMessage, string exceptionStackTrace)
         {
             Class = context.Controller;
             Method = context.Action;
@@ -755,25 +824,28 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public void WriteSysLog(IContext context)
+        public void WriteSysLog(Context context)
         {
             StartTime = DateTime.Now;
             SetProperties(context: context);
-            SysLogId = Rds.ExecuteScalar_response(
-                context: context,
-                selectIdentity: true,
-                statements: Rds.InsertSysLogs(
-                    setIdentity: true,
-                    param: Rds.SysLogsParamDefault(
-                        context: context,
-                        sysLogModel: this)))
-                            .Identity.ToLong();
+            if (Parameters.SysLog.NotLoggingIp?.Contains(UserHostAddress) != true)
+            {
+                SysLogId = Rds.ExecuteScalar_response(
+                    context: context,
+                    selectIdentity: true,
+                    statements: Rds.InsertSysLogs(
+                        selectIdentity: true,
+                        param: Rds.SysLogsParamDefault(
+                            context: context,
+                            sysLogModel: this)))
+                                .Id.ToLong();
+            }
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private void SetProperties(IContext context)
+        private void SetProperties(Context context)
         {
             SysLogType = SysLogTypes.Info;
             OnAzure = Environments.RdsProvider == "Azure";
@@ -804,7 +876,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public string ProcessedRequestData(IContext context)
+        public string ProcessedRequestData(Context context)
         {
             return context.FormStringRaw.Split('&')
                 .Where(o => o.Contains('='))
@@ -829,7 +901,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public void Finish(IContext context, int responseSize = 0)
+        public void Finish(Context context, int responseSize = 0)
         {
             if (responseSize > 0) { ResponseSize = responseSize; }
             Elapsed = (DateTime.Now - StartTime).TotalMilliseconds;

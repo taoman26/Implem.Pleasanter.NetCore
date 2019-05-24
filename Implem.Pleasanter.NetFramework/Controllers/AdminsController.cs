@@ -16,6 +16,24 @@ namespace Implem.Pleasanter.NetFramework.Controllers
         }
 
         [HttpGet]
+        public ActionResult InitializeItems()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.AdminsController();
+            controller.InitializeItems(context: context);
+            return View();
+        }
+
+        [HttpGet]
+        public ActionResult MigrateSiteSettings()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.AdminsController();
+            controller.MigrateSiteSettings(context: context);
+            return View();
+        }
+
+        [HttpGet]
         public string ReloadParameters()
         {
             var context = new ContextImplement();

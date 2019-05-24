@@ -37,7 +37,7 @@ namespace Implem.Pleasanter.Libraries.Requests
             return Data(key).ToLong();
         }
 
-        public decimal Decimal(IContext context, string key)
+        public decimal Decimal(Context context, string key)
         {
             return Data(key).ToDecimal(context.CultureInfo());
         }

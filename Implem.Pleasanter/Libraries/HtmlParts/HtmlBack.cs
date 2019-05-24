@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder BackUrl(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             long siteId,
             long parentId,
             string referenceType,
@@ -29,7 +29,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static string BackUrl(
-            IContext context,
+            Context context,
             long siteId,
             long parentId,
             string referenceType,
@@ -135,7 +135,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             }
         }
 
-        private static string AdminsOrTop(IContext context)
+        private static string AdminsOrTop(Context context)
         {
             return Permissions.CanManageTenant(context: context)
                 ? Locations.Admins(context: context)

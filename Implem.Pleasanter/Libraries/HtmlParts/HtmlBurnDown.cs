@@ -15,7 +15,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder BurnDown(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             IEnumerable<DataRow> dataRows,
             string ownerLabelText,
@@ -34,7 +34,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     column: column);
         }
 
-        private static HtmlBuilder Body(this HtmlBuilder hb, IContext context, BurnDown burnDown)
+        private static HtmlBuilder Body(this HtmlBuilder hb, Context context, BurnDown burnDown)
         {
             return hb.Div(action: () => hb
                 .Svg(id: "BurnDown")
@@ -45,7 +45,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Details(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             BurnDown burnDown,
             string ownerLabelText,
@@ -81,7 +81,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder DetailsBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             BurnDown burnDown,
             IEnumerable<int> updators,
@@ -127,7 +127,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder DetailsHeader(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             BurnDown burnDown,
             IEnumerable<int> updators,
             string ownerLabelText,
@@ -162,7 +162,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder DetailsRow(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             BurnDown burnDown,
             IEnumerable<int> updators,
             DateTime currentTime,
@@ -230,7 +230,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder BurnDownRecordDetails(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             IEnumerable<BurnDownElement> elements,
             Column progressRateColumn,
             Column statusColumn,
@@ -264,7 +264,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder BurnDownRecordDetail(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             int updatorId,
             string fullName,
             decimal earndValue,
@@ -300,7 +300,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder BurnDownRecordDetailAnchor(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             BurnDownElement element,
             Column progressRateColumn,
             Column statusColumn,

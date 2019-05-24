@@ -27,7 +27,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         public int AfterCondition;
         public Expressions Expression;
         [NonSerialized]
-        public bool Enabled = true;
+        public int Index;
 
         public enum Types : int
         {
@@ -107,7 +107,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             Expression = expression;
         }
 
-        public void Send(IContext context, SiteSettings ss, string title, string url, string body)
+        public void Send(Context context, SiteSettings ss, string title, string url, string body)
         {
             var from = MailAddressUtilities.Get(
                 context: context,
@@ -179,7 +179,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        public IEnumerable<Column> ColumnCollection(IContext context, SiteSettings ss, bool update)
+        public IEnumerable<Column> ColumnCollection(Context context, SiteSettings ss, bool update)
         {
             return (update
                 ? MonitorChangesColumns
@@ -196,7 +196,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return Type == Types.Mail && Address?.Contains("[RelatedUsers]") == true;
         }
 
-        public void ReplaceRelatedUsers(IContext context, IEnumerable<long> users)
+        public void ReplaceRelatedUsers(Context context, IEnumerable<long> users)
         {
             Address = Address.Replace(
                 "[RelatedUsers]",

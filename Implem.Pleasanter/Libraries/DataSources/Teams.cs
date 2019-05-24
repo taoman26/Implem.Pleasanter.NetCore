@@ -9,10 +9,10 @@ namespace Implem.Pleasanter.Libraries.DataSources
 {
     public class Teams
     {
-        public IContext context;
+        public Context context;
         public string text;
 
-        public Teams(IContext _context, string _text)
+        public Teams(Context _context, string _text)
         {
             text = WebUtility.HtmlEncode(_text);
             text = text

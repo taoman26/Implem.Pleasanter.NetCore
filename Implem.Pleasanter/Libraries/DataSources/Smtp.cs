@@ -18,10 +18,10 @@ namespace Implem.Pleasanter.Libraries.DataSources
         public string Bcc;
         public string Subject;
         public string Body;
-        public IContext Context;
+        public Context Context;
 
         public Smtp(
-            IContext context,
+            Context context,
             string host,
             int port,
             MailAddress from,
@@ -42,7 +42,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             Body = body;
         }
 
-        public void Send(IContext context)
+        public void Send(Context context)
         {
             var task = Task.Run(() =>
             {
@@ -87,6 +87,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
                     new SysLogModel(Context, e);
                 }
             });
+
         }
     }
 }

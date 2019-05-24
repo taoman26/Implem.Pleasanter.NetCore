@@ -29,8 +29,11 @@ namespace Implem.Pleasanter.NetCore
 {
     public class Startup
     {
+        IConfiguration configuration;
+
         public Startup(IConfiguration configuration)
         {
+            this.configuration = configuration;
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             Applications.StartTime = DateTime.Now;
             Applications.LastAccessTime = Applications.StartTime;
@@ -64,6 +67,7 @@ namespace Implem.Pleasanter.NetCore
             Initializer.Initialize(path: env.ContentRootPath, assemblyVersion: System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
 
             app.UseHttpsRedirection();
+            app.UsePathBase(configuration["pathBase"]);
             app.UseStaticFiles();
             app.UseSession();
             app.UseAuthentication();
@@ -164,7 +168,7 @@ namespace Implem.Pleasanter.NetCore
             };
         }
 
-        private void SetConfigrations(IContext context)
+        private void SetConfigrations(Context context)
         {
             Saml.RegisterSamlConfiguration(context: context);
         }

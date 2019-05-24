@@ -8,7 +8,7 @@ namespace Implem.CodeDefiner.Functions.SqlServer.Parts
 {
     internal static class Columns
     {
-        internal static IEnumerable<DataRow> Get(string sourceTableName)
+        internal static EnumerableRowCollection<DataRow> Get(string sourceTableName)
         {
             return Def.SqlIoByAdmin().ExecuteTable(
                 Def.Sql.Columns.Replace("#TableName#", sourceTableName)).AsEnumerable();
@@ -17,7 +17,7 @@ namespace Implem.CodeDefiner.Functions.SqlServer.Parts
         internal static bool HasChanges(
             string sourceTableName, 
             IEnumerable<ColumnDefinition> columnDefinitionCollection,
-            IEnumerable<DataRow> rdsColumnCollection)
+            EnumerableRowCollection<DataRow> rdsColumnCollection)
         {
             return columnDefinitionCollection
                 .Select((o, i) => new { ColumnDefinition = o, Count = i })

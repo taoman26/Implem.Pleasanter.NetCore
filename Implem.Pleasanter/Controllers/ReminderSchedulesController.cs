@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class ReminderSchedulesController
     {
-        public string Remind(IContext context)
+        public string Remind(Context context)
         {
             if (Parameters.Reminder.Enabled)
             {

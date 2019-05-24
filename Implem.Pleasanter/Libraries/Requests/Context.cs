@@ -18,7 +18,7 @@ using System.Web;
 using System.Web.Mvc;
 namespace Implem.Pleasanter.Libraries.Requests
 {
-    public abstract class IContext
+    public abstract class Context
     {
         public abstract bool Authenticated { get; set; }
         public abstract bool SwitchUser { get; set; }
@@ -48,11 +48,13 @@ namespace Implem.Pleasanter.Libraries.Requests
         public abstract int TenantId { get; set; }
         public abstract long SiteId { get; set; }
         public abstract long Id { get; set; }
+        public abstract Dictionary<long, Permissions.Types> PermissionHash { get; set; }
         public abstract string Guid { get; set; }
         public abstract TenantModel.LogoTypes LogoType { get; set; }
         public abstract string TenantTitle { get; set; }
         public abstract string SiteTitle { get; set; }
         public abstract string RecordTitle { get; set; }
+        public abstract bool DisableAllUsersPermission { get; set; }
         public abstract string HtmlTitleTop { get; set; }
         public abstract string HtmlTitleSite { get; set; }
         public abstract string HtmlTitleRecord { get; set; }
@@ -70,6 +72,7 @@ namespace Implem.Pleasanter.Libraries.Requests
         public abstract UserSettings UserSettings { get; set; }
         public abstract bool HasPrivilege { get; set; }
         public abstract ContractSettings ContractSettings { get; set; }
+        public abstract decimal ApiVersion { get; set; }
         public abstract string ApiRequestBody { get; set; }
         public abstract string RequestDataString { get; }
 
@@ -87,23 +90,23 @@ namespace Implem.Pleasanter.Libraries.Requests
 
         public abstract void SetTenantCaches();
 
-        static Func<bool, IContext> _factory;
-        protected static void SetFactory(Func<bool, IContext> factory)
+        static Func<bool, Context> _factory;
+        protected static void SetFactory(Func<bool, Context> factory)
         {
             _factory = factory;
         }
 
-        public static IContext CreateContext(bool item)
+        public static Context CreateContext(bool item)
         {
             return _factory(item);
         }
 
-        public abstract IContext CreateContext();
-        public abstract IContext CreateContext(int tenantId);
-        public abstract IContext CreateContext(int tenantId, int userId, int deptId);
-        public abstract IContext CreateContext(int tenantId, string language);
-        public abstract IContext CreateContext(int tenantId, int userId, string language);
-        public abstract IContext CreateContext(bool request, bool sessionStatus, bool sessionData, bool user);
+        public abstract Context CreateContext();
+        public abstract Context CreateContext(int tenantId);
+        public abstract Context CreateContext(int tenantId, int userId, int deptId);
+        public abstract Context CreateContext(int tenantId, string language);
+        public abstract Context CreateContext(int tenantId, int userId, string language);
+        public abstract Context CreateContext(bool request, bool sessionStatus, bool sessionData, bool user);
 
         public abstract string VirtualPathToAbsolute(string virtualPath);
 
@@ -115,5 +118,17 @@ namespace Implem.Pleasanter.Libraries.Requests
         public abstract void FederatedAuthenticationSessionAuthenticationModuleDeleteSessionTokenCookie();
 
         public abstract bool AuthenticationsWindows();
+
+        protected void SetPermissions()
+        {
+            PermissionHash = Permissions.Get(context: this);
+        }
+
+        public string RequestData(string name)
+        {
+            return HttpMethod == "GET"
+                ? QueryStrings.Data(name)
+                : Forms.Data(name);
+        }
     }
 }

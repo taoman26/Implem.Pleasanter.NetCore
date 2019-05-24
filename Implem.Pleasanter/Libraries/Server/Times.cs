@@ -28,7 +28,7 @@ namespace Implem.Pleasanter.Libraries.Server
             Yearly = 60
         }
 
-        public static DateTime ToLocal(this DateTime value, IContext context)
+        public static DateTime ToLocal(this DateTime value, Context context)
         {
             if (value.ToOADate() == 0) return value;
             var timeZoneInfo = context.TimeZoneInfo;
@@ -37,12 +37,12 @@ namespace Implem.Pleasanter.Libraries.Server
                 : value;
         }
 
-        public static string ToLocal(this DateTime value, IContext context, string format)
+        public static string ToLocal(this DateTime value, Context context, string format)
         {
             return value.ToLocal(context: context).ToString(format, context.CultureInfo());
         }
 
-        public static DateTime ToUniversal(this DateTime value, IContext context)
+        public static DateTime ToUniversal(this DateTime value, Context context)
         {
             if (value.ToOADate() == 0) return value;
             var timeZoneInfo = context.TimeZoneInfo;
@@ -83,25 +83,25 @@ namespace Implem.Pleasanter.Libraries.Server
                 o > Parameters.General.MaxTime);
         }
 
-        public static string PreviousMonth(IContext context, DateTime month)
+        public static string PreviousMonth(Context context, DateTime month)
         {
             var data = month.ToLocal(context: context).AddMonths(-1);
             return new DateTime(data.Year, data.Month, 1).ToString();
         }
 
-        public static string NextMonth(IContext context, DateTime month)
+        public static string NextMonth(Context context, DateTime month)
         {
             var data = month.ToLocal(context: context).AddMonths(1);
             return new DateTime(data.Year, data.Month, 1).ToString();
         }
 
-        public static string ThisMonth(IContext context)
+        public static string ThisMonth(Context context)
         {
             var data = DateTime.Now.ToLocal(context: context);
             return new DateTime(data.Year, data.Month, 1).ToString();
         }
 
-        public static DateTime Next(this DateTime self, IContext context, RepeatTypes type)
+        public static DateTime Next(this DateTime self, Context context, RepeatTypes type)
         {
             var now = DateTime.Now.ToLocal(context: context);
             var start = now > self
@@ -220,7 +220,7 @@ namespace Implem.Pleasanter.Libraries.Server
                 .Where(o => o.DayOfWeek == (dayOfWeek ?? self.DayOfWeek));
         }
 
-        public static string ToViewText(this DateTime self, IContext context, string format = "")
+        public static string ToViewText(this DateTime self, Context context, string format = "")
         {
             return self.InRange()
                 ? self.ToString(format, context.CultureInfo())

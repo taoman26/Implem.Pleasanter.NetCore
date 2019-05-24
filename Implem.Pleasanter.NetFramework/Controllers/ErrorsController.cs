@@ -109,5 +109,56 @@ namespace Implem.Pleasanter.NetFramework.Controllers
             ViewBag.HtmlBody = html;
             return View();
         }
+
+        [AllowAnonymous]
+        public ActionResult UserLockout()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ErrorsController();
+            var html = controller.UserLockout(context: context);
+            ViewBag.HtmlBody = html;
+            return View();
+        }
+
+        [AllowAnonymous]
+        public ActionResult UserDisabled()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ErrorsController();
+            var html = controller.UserDisabled(context: context);
+            ViewBag.HtmlBody = html;
+            return View();
+        }
+
+        [AllowAnonymous]
+        public ActionResult SamlLoginFailed
+()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ErrorsController();
+            var html = controller.SamlLoginFailed(context: context);
+            ViewBag.HtmlBody = html;
+            return View();
+        }
+
+        [AllowAnonymous]
+        public ActionResult InvalidSsoCode()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ErrorsController();
+            var html = controller.InvalidSsoCode(context: context);
+            ViewBag.HtmlBody = html;
+            return View();
+        }
+
+        [AllowAnonymous]
+        public ActionResult EmptyUserName()
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ErrorsController();
+            var html = controller.EmptyUserName(context: context);
+            ViewBag.HtmlBody = html;
+            return View();
+        }
     }
 }

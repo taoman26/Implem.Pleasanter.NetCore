@@ -17,7 +17,7 @@ namespace Implem.Pleasanter.Libraries.Server
     {
         public static Dictionary<int, TenantCache> TenantCaches = new Dictionary<int, TenantCache>();
 
-        public static void Reflesh(IContext context, bool force = false)
+        public static void Reflesh(Context context, bool force = false)
         {
             if (context.TenantId == 0)
             {
@@ -89,7 +89,7 @@ namespace Implem.Pleasanter.Libraries.Server
             }
         }
 
-        public static IEnumerable<int> SiteUsers(IContext context, long siteId)
+        public static IEnumerable<int> SiteUsers(Context context, long siteId)
         {
             if (context.TenantId == 0)
             {
@@ -106,7 +106,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return tenantCache.SiteUserHash.Get(siteId);
         }
 
-        public static IEnumerable<int> SiteGroups(IContext context, long siteId)
+        public static IEnumerable<int> SiteGroups(Context context, long siteId)
         {
             if (context.TenantId == 0)
             {
@@ -123,7 +123,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return tenantCache.SiteGroupHash.Get(siteId);
         }
 
-        public static IEnumerable<int> SiteDepts(IContext context, long siteId)
+        public static IEnumerable<int> SiteDepts(Context context, long siteId)
         {
             if (context.TenantId == 0)
             {
@@ -140,7 +140,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return tenantCache.SiteDeptHash.Get(siteId);
         }
 
-        public static void SetSiteUserHash(IContext context, long siteId, bool reload = false)
+        public static void SetSiteUserHash(Context context, long siteId, bool reload = false)
         {
             if (context.TenantId == 0)
             {
@@ -167,7 +167,7 @@ namespace Implem.Pleasanter.Libraries.Server
             }
         }
 
-        public static void SetSiteGroupHash(IContext context, long siteId, bool reload = false)
+        public static void SetSiteGroupHash(Context context, long siteId, bool reload = false)
         {
             if (context.TenantId == 0)
             {
@@ -194,7 +194,7 @@ namespace Implem.Pleasanter.Libraries.Server
             }
         }
 
-        public static void SetSiteDeptHash(IContext context, long siteId, bool reload = false)
+        public static void SetSiteDeptHash(Context context, long siteId, bool reload = false)
         {
             if (context.TenantId == 0)
             {
@@ -221,7 +221,7 @@ namespace Implem.Pleasanter.Libraries.Server
             }
         }
 
-        private static List<int> GetSiteUserHash(IContext context, long siteId)
+        private static List<int> GetSiteUserHash(Context context, long siteId)
         {
             var siteUserCollection = new List<int>();
             foreach (DataRow dataRow in SiteUserDataTable(
@@ -233,7 +233,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return siteUserCollection;
         }
 
-        private static List<int> GetSiteGroupHash(IContext context, long siteId)
+        private static List<int> GetSiteGroupHash(Context context, long siteId)
         {
             var siteGroupCollection = new List<int>();
             foreach (DataRow dataRow in SiteGroupDataTable(
@@ -245,7 +245,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return siteGroupCollection;
         }
 
-        private static List<int> GetSiteDeptHash(IContext context, long siteId)
+        private static List<int> GetSiteDeptHash(Context context, long siteId)
         {
             var siteDeptCollection = new List<int>();
             foreach (DataRow dataRow in SiteDeptDataTable(
@@ -257,7 +257,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return siteDeptCollection;
         }
 
-        private static DataTable SiteUserDataTable(IContext context, long siteId)
+        private static DataTable SiteUserDataTable(Context context, long siteId)
         {
             return Rds.ExecuteTable(
                 context: context,
@@ -269,7 +269,7 @@ namespace Implem.Pleasanter.Libraries.Server
                         .SiteUserWhere(siteId: siteId)));
         }
 
-        private static DataTable SiteGroupDataTable(IContext context, long siteId)
+        private static DataTable SiteGroupDataTable(Context context, long siteId)
         {
             var groupRaw = "[Groups].[GroupId] and [Groups].[GroupId]>0";
             return Rds.ExecuteTable(
@@ -289,7 +289,7 @@ namespace Implem.Pleasanter.Libraries.Server
                             _operator: ">0")));
         }
 
-        private static DataTable SiteDeptDataTable(IContext context, long siteId)
+        private static DataTable SiteDeptDataTable(Context context, long siteId)
         {
             var deptRaw = "[Depts].[DeptId] and [Depts].[DeptId]>0";
             return Rds.ExecuteTable(
@@ -318,14 +318,23 @@ namespace Implem.Pleasanter.Libraries.Server
             return TenantCaches.Get(tenantId)?.DeptHash?
                 .Where(o => o.Key == deptId)
                 .Select(o => o.Value)
-                .FirstOrDefault();
+                .FirstOrDefault() ?? new Dept();
         }
 
-        public static User User(IContext context, int userId)
+        public static User User(Context context, int userId)
         {
             if (context.TenantId == 0)
             {
                 return new User();
+            }
+            if (userId == -1)
+            {
+                return new User()
+                {
+                    TenantId = context.TenantId,
+                    Id = -1,
+                    Name = Displays.AllUsers(context: context)
+                };
             }
             return TenantCaches.Get(context.TenantId)?.UserHash?
                 .Where(o => o.Key == userId)
@@ -333,7 +342,7 @@ namespace Implem.Pleasanter.Libraries.Server
                 .FirstOrDefault() ?? Anonymous(context: context);
         }
 
-        private static User Anonymous(IContext context)
+        private static User Anonymous(Context context)
         {
             return new User(
                 context: context,
@@ -341,7 +350,7 @@ namespace Implem.Pleasanter.Libraries.Server
         }
 
         public static string UserName(
-            IContext context, int userId, bool notSet = true, bool showDeptName = false)
+            Context context, int userId, bool notSet = true, bool showDeptName = false)
         {
             var user = User(
                 context: context,

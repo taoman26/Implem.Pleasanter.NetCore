@@ -5,12 +5,12 @@ namespace Implem.Pleasanter.Libraries.Requests
 {
     public static class ViewModes
     {
-        public static string GetSessionData(IContext context, long siteId)
+        public static string GetSessionData(Context context, long siteId)
         {
             return SessionData(context: context).Get(siteId) ?? "index";
         }
 
-        public static void Set(IContext context, long siteId)
+        public static void Set(Context context, long siteId)
         {
             var data = SessionData(context: context);
             if (data.ContainsKey(siteId))
@@ -27,7 +27,7 @@ namespace Implem.Pleasanter.Libraries.Requests
                 value: data.ToJson());
         }
 
-        private static Dictionary<long, string> SessionData(IContext context)
+        private static Dictionary<long, string> SessionData(Context context)
         {
             return context.SessionData
                 .Get("ViewMode")?

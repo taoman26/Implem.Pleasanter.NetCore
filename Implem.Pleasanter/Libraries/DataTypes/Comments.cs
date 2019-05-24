@@ -23,7 +23,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             AddRange(new List<Comment>(source));
         }
 
-        public Comments Prepend(IContext context, SiteSettings ss, string body)
+        public Comments Prepend(Context context, SiteSettings ss, string body)
         {
             if (body.Trim() != string.Empty)
             {
@@ -39,7 +39,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return this;
         }
 
-        public void Update(IContext context, SiteSettings ss, int commentId, string body)
+        public void Update(Context context, SiteSettings ss, int commentId, string body)
         {
             this.FirstOrDefault(o => o.CommentId == commentId)?
                 .Update(context: context, ss: ss, body: body);
@@ -67,24 +67,24 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public Comments ToLocal(IContext context)
+        public Comments ToLocal(Context context)
         {
             var comments = new Comments();
             ForEach(o => comments.Add(o.ToLocal(context: context)));
             return comments;
         }
 
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return string.Empty;
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return string.Empty;
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             var css = GridCss(context: context);
             return hb.Td(action: () => this?
@@ -101,7 +101,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                         readOnly: true)));
         }
 
-        public string GridText(IContext context, Column column)
+        public string GridText(Context context, Column column)
         {
             return this?.Take(DisplayCount(context: context)).Select(comment =>
                 "{0} {1}  \n{2}".Params(
@@ -113,7 +113,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                         .Join("\n\n");
         }
 
-        private int DisplayCount(IContext context)
+        private int DisplayCount(Context context)
         {
             switch (context.Action)
             {
@@ -123,7 +123,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        private string GridCss(IContext context)
+        private string GridCss(Context context)
         {
             if (DisplayCount(context: context) == 3)
             {
@@ -136,7 +136,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return null;
         }
 
-        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             return this.Select(o =>
                 o.CreatedTime.ToLocal(context: context).ToViewText(context: context) + " " +
@@ -147,7 +147,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public string ToNotice(
-            IContext context, 
+            Context context, 
             string saved,
             Column column,
             bool updated,
@@ -185,7 +185,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return this?.Any() != true;
         }

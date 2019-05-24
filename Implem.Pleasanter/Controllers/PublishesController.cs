@@ -5,7 +5,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class PublishesController
     {
-        public string Index(IContext context, long id = 0)
+        public string Index(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -33,7 +33,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string SearchDropDown(IContext context, long id = 0)
+        public string SearchDropDown(Context context, long id = 0)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SearchDropDown(context: context);
@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SelectSearchDropDown(IContext context, long id = 0)
+        public string SelectSearchDropDown(Context context, long id = 0)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SelectSearchDropDown(context: context);
@@ -49,7 +49,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string GridRows(IContext context, long id)
+        public string GridRows(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).GridRows(context: context);
@@ -57,7 +57,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Edit(IContext context, long id)
+        public string Edit(Context context, long id)
         {
             if (!context.Ajax)
             {

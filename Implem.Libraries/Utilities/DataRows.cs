@@ -6,7 +6,7 @@ namespace Implem.Libraries.Utilities
 {
     public static class DataRows
     {
-        public static List<string> Columns(this IEnumerable<DataRow> dataRows)
+        public static List<string> Columns(this EnumerableRowCollection<DataRow> dataRows)
         {
             return dataRows?.FirstOrDefault().Columns();
         }

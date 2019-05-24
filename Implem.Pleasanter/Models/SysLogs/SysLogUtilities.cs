@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -26,7 +27,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void Maintain(IContext context)
+        public static void Maintain(Context context)
         {
             if (Parameters.SysLog.RetentionPeriod > 0 &&
                 (DateTime.Now - Applications.SysLogsMaintenanceDate).Days > 0)

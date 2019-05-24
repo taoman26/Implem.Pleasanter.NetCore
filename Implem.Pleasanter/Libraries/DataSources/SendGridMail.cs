@@ -20,10 +20,10 @@ namespace Implem.Pleasanter.Libraries.DataSources
         public string Bcc;
         public string Subject;
         public string Body;
-        public IContext Context;
+        public Context Context;
 
         public SendGridMail(
-            IContext context,
+            Context context,
             string host,
             MailAddress from,
             string to,
@@ -42,7 +42,7 @@ namespace Implem.Pleasanter.Libraries.DataSources
             Body = body;
         }
 
-        public void Send(IContext context)
+        public void Send(Context context)
         {
             Task.Run(() =>
             {

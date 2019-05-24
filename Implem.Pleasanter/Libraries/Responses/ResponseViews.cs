@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Libraries.Responses
     public static class ResponseViews
     {
         public static ResponseCollection View(
-            this ResponseCollection res, IContext context, SiteSettings ss, View view)
+            this ResponseCollection res, Context context, SiteSettings ss, View view)
         {
             return res
                 .ViewFilters(context: context, ss: ss, view: view)
@@ -15,7 +15,7 @@ namespace Implem.Pleasanter.Libraries.Responses
         }
 
         private static ResponseCollection ViewFilters(
-            this ResponseCollection res, IContext context, SiteSettings ss, View view)
+            this ResponseCollection res, Context context, SiteSettings ss, View view)
         {
             switch (context.Forms.ControlId())
             {
@@ -23,7 +23,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 case "ReduceViewFilters":
                 case "ExpandViewFilters":
                     return res.ReplaceAll("#ViewFilters", new HtmlBuilder()
-                        .ViewFilters(context: context, ss: ss, view: view));
+                        .ViewFilters(context: context, ss: ss, view: view))
+                        .ReplaceAll("#ShowHistoryField", 
+                            new HtmlBuilder().FieldCheckBox(
+                                fieldId: "ShowHistoryField",
+                                fieldCss: "field-auto-thin",
+                                controlId: "ViewFilters_ShowHistory",
+                                controlCss: " auto-postback",
+                                method: "post",
+                                _checked: view.ShowHistory == true,
+                                labelText: Displays.ShowHistory(context: context)));
                 default:
                     return res;
             }

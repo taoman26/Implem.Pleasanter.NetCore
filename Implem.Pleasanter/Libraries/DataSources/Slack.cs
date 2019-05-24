@@ -9,12 +9,12 @@ namespace Implem.Pleasanter.Libraries.DataSources
 {
     public class Slack
     {
-        public IContext context;
+        public Context context;
         public string text;
         public string username;
         public string icon_emoji;
 
-        public Slack(IContext _context, string _text, string _username, string _icon_emoji = null)
+        public Slack(Context _context, string _text, string _username, string _icon_emoji = null)
         {
             context = _context;
             text = _text;

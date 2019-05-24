@@ -59,7 +59,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        public ControlData ControlData(IContext context, SiteSettings ss, string type)
+        public ControlData ControlData(Context context, SiteSettings ss, string type)
         {
             var column = ss.GetColumn(context: context, columnName: ColumnName);
             return column != null
@@ -70,7 +70,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public bool Allowed(
-            IContext context,
+            Context context,
             SiteSettings ss,
             Permissions.Types? type,
             List<string> mine)
@@ -117,7 +117,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        private bool GroupContains(IContext context, SiteSettings ss)
+        private bool GroupContains(Context context, SiteSettings ss)
         {
             if (Groups?.Any() == true)
             {

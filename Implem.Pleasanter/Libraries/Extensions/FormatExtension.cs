@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 {
     public static class FormatExtension
     {
-        public static string Display(this DateTime value, IContext context, string format)
+        public static string Display(this DateTime value, Context context, string format)
         {
             return value.InRange()
                 ? !format.IsNullOrEmpty()

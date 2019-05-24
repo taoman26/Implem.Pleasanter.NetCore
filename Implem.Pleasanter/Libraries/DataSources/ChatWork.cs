@@ -8,12 +8,12 @@ namespace Implem.Pleasanter.Libraries.DataSources
 {
     public class ChatWork
     {
-        public IContext context;
+        public Context context;
         public string text;
         public string username;
         public string token;
        
-        public ChatWork(IContext _context, string _text, string _username, string _token)
+        public ChatWork(Context _context, string _text, string _username, string _token)
         {
             context = _context;
             text = _text;

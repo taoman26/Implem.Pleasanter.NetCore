@@ -7,19 +7,19 @@ namespace Implem.Pleasanter.Libraries.Responses
 {
     public static class Locations
     {
-        public static string Top(IContext context)
+        public static string Top(Context context)
         {
             return Get(context: context);
         }
 
-        public static string BaseUrl(IContext context)
+        public static string BaseUrl(Context context)
         {
             return Get(
                 context: context,
                 parts: context.Controller) + "/";
         }
 
-        public static string Login(IContext context)
+        public static string Login(Context context)
         {
             return Get(
                 context: context,
@@ -30,7 +30,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string Logout(IContext context)
+        public static string Logout(Context context)
         {
             return Get(
                 context: context,
@@ -41,21 +41,21 @@ namespace Implem.Pleasanter.Libraries.Responses
                 }); 
         }
 
-        public static string Admins(IContext context)
+        public static string Admins(Context context)
         {
             return Get(
                 context: context,
                 parts: "Admins");
         }
 
-        public static string Index(IContext context, string controller)
+        public static string Index(Context context, string controller)
         {
             return Get(
                 context: context,
                 parts: controller);
         }
 
-        public static string ItemIndex(IContext context, long id)
+        public static string ItemIndex(Context context, long id)
         {
             return Get(
                 context: context,
@@ -69,7 +69,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ItemTrashBox(IContext context, long id)
+        public static string ItemTrashBox(Context context, long id)
         {
             return Get(
                 context: context,
@@ -81,7 +81,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string New(IContext context, string controller)
+        public static string New(Context context, string controller)
         {
             return Get(
                 context: context,
@@ -92,7 +92,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ItemNew(IContext context, long id)
+        public static string ItemNew(Context context, long id)
         {
             return Get(
                 context: context,
@@ -104,7 +104,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string Edit(IContext context, string controller)
+        public static string Edit(Context context, string controller)
         {
             return Get(
                 context: context,
@@ -115,7 +115,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string Edit(IContext context, string controller, long id)
+        public static string Edit(Context context, string controller, long id)
         {
             return Get(
                 context: context,
@@ -127,7 +127,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ItemEdit(IContext context, long id)
+        public static string ItemEdit(Context context, long id)
         {
             return Get(
                 context: context,
@@ -141,7 +141,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ItemEditAbsoluteUri(IContext context, long id)
+        public static string ItemEditAbsoluteUri(Context context, long id)
         {
             return Parameters.Service.AbsoluteUri != null
                 ? Parameters.Service.AbsoluteUri + "/items/" + id
@@ -152,7 +152,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                         id: id));
         }
 
-        public static string DemoUri(IContext context, string passphrase)
+        public static string DemoUri(Context context, string passphrase)
         {
             var path = "/demos/login?passphrase=" + passphrase;
             return Parameters.Service.AbsoluteUri != null
@@ -164,7 +164,23 @@ namespace Implem.Pleasanter.Libraries.Responses
                         parts: path));
         }
 
-        public static string ItemView(IContext context, long id, string action)
+        public static string OutGoingMailAbsoluteUri(Context context)
+        {
+            var controller = context.Forms.Get("Controller");
+            var id = context.Forms.Get("Id");
+            return Parameters.Service.AbsoluteUri != null
+                ? $"{Parameters.Service.AbsoluteUri}/{controller}/{id}"
+                : context.AbsoluteUri.Substring(0, context.AbsoluteUri.IndexOf("/outgoingmails"));
+        }
+
+        public static string AbsoluteDirectUri(Context context)
+        {
+            return Parameters.Service.AbsoluteUri != null
+                ? $"{Parameters.Service.AbsoluteUri}/{context.Controller}/{context.Id}/index"
+                : context.AbsoluteUri;
+        }
+
+        public static string ItemView(Context context, long id, string action)
         {
             return Get(
                 context: context,
@@ -176,7 +192,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string Images(IContext context, params string[] parts)
+        public static string Images(Context context, params string[] parts)
         {
             var imageUrl = parts.ToList();
             imageUrl.Insert(0, "Images");
@@ -185,7 +201,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 parts: imageUrl.ToArray());
         }
 
-        public static string Action(IContext context, string controller)
+        public static string Action(Context context, string controller)
         {
             return Get(
                 context: context,
@@ -196,7 +212,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string Action(IContext context, string controller, long id)
+        public static string Action(Context context, string controller, long id)
         {
             return Get(
                 context: context,
@@ -208,7 +224,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string Action(IContext context, string table, long id, string controller)
+        public static string Action(Context context, string table, long id, string controller)
         {
             return Get(
                 context: context,
@@ -221,7 +237,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ItemAction(IContext context, long id)
+        public static string ItemAction(Context context, long id)
         {
             return id != -1
                 ? Get(
@@ -243,7 +259,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                     });
         }
 
-        public static string DeleteImage(IContext context, string guid)
+        public static string DeleteImage(Context context, string guid)
         {
             return Get(
                 context: context,
@@ -255,7 +271,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string DownloadFile(IContext context, string guid, bool temp = false)
+        public static string DownloadFile(Context context, string guid, bool temp = false)
         {
             return Get(
                 context: context,
@@ -269,7 +285,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ShowFile(IContext context, string guid, bool temp = false)
+        public static string ShowFile(Context context, string guid, bool temp = false)
         {
             return Get(
                 context: context,
@@ -283,7 +299,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string BadRequest(IContext context)
+        public static string BadRequest(Context context)
         {
             return Get(
                 context: context,
@@ -294,7 +310,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string InvalidIpAddress(IContext context)
+        public static string InvalidIpAddress(Context context)
         {
             return Get(
                 context: context,
@@ -305,7 +321,7 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string LoginIdAlreadyUse(IContext context)
+        public static string LoginIdAlreadyUse(Context context)
         {
             return Get(
                 context: context,
@@ -316,7 +332,62 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ParameterSyntaxError(IContext context)
+        public static string UserLockout(Context context)
+        {
+            return Get(
+                context: context,
+                parts: new string[]
+                {
+                    "Errors",
+                    "UserLockout"
+                });
+        }
+
+        public static string UserDisabled(Context context)
+        {
+            return Get(
+                context: context,
+                parts: new string[]
+                {
+                    "Errors",
+                    "UserDisabled"
+                });
+        }
+
+        public static string SamlLoginFailed(Context context)
+        {
+            return Get(
+                context: context,
+                parts: new string[]
+                {
+                    "Errors",
+                    "SamlLoginFailed"
+                });
+        }
+
+        public static string InvalidSsoCode(Context context)
+        {
+            return Get(
+                context: context,
+                parts: new string[]
+                {
+                    "Errors",
+                    "InvalidSsoCode"
+                });
+        }
+
+        public static string EmptyUserName(Context context)
+        {
+            return Get(
+                context: context,
+                parts: new string[]
+                {
+                    "Errors",
+                    "EmptyUserName"
+                });
+        }
+
+        public static string ParameterSyntaxError(Context context)
         {
             return Get(
                 context: context,
@@ -327,21 +398,21 @@ namespace Implem.Pleasanter.Libraries.Responses
                 });
         }
 
-        public static string ApplicationError(IContext context)
+        public static string ApplicationError(Context context)
         {
             return Get(
                 context: context,
                 parts: "Errors");
         }
 
-        public static string Get(IContext context, params string[] parts)
+        public static string Get(Context context, params string[] parts)
         {
             return Raw(
                 context: context,
                 parts: parts).ToLower();
         }
 
-        public static string Raw(IContext context, params string[] parts)
+        public static string Raw(Context context, params string[] parts)
         {
             return context.ApplicationPath + parts
                 .Select(o => Trim(o))

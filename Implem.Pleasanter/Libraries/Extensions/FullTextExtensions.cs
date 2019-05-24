@@ -12,22 +12,22 @@ namespace Implem.Pleasanter.Libraries.Extensions
 {
     public static class FullTextExtensions
     {
-        public static void FullText(this int self, IContext context, List<string> fullText)
+        public static void FullText(this int self, Context context, List<string> fullText)
         {
             fullText.Add(self.ToString());
         }
 
-        public static void FullText(this long self, IContext context, List<string> fullText)
+        public static void FullText(this long self, Context context, List<string> fullText)
         {
             fullText.Add(self.ToString());
         }
 
-        public static void FullText(this decimal self, IContext context, List<string> fullText)
+        public static void FullText(this decimal self, Context context, List<string> fullText)
         {
             fullText.Add(self.ToString());
         }
 
-        public static void FullText(this DateTime self, IContext context, List<string> fullText)
+        public static void FullText(this DateTime self, Context context, List<string> fullText)
         {
             var value = self.ToLocal(context: context);
             if (value.InRange())
@@ -36,7 +36,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this string self, IContext context, List<string> fullText)
+        public static void FullText(this string self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -45,7 +45,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static void FullText(
-            this string self, IContext context, Column column, List<string> fullText)
+            this string self, Context context, Column column, List<string> fullText)
         {
             if (self != null)
             {
@@ -56,7 +56,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static void FullText(
-            this IEnumerable<SiteMenuElement> self, IContext context, List<string> fullText)
+            this IEnumerable<SiteMenuElement> self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -64,7 +64,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this ProgressRate self, IContext context, List<string> fullText)
+        public static void FullText(this ProgressRate self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -73,7 +73,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static void FullText(
-            this Status self, IContext context, Column column, List<string> fullText)
+            this Status self, Context context, Column column, List<string> fullText)
         {
             if (self != null)
             {
@@ -84,7 +84,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static void FullText(
-            this CompletionTime self, IContext context, List<string> fullText)
+            this CompletionTime self, Context context, List<string> fullText)
         {
             var value = self?.Value.ToLocal(context: context).AddDays(-1);
             if (value?.InRange() == true)
@@ -93,7 +93,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this Time self, IContext context, List<string> fullText)
+        public static void FullText(this Time self, Context context, List<string> fullText)
         {
             var value = self?.Value.ToLocal(context: context);
             if (value?.InRange() == true)
@@ -102,7 +102,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this Title self, IContext context, List<string> fullText)
+        public static void FullText(this Title self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -110,7 +110,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this User self, IContext context, List<string> fullText)
+        public static void FullText(this User self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -118,7 +118,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this Comments self, IContext context, List<string> fullText)
+        public static void FullText(this Comments self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -130,7 +130,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this WorkValue self, IContext context, List<string> fullText)
+        public static void FullText(this WorkValue self, Context context, List<string> fullText)
         {
             if (self != null)
             {
@@ -138,13 +138,13 @@ namespace Implem.Pleasanter.Libraries.Extensions
             }
         }
 
-        public static void FullText(this Attachments self, IContext context, List<string> fullText)
+        public static void FullText(this Attachments self, Context context, List<string> fullText)
         {
             self?.ForEach(attachment => fullText.Add(attachment.Name));
         }
 
         public static void OutgoingMailsFullText(
-            IContext context,
+            Context context,
             List<string> fullText,
             string referenceType,
             long referenceId)

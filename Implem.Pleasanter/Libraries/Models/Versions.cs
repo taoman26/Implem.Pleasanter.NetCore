@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Libraries.Models
             History
         }
 
-        public static bool MustVerUp(IContext context, BaseModel baseModel)
+        public static bool MustVerUp(Context context, BaseModel baseModel)
         {
             return
                 baseModel.Updator.Id != context.UserId ||

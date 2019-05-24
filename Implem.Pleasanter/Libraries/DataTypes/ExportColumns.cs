@@ -66,7 +66,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 !Def.ColumnDefinitionCollection.Any(p => p.ColumnName == key && p.Export > 0));
         }
 
-        public Dictionary<string, ControlData> ExportColumnHash(IContext context, SiteSettings ss)
+        public Dictionary<string, ControlData> ExportColumnHash(Context context, SiteSettings ss)
         {
             return Columns.ToDictionary(
                 o => o.Key,
@@ -85,7 +85,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public void SetExport(
-            IContext context,
+            Context context,
             Responses.ResponseCollection res,
             string controlId,
             IEnumerable<string> selectedValues,
@@ -131,13 +131,13 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     selectedValueTextCollection: selectedValues));
         }
 
-        public Dictionary<string, Column> ColumnHash(IContext context, SiteSettings ss)
+        public Dictionary<string, Column> ColumnHash(Context context, SiteSettings ss)
         {
             return Columns.ToDictionary(o => o.Key, o => ss
                 .GetColumn(context: context, columnName: o.Key));
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return ToJson() == "[]";
         }

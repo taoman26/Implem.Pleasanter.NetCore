@@ -30,12 +30,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             Value = value;
         }
 
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return Value.ToString();
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return column.EditorReadOnly != true
                 ? Value.ToString()
@@ -47,7 +47,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Value.ToString();
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             var choice = column.Choice(Value.ToString());
             return hb.Td(action: () => hb
@@ -68,12 +68,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Value < Parameters.General.CompletionCode;
         }
 
-        public string GridText(IContext context, Column column)
+        public string GridText(Context context, Column column)
         {
             return column.Choice(ToString()).TextMini;
         }
 
-        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             return Value == 0 && !column.ChoiceHash.ContainsKey(ToString())
                 ? null
@@ -84,7 +84,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public string ToNotice(
-            IContext context,
+            Context context,
             int saved,
             Column column,
             bool updated,
@@ -98,7 +98,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 update: update);
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return Value == 0;
         }

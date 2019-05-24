@@ -7,9 +7,9 @@ using System.Web;
 using System.Web.Mvc;
 namespace Implem.Pleasanter.Controllers
 {
-    public class DeptsController
+    public class DeptsController : Controller
     {
-        public string Index(IContext context)
+        public string Index(Context context)
         {
             if (!context.Ajax)
             {
@@ -31,7 +31,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string New(IContext context, long id = 0)
+        public string New(Context context, long id = 0)
         {
             var log = new SysLogModel(context: context);
             var html = DeptUtilities.EditorNew(
@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Controllers
             return html;
         }
 
-        public string Edit(IContext context, int id)
+        public string Edit(Context context, int id)
         {
             if (!context.Ajax)
             {
@@ -66,7 +66,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string GridRows(IContext context)
+        public string GridRows(Context context)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.GridRows(context: context);
@@ -74,7 +74,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Create(IContext context)
+        public string Create(Context context)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.Create(
@@ -84,7 +84,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Update(IContext context, int id)
+        public string Update(Context context, int id)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.Update(
@@ -95,7 +95,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Delete(IContext context, int id)
+        public string Delete(Context context, int id)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.Delete(
@@ -106,7 +106,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string DeleteComment(IContext context, int id)
+        public string DeleteComment(Context context, int id)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.Update(
@@ -117,7 +117,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Histories(IContext context, int id)
+        public string Histories(Context context, int id)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.Histories(
@@ -128,7 +128,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string History(IContext context, int id)
+        public string History(Context context, int id)
         {
             var log = new SysLogModel(context: context);
             var json = DeptUtilities.History(

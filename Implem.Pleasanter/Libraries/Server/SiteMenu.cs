@@ -13,12 +13,12 @@ namespace Implem.Pleasanter.Libraries.Server
 {
     public class SiteMenu : Dictionary<long, SiteMenuElement>
     {
-        public SiteMenu(IContext context)
+        public SiteMenu(Context context)
         {
             Get(context: context);
         }
 
-        private void Get(IContext context)
+        private void Get(Context context)
         {
             Rds.ExecuteTable(
                 context: context,
@@ -40,7 +40,7 @@ namespace Implem.Pleasanter.Libraries.Server
                                     title: dataRow.String("Title"))));
         }
 
-        public SiteMenuElement Get(IContext context, long siteId)
+        public SiteMenuElement Get(Context context, long siteId)
         {
             if (siteId == 0)
             {
@@ -58,7 +58,7 @@ namespace Implem.Pleasanter.Libraries.Server
             }
         }
 
-        private void Set(IContext context, long siteId)
+        private void Set(Context context, long siteId)
         {
             var dataRow = SiteMenuElementDataRow(context: context, siteId: siteId);
             if (dataRow != null)
@@ -81,7 +81,7 @@ namespace Implem.Pleasanter.Libraries.Server
         }
 
         public IEnumerable<SiteMenuElement> Children(
-            IContext context,
+            Context context,
             long siteId,
             List<SiteMenuElement> data = null,
             bool withParent = false)
@@ -105,7 +105,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return data;
         }
 
-        public IEnumerable<SiteMenuElement> Breadcrumb(IContext context, long siteId)
+        public IEnumerable<SiteMenuElement> Breadcrumb(Context context, long siteId)
         {
             var ret = new List<SiteMenuElement>();
             if (context.Publish)
@@ -136,7 +136,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return ret;
         }
 
-        public IEnumerable<SiteCondition> SiteConditions(IContext context, SiteSettings ss)
+        public IEnumerable<SiteCondition> SiteConditions(Context context, SiteSettings ss)
         {
             var hash = ChildHash(context: context, ss: ss);
             var sites = Rds.ExecuteTable(
@@ -203,7 +203,7 @@ namespace Implem.Pleasanter.Libraries.Server
                     : DateTime.MinValue);
         }
 
-        private Dictionary<long, List<long>> ChildHash(IContext context, SiteSettings ss)
+        private Dictionary<long, List<long>> ChildHash(Context context, SiteSettings ss)
         {
             var ret = new Dictionary<long, List<long>>();
             var hash = this
@@ -229,7 +229,7 @@ namespace Implem.Pleasanter.Libraries.Server
             return data;
         }
 
-        private DataRow SiteMenuElementDataRow(IContext context, long siteId)
+        private DataRow SiteMenuElementDataRow(Context context, long siteId)
         {
             return Rds.ExecuteTable(
                 context: context,

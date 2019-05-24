@@ -6,7 +6,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class PublishBinariesController
     {
-        public FileContentResult SiteImageThumbnail(IContext context, string reference, long id)
+        public FileContentResult SiteImageThumbnail(Context context, string reference, long id)
         {
             if (reference.ToLower() == "items")
             {
@@ -21,7 +21,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public FileContentResult SiteImageIcon(IContext context, string reference, long id)
+        public FileContentResult SiteImageIcon(Context context, string reference, long id)
         {
             if (reference.ToLower() == "items")
             {
@@ -36,7 +36,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public FileContentResult TenantImageLogo(IContext context)
+        public FileContentResult TenantImageLogo(Context context)
         {
             var log = new SysLogModel(context: context);
             var bytes = BinaryUtilities.TenantImageLogo(
@@ -50,7 +50,7 @@ namespace Implem.Pleasanter.Controllers
             return new FileContentResult(bytes, "image/png");
         }
 
-        public FileContentResult Download(IContext context, string guid)
+        public FileContentResult Download(Context context, string guid)
         {
             var log = new SysLogModel(context: context);
             var file = BinaryUtilities.Donwload(context: context, guid: guid);
@@ -58,7 +58,7 @@ namespace Implem.Pleasanter.Controllers
             return file;
         }
 
-        public FileContentResult Show(IContext context, string guid)
+        public FileContentResult Show(Context context, string guid)
         {
             var log = new SysLogModel(context: context);
             var file = BinaryUtilities.Donwload(context: context, guid: guid);

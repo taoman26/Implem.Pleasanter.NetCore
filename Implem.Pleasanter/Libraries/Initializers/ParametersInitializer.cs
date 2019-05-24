@@ -5,7 +5,7 @@ namespace Implem.Pleasanter.Libraries.Initializers
 {
     public static class ParametersInitializer
     {
-        public static string Initialize(IContext context)
+        public static string Initialize(Context context)
         {
             if (Permissions.CanManageTenant(context: context))
             {

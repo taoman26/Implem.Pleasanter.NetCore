@@ -7,57 +7,57 @@ namespace Implem.Pleasanter.Libraries.Extensions
 {
     public static class InitialValueExtensions
     {
-        public static bool InitialValue(this bool self, IContext context)
+        public static bool InitialValue(this bool self, Context context)
         {
             return self == false;
         }
 
-        public static bool InitialValue(this Enum self, IContext context)
+        public static bool InitialValue(this Enum self, Context context)
         {
             return self == default(Enum);
         }
 
-        public static bool InitialValue(this int self, IContext context)
+        public static bool InitialValue(this int self, Context context)
         {
             return self == 0;
         }
 
-        public static bool InitialValue(this long self, IContext context)
+        public static bool InitialValue(this long self, Context context)
         {
             return self == 0;
         }
 
-        public static bool InitialValue(this double self, IContext context)
+        public static bool InitialValue(this double self, Context context)
         {
             return self == 0;
         }
 
-        public static bool InitialValue(this decimal self, IContext context)
+        public static bool InitialValue(this decimal self, Context context)
         {
             return self == 0;
         }
 
-        public static bool InitialValue(this DateTime self, IContext context)
+        public static bool InitialValue(this DateTime self, Context context)
         {
             return self == 0.ToDateTime();
         }
 
-        public static bool InitialValue(this string self, IContext context)
+        public static bool InitialValue(this string self, Context context)
         {
             return self.IsNullOrEmpty();
         }
 
-        public static bool InitialValue(this byte[] self, IContext context)
+        public static bool InitialValue(this byte[] self, Context context)
         {
             return self == null;
         }
 
-        public static bool InitialValue<T>(this List<T> self, IContext context)
+        public static bool InitialValue<T>(this List<T> self, Context context)
         {
             return self?.Any() != true;
         }
 
-        public static bool InitialValue(this System.Net.Mail.MailAddress self, IContext context)
+        public static bool InitialValue(this System.Net.Mail.MailAddress self, Context context)
         {
             return self.Address.IsNullOrEmpty();
         }

@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
     {
         public static string ToNotice(
             this bool self,
-            IContext context,
+            Context context,
             bool saved,
             Column column,
             bool updated,
@@ -25,7 +25,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static string ToNotice(
             this int self,
-            IContext context,
+            Context context,
             int saved,
             Column column,
             bool updated,
@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static string ToNotice(
             this long self,
-            IContext context,
+            Context context,
             long saved,
             Column column,
             bool updated,
@@ -57,7 +57,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static string ToNotice(
             this decimal self,
-            IContext context,
+            Context context,
             decimal saved,
             Column column,
             bool updated,
@@ -79,7 +79,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static string ToNotice(
             this DateTime self,
-            IContext context,
+            Context context,
             DateTime saved,
             Column column,
             bool updated,
@@ -99,7 +99,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static string ToNotice(
             this string self,
-            IContext context,
+            Context context,
             string saved,
             Column column,
             bool updated,
@@ -122,7 +122,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
 
         public static string ToNoticeLine(
             this string self,
-            IContext context,
+            Context context,
             string saved,
             Column column,
             bool updated,

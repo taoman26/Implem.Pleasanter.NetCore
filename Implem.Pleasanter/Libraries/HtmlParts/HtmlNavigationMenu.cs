@@ -15,7 +15,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder NavigationMenu(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
             string referenceType,
@@ -32,8 +32,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             context: context,
                             ss: ss,
                             siteId: siteId,
-                            referenceType: referenceType,
-                            useNavigationMenu: useNavigationMenu)
+                            referenceType: referenceType)
                         .Search(
                             context: context,
                             _using: useSearch))
@@ -42,11 +41,10 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder NavigationMenu(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
-            string referenceType,
-            bool useNavigationMenu)
+            string referenceType)
         {
             var canManageGroups = context.UserSettings?.DisableGroupAdmin != true;
             var canManageSite = siteId != 0 && context.CanManageSite(ss: ss, site: true);
@@ -125,7 +123,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         }
 
-        private static string NewHref(IContext context, SiteSettings ss)
+        private static string NewHref(Context context, SiteSettings ss)
         {
             switch (context.Controller)
             {
@@ -142,13 +140,13 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             }
         }
 
-        private static bool SiteIndex(IContext context, SiteSettings ss)
+        private static bool SiteIndex(Context context, SiteSettings ss)
         {
             return ss.ReferenceType == "Sites" && context.Action == "index";
         }
 
         private static HtmlBuilder ViewModeMenu(
-            this HtmlBuilder hb, IContext context, SiteSettings ss)
+            this HtmlBuilder hb, Context context, SiteSettings ss)
         {
             return hb.Ul(id: "ViewModeMenu", css: "menu", action: () =>
             {
@@ -161,13 +159,12 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .ViewModeMenu(
                             context: context,
                             siteId: ss.SiteId,
-                            referenceType: ss.ReferenceType,
                             action: action,
                             postBack: PostBack(context: context, ss: ss)));
             });
         }
 
-        private static bool PostBack(IContext context, SiteSettings ss)
+        private static bool PostBack(Context context, SiteSettings ss)
         {
             return new List<string>
             {
@@ -183,9 +180,8 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder ViewModeMenu(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             long siteId,
-            string referenceType,
             string action,
             bool postBack)
         {
@@ -209,7 +205,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder SettingsMenu(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             long siteId,
             bool canManageSite,
@@ -235,6 +231,10 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                                         context: context,
                                         ss: ss))),
                         _using: canManageSite)
+                    .LockTableMenu(
+                        context: context,
+                        ss: ss,
+                        canManageSite: canManageSite)
                     .Li(
                         action: () => hb
                             .A(
@@ -287,7 +287,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         _using: canManageTrashBox));
         }
 
-        private static string SiteSettingsDisplayName(IContext context, SiteSettings ss)
+        private static string SiteSettingsDisplayName(Context context, SiteSettings ss)
         {
             switch (ss.ReferenceType)
             {
@@ -303,7 +303,60 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
             }
         }
 
-        private static HtmlBuilder AccountMenu(this HtmlBuilder hb, IContext context)
+        private static HtmlBuilder LockTableMenu(
+            this HtmlBuilder hb,
+            Context context,
+            SiteSettings ss,
+            bool canManageSite)
+        {
+            if (ss.IsTable())
+            {
+                if (!ss.Locked())
+                {
+                    return hb.Li(action: () => hb
+                        .A(
+                            href: "javascript:void(0);",
+                            attributes: new HtmlAttributes()
+                                .OnClick("$p.send($(this),'MainForm');")
+                                .DataAction("LockTable")
+                                .DataMethod("post"),
+                            action: () => hb
+                                .Span(css: "ui-icon ui-icon-locked")
+                                .Text(text: Displays.LockTable(context: context))),
+                        _using: canManageSite);
+                }
+                else if (ss.LockedUser.Id == context.UserId)
+                {
+                    return hb.Li(action: () => hb
+                        .A(
+                            href: "javascript:void(0);",
+                            attributes: new HtmlAttributes()
+                                .OnClick("$p.send($(this),'MainForm');")
+                                .DataAction("UnlockTable")
+                                .DataMethod("post"),
+                            action: () => hb
+                                .Span(css: "ui-icon ui-icon-unlocked")
+                                .Text(text: Displays.UnlockTable(context: context))));
+                }
+                else if (context.HasPrivilege)
+                {
+                    return hb.Li(action: () => hb
+                        .A(
+                            href: "javascript:void(0);",
+                            attributes: new HtmlAttributes()
+                                .OnClick("$p.send($(this),'MainForm');")
+                                .DataAction("ForceUnlockTable")
+                                .DataMethod("post"),
+                        action: () => hb
+                            .Span(css: "ui-icon ui-icon-unlocked")
+                            .Text(text: Displays.ForceUnlockTable(context: context))),
+                        _using: canManageSite);
+                }
+            }
+            return hb;
+        }
+
+        private static HtmlBuilder AccountMenu(this HtmlBuilder hb, Context context)
         {
             return hb.Ul(id: "AccountMenu", css: "menu", action: () => hb
                 .Li(action: () => hb
@@ -382,7 +435,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             .Text(text: Displays.Version(context: context)))));
         }
 
-        private static HtmlBuilder Search(this HtmlBuilder hb, IContext context, bool _using)
+        private static HtmlBuilder Search(this HtmlBuilder hb, Context context, bool _using)
         {
             return _using
                 ? hb
@@ -390,15 +443,17 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         .TextBox(
                             controlId: "Search",
                             controlCss: " w150 redirect",
-                            placeholder: Displays.Search(context: context)))
+                            placeholder: Displays.Search(context: context),
+                            disabled: true))
                 : hb;
         }
 
-        private static bool CanManageTrashBox(IContext context, SiteSettings ss)
+        private static bool CanManageTrashBox(Context context, SiteSettings ss)
         {
             return (Parameters.Deleted.Restore || Parameters.Deleted.PhysicalDelete)
                 && context.Controller == "items"
                 && context.CanManageSite(ss: ss)
+                && !ss.Locked()
                 && (context.Id != 0 || context.HasPrivilege);
         }
     }

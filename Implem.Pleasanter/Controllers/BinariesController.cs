@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class BinariesController
     {
-        public ActionResult SiteImageThumbnail(IContext context, string reference, long id)
+        public ActionResult SiteImageThumbnail(Context context, string reference, long id)
         {
             if (reference.ToLower() == "items")
             {
@@ -24,7 +24,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public ActionResult SiteImageIcon(IContext context, string reference, long id)
+        public ActionResult SiteImageIcon(Context context, string reference, long id)
         {
             if (reference.ToLower() == "items")
             {
@@ -39,7 +39,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public ActionResult TenantImageLogo(IContext context)
+        public ActionResult TenantImageLogo(Context context)
         {
             var log = new SysLogModel(context: context);
             var bytes = BinaryUtilities.TenantImageLogo(
@@ -53,7 +53,7 @@ namespace Implem.Pleasanter.Controllers
             return new FileContentResult(bytes, "image/png");
         }
 
-        public string UpdateSiteImage(IContext context, string reference, long id, IHttpPostedFile[] file)
+        public string UpdateSiteImage(Context context, string reference, long id, IHttpPostedFile[] file)
         {
             var log = new SysLogModel(context: context);
             var json = reference.ToLower() == "items"
@@ -65,7 +65,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string UpdateTenantImage(IContext context, IHttpPostedFile[] file)
+        public string UpdateTenantImage(Context context, IHttpPostedFile[] file)
         {
             var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
             var tenantModel = new TenantModel(context, ss).Get(context, ss);
@@ -77,7 +77,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string DeleteSiteImage(IContext context, string reference, long id)
+        public string DeleteSiteImage(Context context, string reference, long id)
         {
             var log = new SysLogModel(context: context);
             var json = reference.ToLower() == "items"
@@ -89,7 +89,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string DeleteTenantImage(IContext context)
+        public string DeleteTenantImage(Context context)
         {
             var ss = SiteSettingsUtilities.TenantsSiteSettings(context);
             var tenantModel = new TenantModel(context, ss).Get(context, ss);
@@ -101,7 +101,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string UploadImage(IContext context, string reference, long id, IHttpPostedFile[] file)
+        public string UploadImage(Context context, string reference, long id, IHttpPostedFile[] file)
         {
             var log = new SysLogModel(context: context);
             var json = BinaryUtilities.UploadImage(
@@ -111,7 +111,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string DeleteImage(IContext context, string reference, string guid)
+        public string DeleteImage(Context context, string reference, string guid)
         {
             var log = new SysLogModel(context: context);
             var json = BinaryUtilities.DeleteImage(context: context, guid: guid);
@@ -119,7 +119,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string MultiUpload(IContext context, string reference, long id, IHttpPostedFile[] file)
+        public string MultiUpload(Context context, string reference, long id, IHttpPostedFile[] file)
         {
             var log = new SysLogModel(context: context);
             var json = BinaryUtilities.MultiUpload(
@@ -129,7 +129,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public FileContentResult Download(IContext context, string reference, string guid)
+        public FileContentResult Download(Context context, string reference, string guid)
         {
             var log = new SysLogModel(context: context);
             var file = BinaryUtilities.Donwload(context: context, guid: guid);
@@ -137,7 +137,7 @@ namespace Implem.Pleasanter.Controllers
             return file;
         }
 
-        public FileContentResult DownloadTemp(IContext context, string reference, string guid)
+        public FileContentResult DownloadTemp(Context context, string reference, string guid)
         {
             var log = new SysLogModel(context: context);
             var file = BinaryUtilities.DownloadTemp(context: context, guid: guid);
@@ -145,7 +145,7 @@ namespace Implem.Pleasanter.Controllers
             return file;
         }
 
-        public FileContentResult Show(IContext context, string reference, string guid)
+        public FileContentResult Show(Context context, string reference, string guid)
         {
             var log = new SysLogModel(context: context);
             var file = BinaryUtilities.Donwload(context: context, guid: guid);
@@ -153,7 +153,7 @@ namespace Implem.Pleasanter.Controllers
             return file;
         }
 
-        public FileContentResult ShowTemp(IContext context, string reference, string guid)
+        public FileContentResult ShowTemp(Context context, string reference, string guid)
         {
             var log = new SysLogModel(context: context);
             var file = BinaryUtilities.DownloadTemp(context: context, guid: guid);
@@ -161,7 +161,7 @@ namespace Implem.Pleasanter.Controllers
             return file;
         }
 
-        public string DeleteTemp(IContext context, string reference, long id)
+        public string DeleteTemp(Context context, string reference, long id)
         {
             var log = new SysLogModel(context: context);
             var json = BinaryUtilities.DeleteTemp(context: context);

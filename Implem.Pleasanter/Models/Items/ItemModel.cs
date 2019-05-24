@@ -30,15 +30,15 @@ namespace Implem.Pleasanter.Models
         public SiteModel Site = null;
         public string FullText = string.Empty;
         public DateTime SearchIndexCreatedTime = 0.ToDateTime();
-        [NonSerialized] public long SavedReferenceId = 0;
-        [NonSerialized] public string SavedReferenceType = string.Empty;
-        [NonSerialized] public long SavedSiteId = 0;
-        [NonSerialized] public string SavedTitle = string.Empty;
-        [NonSerialized] public SiteModel SavedSite = null;
-        [NonSerialized] public string SavedFullText = string.Empty;
-        [NonSerialized] public DateTime SavedSearchIndexCreatedTime = 0.ToDateTime();
+        public long SavedReferenceId = 0;
+        public string SavedReferenceType = string.Empty;
+        public long SavedSiteId = 0;
+        public string SavedTitle = string.Empty;
+        public SiteModel SavedSite = null;
+        public string SavedFullText = string.Empty;
+        public DateTime SavedSearchIndexCreatedTime = 0.ToDateTime();
 
-        public bool ReferenceId_Updated(IContext context, Column column = null)
+        public bool ReferenceId_Updated(Context context, Column column = null)
         {
             return ReferenceId != SavedReferenceId &&
                 (column == null ||
@@ -46,7 +46,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != ReferenceId);
         }
 
-        public bool ReferenceType_Updated(IContext context, Column column = null)
+        public bool ReferenceType_Updated(Context context, Column column = null)
         {
             return ReferenceType != SavedReferenceType && ReferenceType != null &&
                 (column == null ||
@@ -54,7 +54,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != ReferenceType);
         }
 
-        public bool SiteId_Updated(IContext context, Column column = null)
+        public bool SiteId_Updated(Context context, Column column = null)
         {
             return SiteId != SavedSiteId &&
                 (column == null ||
@@ -62,7 +62,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToLong() != SiteId);
         }
 
-        public bool Title_Updated(IContext context, Column column = null)
+        public bool Title_Updated(Context context, Column column = null)
         {
             return Title != SavedTitle && Title != null &&
                 (column == null ||
@@ -70,7 +70,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != Title);
         }
 
-        public bool FullText_Updated(IContext context, Column column = null)
+        public bool FullText_Updated(Context context, Column column = null)
         {
             return FullText != SavedFullText && FullText != null &&
                 (column == null ||
@@ -78,7 +78,7 @@ namespace Implem.Pleasanter.Models
                 column.GetDefaultInput(context: context).ToString() != FullText);
         }
 
-        public bool SearchIndexCreatedTime_Updated(IContext context, Column column = null)
+        public bool SearchIndexCreatedTime_Updated(Context context, Column column = null)
         {
             return SearchIndexCreatedTime != SavedSearchIndexCreatedTime &&
                 (column == null ||
@@ -86,28 +86,37 @@ namespace Implem.Pleasanter.Models
                 column.DefaultTime().Date != SearchIndexCreatedTime.Date);
         }
 
-        public ItemModel(IContext context, DataRow dataRow, string tableAlias = null)
+        public ItemModel(
+            Context context,
+            DataRow dataRow,
+            string tableAlias = null)
         {
             OnConstructing(context: context);
             Context = context;
-            if (dataRow != null) Set(context, dataRow, tableAlias);
+            if (dataRow != null)
+            {
+                Set(
+                    context: context,
+                    dataRow: dataRow,
+                    tableAlias: tableAlias);
+            }
             OnConstructed(context: context);
         }
 
-        private void OnConstructing(IContext context)
+        private void OnConstructing(Context context)
         {
         }
 
-        private void OnConstructed(IContext context)
+        private void OnConstructed(Context context)
         {
         }
 
-        public void ClearSessions(IContext context)
+        public void ClearSessions(Context context)
         {
         }
 
         public ItemModel Get(
-            IContext context,
+            Context context,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
@@ -131,7 +140,7 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        public string Index(IContext context)
+        public string Index(Context context)
         {
             if (ReferenceId == 0)
             {
@@ -139,7 +148,9 @@ namespace Implem.Pleasanter.Models
             }
             if (ReferenceType != "Sites")
             {
-                return HtmlTemplates.Error(context, Error.Types.NotFound);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.NotFound));
             }
             SetSite(
                 context: context,
@@ -155,11 +166,13 @@ namespace Implem.Pleasanter.Models
                 case "Results":
                     return ResultUtilities.Index(context: context, ss: Site.SiteSettings);
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string IndexJson(IContext context)
+        public string IndexJson(Context context)
         {
             if (ReferenceType != "Sites")
             {
@@ -181,11 +194,13 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string TrashBox(IContext context)
+        public string TrashBox(Context context)
         {
             if (ReferenceId != 0 && ReferenceType != "Sites")
             {
-                return HtmlTemplates.Error(context, Error.Types.NotFound);
+                return HtmlTemplates.Error(
+                    context: context,
+                    errorData: new ErrorData(type: Error.Types.NotFound));
             }
             SetSite(
                 context: context,
@@ -206,11 +221,13 @@ namespace Implem.Pleasanter.Models
                 case "Results":
                     return ResultUtilities.TrashBox(context: context, ss: Site.SiteSettings);
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string TrashBoxJson(IContext context)
+        public string TrashBoxJson(Context context)
         {
             if (ReferenceType != "Sites")
             {
@@ -235,7 +252,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Calendar(IContext context)
+        public string Calendar(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -258,11 +275,13 @@ namespace Implem.Pleasanter.Models
                             setSiteIntegration: true,
                             setAllChoices: true));
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string CalendarJson(IContext context)
+        public string CalendarJson(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -289,7 +308,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Crosstab(IContext context)
+        public string Crosstab(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -310,11 +329,13 @@ namespace Implem.Pleasanter.Models
                             referenceId: ReferenceId,
                             setSiteIntegration: true));
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string CrosstabJson(IContext context)
+        public string CrosstabJson(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -339,7 +360,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Gantt(IContext context)
+        public string Gantt(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -354,11 +375,13 @@ namespace Implem.Pleasanter.Models
                             setSiteIntegration: true,
                             setAllChoices: true));
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string GanttJson(IContext context)
+        public string GanttJson(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -377,7 +400,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string BurnDown(IContext context)
+        public string BurnDown(Context context)
         {
             SetSite(
                 context: context,
@@ -391,11 +414,13 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         ss: Site.SiteSettings);
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string BurnDownJson(IContext context)
+        public string BurnDownJson(Context context)
         {
             SetSite(
                 context: context,
@@ -413,7 +438,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string BurnDownRecordDetailsJson(IContext context)
+        public string BurnDownRecordDetailsJson(Context context)
         {
             SetSite(
                 context: context,
@@ -430,7 +455,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string TimeSeries(IContext context)
+        public string TimeSeries(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -451,11 +476,13 @@ namespace Implem.Pleasanter.Models
                             referenceId: ReferenceId,
                             setSiteIntegration: true));
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string TimeSeriesJson(IContext context)
+        public string TimeSeriesJson(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -480,7 +507,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Kamban(IContext context)
+        public string Kamban(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -503,11 +530,13 @@ namespace Implem.Pleasanter.Models
                             setSiteIntegration: true,
                             setAllChoices: true));
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string KambanJson(IContext context)
+        public string KambanJson(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -534,7 +563,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string ImageLib(IContext context)
+        public string ImageLib(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -557,11 +586,13 @@ namespace Implem.Pleasanter.Models
                             setSiteIntegration: true,
                             setAllChoices: true));
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string ImageLibJson(IContext context)
+        public string ImageLibJson(Context context)
         {
             SetSite(context: context);
             ViewModes.Set(context: context, siteId: Site.SiteId);
@@ -588,7 +619,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string New(IContext context)
+        public string New(Context context)
         {
             SetSite(
                 context: context,
@@ -609,11 +640,13 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         ss: Site.SiteSettings);
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string NewJson(IContext context)
+        public string NewJson(Context context)
         {
             return new ResponseCollection()
                 .ReplaceAll("#MainContainer", New(context: context))
@@ -631,7 +664,53 @@ namespace Implem.Pleasanter.Models
                 .ToJson();
         }
 
-        public string Editor(IContext context)
+        public string NewOnGrid(Context context)
+        {
+            SetSite(
+                context: context,
+                siteOnly: true,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.GridRows(
+                        context: context,
+                        ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.GridRows(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
+            }
+        }
+
+        public string CancelNewRow(Context context)
+        {
+            SetSite(
+                context: context,
+                siteOnly: true,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.CancelNewRow(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        id: context.Forms.Long("CancelRowId"));
+                case "Results":
+                    return ResultUtilities.CancelNewRow(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        id: context.Forms.Long("CancelRowId"));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string Editor(Context context)
         {
             SetSite(context: context);
             switch (ReferenceType)
@@ -666,11 +745,13 @@ namespace Implem.Pleasanter.Models
                         wikiId: ReferenceId,
                         clearSessions: true);
                 default:
-                    return HtmlTemplates.Error(context, Error.Types.NotFound);
+                    return HtmlTemplates.Error(
+                        context: context,
+                        errorData: new ErrorData(type: Error.Types.NotFound));
             }
         }
 
-        public string LinkTable(IContext context)
+        public string LinkTable(Context context)
         {
             var dataTableName = context.Forms.Data("TableId");
             return new ResponseCollection()
@@ -683,7 +764,7 @@ namespace Implem.Pleasanter.Models
                 .ToJson();
         }
 
-        public string Import(IContext context)
+        public string Import(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -701,7 +782,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string OpenExportSelectorDialog(IContext context)
+        public string OpenExportSelectorDialog(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -727,7 +808,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public ResponseFile Export(IContext context)
+        public ResponseFile Export(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -738,7 +819,8 @@ namespace Implem.Pleasanter.Models
                         ss: Site.IssuesSiteSettings(
                             context: context,
                             referenceId: ReferenceId,
-                            setSiteIntegration: true),
+                            setSiteIntegration: true,
+                            setAllChoices: true),
                         siteModel: Site);
                 case "Results":
                     return ResultUtilities.Export(
@@ -746,14 +828,15 @@ namespace Implem.Pleasanter.Models
                         ss: Site.ResultsSiteSettings(
                             context: context,
                             referenceId: ReferenceId,
-                            setSiteIntegration: true),
+                            setSiteIntegration: true,
+                            setAllChoices: true),
                         siteModel: Site);
                 default:
                     return null;
             }
         }
 
-        public ResponseFile ExportCrosstab(IContext context)
+        public ResponseFile ExportCrosstab(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -779,10 +862,12 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string SearchDropDown(IContext context)
+        public string SearchDropDown(Context context)
         {
             SetSite(context: context);
             var controlId = context.Forms.Data("DropDownSearchTarget");
+            var filter = controlId.StartsWith("ViewFilters__") 
+                || controlId.StartsWith("ViewFiltersOnGridHeader__");
             var searchText = context.Forms.Data("DropDownSearchText");
             string parentClass = context.Forms.Data("DropDownSearchParentClass");
             int parentId = context.Forms.Int("DropDownSearchParentDataId");
@@ -794,6 +879,7 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             controlId: controlId,
                             searchText: searchText,
+                            filter: filter,
                             parentClass: parentClass,
                             parentId: parentId);
                 default:
@@ -801,15 +887,17 @@ namespace Implem.Pleasanter.Models
                         context: context,
                         controlId: controlId,
                         searchText: searchText,
+                        filter: filter,
                         parentClass: parentClass,
                         parentId: parentId);
             }
         }
 
         private string AppendSearchDropDown(
-            IContext context,
+            Context context,
             string controlId,
             string searchText,
+            bool filter,
             string parentClass = "",
             int parentId = 0)
         {
@@ -818,6 +906,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 controlId: controlId,
                 searchText: searchText,
+                filter: filter,
                 offset: offset,
                 parentClass: parentClass,
                 parentId: parentId);
@@ -836,9 +925,10 @@ namespace Implem.Pleasanter.Models
         }
 
         private string SearchDropDown(
-            IContext context,
+            Context context,
             string controlId,
             string searchText,
+            bool filter,
             string parentClass = "",
             int parentId = 0)
         {
@@ -846,6 +936,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 controlId: controlId,
                 searchText: searchText,
+                filter: filter,
                 parentClass: parentClass,
                 parentId: parentId);
             var nextOffset = Paging.NextOffset(
@@ -867,17 +958,19 @@ namespace Implem.Pleasanter.Models
                 .ToJson();
         }
 
-        public string SelectSearchDropDown(IContext context)
+        public string SelectSearchDropDown(Context context)
         {
             SetSite(context: context);
             var controlId = context.Forms.Data("DropDownSearchTarget");
+            var filter = controlId.StartsWith("ViewFilters__") 
+                || controlId.StartsWith("ViewFiltersOnGridHeader__");
             var searchText = context.Forms.Data("DropDownSearchText");
             var column = SearchDropDownColumn(
                 context: context,
                 controlId: controlId,
-                searchText: searchText);
+                searchText: searchText,
+                filter: filter);
             var selected = context.Forms.List("DropDownSearchResults");
-            var editor = context.Forms.Bool("DropDownSearchOnEditor");
             var multiple = context.Forms.Bool("DropDownSearchMultiple");
             if (multiple)
             {
@@ -886,7 +979,7 @@ namespace Implem.Pleasanter.Models
                     controlId: controlId,
                     column: column,
                     selected: selected,
-                    editor: editor,
+                    filter: filter,
                     multiple: multiple);
             }
             else if (selected.Count() != 1)
@@ -902,15 +995,16 @@ namespace Implem.Pleasanter.Models
                     controlId: controlId,
                     column: column,
                     selected: selected,
-                    editor: editor,
+                    filter: filter,
                     multiple: multiple);
             }
         }
 
         private Column SearchDropDownColumn(
-            IContext context,
+            Context context,
             string controlId,
             string searchText,
+            bool filter,
             int offset = 0,
             string parentClass = "",
             int parentId = 0)
@@ -922,10 +1016,12 @@ namespace Implem.Pleasanter.Models
                 setSiteIntegration: true);
             var column = ss.GetColumn(
                 context: context,
-                columnName: controlId.Substring(
-                    controlId.StartsWith("ViewFilters__")
-                        ? "ViewFilters__".Length
-                        : (ss.ReferenceType + "_").Length));
+                columnName: filter
+                    ? (controlId.StartsWith("ViewFilters__")
+                        ? controlId.Substring("ViewFilters__".Length)
+                        : controlId.Substring("ViewFiltersOnGridHeader__".Length))
+                    : controlId.Split_2nd('_'));
+            var searchIndexes = searchText.SearchIndexes(context: context);
             if (column?.Linked() == true)
             {
                 column?.SetChoiceHash(
@@ -934,34 +1030,38 @@ namespace Implem.Pleasanter.Models
                     linkHash: column.SiteSettings.LinkHash(
                         context: context,
                         columnName: column.Name,
-                        searchText: searchText,
+                        searchIndexes: searchIndexes,
                         offset: offset,
                         parentClass: parentClass,
                         parentId: parentId),
-                    searchIndexes: searchText.SearchIndexes(context: context));
+                    searchIndexes: searchIndexes);
             }
             else
             {
                 ss.SetChoiceHash(
                     context: context,
                     columnName: column?.ColumnName,
-                    searchText: context.Forms.Data("DropDownSearchText"));
+                    searchIndexes: searchIndexes);
             }
             return column;
         }
 
         private static string SelectSearchDropDownResponse(
-            IContext context,
+            Context context,
             string controlId,
             Column column,
             List<string> selected,
-            bool editor,
+            bool filter,
             bool multiple)
         {
-            column.SiteSettings.SetChoiceHash(
-                context: context,
-                columnName: column.ColumnName,
-                selectedValues: selected);
+            if (selected.Any() &&
+                !selected.All(o => column.ChoiceHash.ContainsKey(o)))
+            {
+                column.SiteSettings.SetChoiceHash(
+                    context: context,
+                    columnName: column.ColumnName,
+                    selectedValues: selected);
+            }
             var optionCollection = column?.EditChoices(
                 context: context,
                 addNotSet: true)?
@@ -977,10 +1077,10 @@ namespace Implem.Pleasanter.Models
                             selectedValue: SelectSearchDropDownSelectedValue(
                                 context: context,
                                 selected: selected,
-                                editor: editor,
+                                filter: filter,
                                 multiple: multiple),
                             multiple: multiple,
-                            insertBlank: editor))
+                            insertBlank: !filter))
                     .Invoke("setDropDownSearch")
                     .Trigger("#" + controlId, "change")
                     .ToJson()
@@ -990,7 +1090,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static string SelectSearchDropDownSelectedValue(
-            IContext context, List<string> selected, bool editor, bool multiple)
+            Context context, List<string> selected, bool filter, bool multiple)
         {
             if (multiple)
             {
@@ -999,13 +1099,13 @@ namespace Implem.Pleasanter.Models
             else
             {
                 var value = selected.FirstOrDefault();
-                return editor && value == "\t"
+                return !filter && value == "\t"
                     ? null
                     : selected.FirstOrDefault();
             }
         }
 
-        public string GridRows(IContext context)
+        public string GridRows(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1017,7 +1117,7 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             referenceId: ReferenceId,
                             setSiteIntegration: true),
-                        offset: DataViewGrid.Offset(context: context));
+                        offset: context.Forms.Int("GridOffset"));
                 case "Results":
                     return ResultUtilities.GridRows(
                         context: context,
@@ -1025,13 +1125,67 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             referenceId: ReferenceId,
                             setSiteIntegration: true),
-                        offset: DataViewGrid.Offset(context: context));
+                        offset: context.Forms.Int("GridOffset"));
                 default:
                     return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string TrashBoxGridRows(IContext context)
+        public string ReloadRow(Context context)
+        {
+            SetSite(context: context);
+            var id = context.Forms.Long("Id");
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.ReloadRow(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        issueId: id);
+                case "Results":
+                    return ResultUtilities.ReloadRow(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId,
+                            setSiteIntegration: true),
+                        resultId: id);
+                default:
+                    return ItemUtilities.ClearItemDataResponse(
+                        context: context,
+                        ss: Site.SiteSettings,
+                        id: id)
+                            .Remove($"[data-id=\"{id}\"]")
+                            .Message(Messages.NotFound(context: context))
+                            .ToJson();
+            }
+        }
+
+        public string CopyRow(Context context)
+        {
+            SetSite(
+                context: context,
+                siteOnly: true,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.GridRows(
+                        context: context,
+                        ss: Site.SiteSettings);
+                case "Results":
+                    return ResultUtilities.GridRows(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string TrashBoxGridRows(Context context)
         {
             SetSite(context: context, tableType: Sqls.TableTypes.Deleted);
             switch (Site.ReferenceType)
@@ -1044,7 +1198,7 @@ namespace Implem.Pleasanter.Models
                             referenceId: ReferenceId,
                             setSiteIntegration: true,
                             tableType: Sqls.TableTypes.Deleted),
-                        offset: DataViewGrid.Offset(context: context),
+                        offset: context.Forms.Int("GridOffset"),
                         action: "TrashBoxGridRows");
                 case "Results":
                     return ResultUtilities.GridRows(
@@ -1054,14 +1208,14 @@ namespace Implem.Pleasanter.Models
                             referenceId: ReferenceId,
                             setSiteIntegration: true,
                             tableType: Sqls.TableTypes.Deleted),
-                        offset: DataViewGrid.Offset(context: context),
+                        offset: context.Forms.Int("GridOffset"),
                         action: "TrashBoxGridRows");
                 default:
                     return Messages.ResponseNotFound(context: context).ToJson();
             }
         }
 
-        public string ImageLibNext(IContext context)
+        public string ImageLibNext(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1087,7 +1241,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public System.Web.Mvc.ContentResult GetByApi(IContext context)
+        public System.Web.Mvc.ContentResult GetByApi(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1133,7 +1287,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Create(IContext context)
+        public string Create(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1160,7 +1314,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public System.Web.Mvc.ContentResult CreateByApi(IContext context)
+        public System.Web.Mvc.ContentResult CreateByApi(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1182,7 +1336,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Templates(IContext context)
+        public string Templates(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1197,7 +1351,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string CreateByTemplate(IContext context)
+        public string CreateByTemplate(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1212,7 +1366,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string SiteMenu(IContext context)
+        public string SiteMenu(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1226,7 +1380,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Update(IContext context)
+        public string Update(Context context)
         {
             SetSite(context: context);
             switch (ReferenceType)
@@ -1262,7 +1416,29 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public System.Web.Mvc.ContentResult UpdateByApi(IContext context)
+        public string BulkUpdate(Context context)
+        {
+            SetSite(context: context);
+            switch (Site.SiteSettings.ReferenceType)
+            {
+                case "Issues":
+                    return IssueUtilities.BulkUpdate(
+                        context: context,
+                        ss: Site.IssuesSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId));
+                case "Results":
+                    return ResultUtilities.BulkUpdate(
+                        context: context,
+                        ss: Site.ResultsSiteSettings(
+                            context: context,
+                            referenceId: ReferenceId));
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public System.Web.Mvc.ContentResult UpdateByApi(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1286,7 +1462,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string DeleteComment(IContext context)
+        public string DeleteComment(Context context)
         {
             SetSite(context: context);
             switch (ReferenceType)
@@ -1322,7 +1498,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Copy(IContext context)
+        public string Copy(Context context)
         {
             SetSite(context: context);
             switch (ReferenceType)
@@ -1350,55 +1526,19 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string MoveTargets(IContext context)
+        public string MoveTargets(Context context)
         {
             SetSite(context: context);
             return new ResponseCollection().Html("#MoveTargets", new HtmlBuilder()
                 .OptionCollection(
                     context: context,
-                    optionCollection: MoveTargets(
+                    optionCollection: Site.SiteSettings.MoveTargetsSelectableOptions(
                         context: context,
-                        sites: Rds.ExecuteTable(
-                            context: context,
-                            statements: new SqlStatement(
-                                commandText: Def.Sql.MoveTarget,
-                                param: Rds.SitesParam()
-                                    .TenantId(context.TenantId)
-                                    .ReferenceType(Site.ReferenceType)
-                                    .SiteId(Site.SiteId)
-                                    .Add(name: "HasPrivilege", value: context.HasPrivilege)))
-                                        .AsEnumerable())))
-                                            .ToJson();
+                        enabled: true)))
+                            .ToJson();
         }
 
-        private Dictionary<string, ControlData> MoveTargets(
-            IContext context, IEnumerable<DataRow> sites)
-        {
-            var moveTargets = new Dictionary<string, ControlData>();
-            sites
-                .Where(dataRow => dataRow.String("ReferenceType") == Site.ReferenceType)
-                .ForEach(dataRow =>
-                {
-                    var current = dataRow;
-                    var titles = new List<string>()
-                    {
-                        current.String("Title")
-                    };
-                    while(sites.Any(o =>
-                        o.Long("SiteId") == current.Long("ParentId")))
-                        {
-                            current = sites.First(o =>
-                                o.Long("SiteId") == current.Long("ParentId"));
-                            titles.Insert(0, current.String("Title"));
-                        }
-                    moveTargets.Add(
-                        dataRow.String("SiteId"),
-                        new ControlData(titles.Join(" / ")));
-                });
-            return moveTargets;
-        }
-
-        public string Move(IContext context)
+        public string Move(Context context)
         {
             SetSite(context: context);
             switch (ReferenceType)
@@ -1422,7 +1562,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string BulkMove(IContext context)
+        public string BulkMove(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1446,7 +1586,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Delete(IContext context)
+        public string Delete(Context context)
         {
             SetSite(context: context);
             switch (ReferenceType)
@@ -1484,7 +1624,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public System.Web.Mvc.ContentResult DeleteByApi(IContext context)
+        public System.Web.Mvc.ContentResult DeleteByApi(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1508,7 +1648,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string BulkDelete(IContext context)
+        public string BulkDelete(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1532,7 +1672,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string DeleteHistory(IContext context)
+        public string DeleteHistory(Context context)
         {
             SetSite(
                 context: context,
@@ -1570,7 +1710,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string PhysicalDelete(IContext context)
+        public string PhysicalDelete(Context context)
         {
             SetSite(context: context, tableType: Sqls.TableTypes.Deleted);
             switch (Site.ReferenceType)
@@ -1604,7 +1744,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Restore(IContext context)
+        public string Restore(Context context)
         {
             SetSite(context: context, tableType: Sqls.TableTypes.Deleted);
             switch (Site.ReferenceType)
@@ -1638,7 +1778,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string RestoreFromHistory(IContext context)
+        public string RestoreFromHistory(Context context)
         {
             SetSite(context: context, tableType: Sqls.TableTypes.History);
             switch (ReferenceType)
@@ -1684,7 +1824,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string EditSeparateSettings(IContext context)
+        public string EditSeparateSettings(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1701,7 +1841,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Separate(IContext context)
+        public string Separate(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1718,7 +1858,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string Histories(IContext context)
+        public string Histories(Context context)
         {
             SetSite(
                 context: context,
@@ -1750,7 +1890,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string History(IContext context)
+        public string History(Context context)
         {
             SetSite(
                 context: context,
@@ -1782,7 +1922,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string EditorJson(IContext context)
+        public string EditorJson(Context context)
         {
             SetSite(context: context, initSiteSettings: true);
             switch (ReferenceType)
@@ -1811,7 +1951,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string UpdateByCalendar(IContext context)
+        public string UpdateByCalendar(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1837,7 +1977,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string UpdateByKamban(IContext context)
+        public string UpdateByKamban(Context context)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1863,7 +2003,58 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public string SynchronizeTitles(IContext context)
+        public string LockTable(Context context)
+        {
+            SetSite(
+                context: context,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                    case "Issues":
+                    case "Results":
+                    return SiteUtilities.LockTable(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string UnlockTable(Context context)
+        {
+            SetSite(
+                context: context,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                    case "Issues":
+                    case "Results":
+                    return SiteUtilities.UnlockTable(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string ForceUnlockTable(Context context)
+        {
+            SetSite(
+                context: context,
+                initSiteSettings: true);
+            switch (Site.ReferenceType)
+            {
+                    case "Issues":
+                    case "Results":
+                    return SiteUtilities.ForceUnlockTable(
+                        context: context,
+                        ss: Site.SiteSettings);
+                default:
+                    return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
+        public string SynchronizeTitles(Context context)
         {
             SetSite(context: context, initSiteSettings: true);
             return SiteUtilities.SynchronizeTitles(
@@ -1871,7 +2062,7 @@ namespace Implem.Pleasanter.Models
                 siteModel: Site);
         }
 
-        public string SynchronizeSummaries(IContext context)
+        public string SynchronizeSummaries(Context context)
         {
             SetSite(context: context);
             return SiteUtilities.SynchronizeSummaries(
@@ -1879,7 +2070,7 @@ namespace Implem.Pleasanter.Models
                 siteModel: Site);
         }
 
-        public string SynchronizeFormulas(IContext context)
+        public string SynchronizeFormulas(Context context)
         {
             SetSite(context: context);
             return SiteUtilities.SynchronizeFormulas(
@@ -1888,7 +2079,7 @@ namespace Implem.Pleasanter.Models
         }
 
         private void SetSite(
-            IContext context,
+            Context context,
             bool siteOnly = false,
             bool initSiteSettings = false,
             bool setSiteIntegration = false,
@@ -1903,7 +2094,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public SiteModel GetSite(
-            IContext context,
+            Context context,
             bool siteOnly = false,
             bool initSiteSettings = false,
             bool setSiteIntegration = false,
@@ -1948,11 +2139,11 @@ namespace Implem.Pleasanter.Models
             return siteModel;
         }
 
-        private void SetBySession(IContext context)
+        private void SetBySession(Context context)
         {
         }
 
-        private void Set(IContext context, DataTable dataTable)
+        private void Set(Context context, DataTable dataTable)
         {
             switch (dataTable.Rows.Count)
             {
@@ -1962,7 +2153,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        private void Set(IContext context, DataRow dataRow, string tableAlias = null)
+        private void Set(Context context, DataRow dataRow, string tableAlias = null)
         {
             AccessStatus = Databases.AccessStatuses.Selected;
             foreach(DataColumn dataColumn in dataRow.Table.Columns)
@@ -2023,25 +2214,82 @@ namespace Implem.Pleasanter.Models
                             UpdatedTime = new Time(context, dataRow, column.ColumnName);
                             SavedUpdatedTime = UpdatedTime.Value;
                             break;
-                        case "IsHistory": VerType = dataRow[column.ColumnName].ToBool() ? Versions.VerTypes.History : Versions.VerTypes.Latest; break;
+                        case "IsHistory":
+                            VerType = dataRow.Bool(column.ColumnName)
+                                ? Versions.VerTypes.History
+                                : Versions.VerTypes.Latest; break;
+                        default:
+                            switch (Def.ExtendedColumnTypes.Get(column.Name))
+                            {
+                                case "Class":
+                                    Class(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString());
+                                    SavedClass(
+                                        columnName: column.Name,
+                                        value: Class(columnName: column.Name));
+                                    break;
+                                case "Num":
+                                    Num(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToDecimal());
+                                    SavedNum(
+                                        columnName: column.Name,
+                                        value: Num(columnName: column.Name));
+                                    break;
+                                case "Date":
+                                    Date(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToDateTime());
+                                    SavedDate(
+                                        columnName: column.Name,
+                                        value: Date(columnName: column.Name));
+                                    break;
+                                case "Description":
+                                    Description(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString());
+                                    SavedDescription(
+                                        columnName: column.Name,
+                                        value: Description(columnName: column.Name));
+                                    break;
+                                case "Check":
+                                    Check(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToBool());
+                                    SavedCheck(
+                                        columnName: column.Name,
+                                        value: Check(columnName: column.Name));
+                                    break;
+                                case "Attachments":
+                                    Attachments(
+                                        columnName: column.Name,
+                                        value: dataRow[column.ColumnName].ToString()
+                                            .Deserialize<Attachments>() ?? new Attachments());
+                                    SavedAttachments(
+                                        columnName: column.Name,
+                                        value: Attachments(columnName: column.Name).ToJson());
+                                    break;
+                            }
+                            break;
                     }
                 }
             }
         }
 
-        public bool Updated(IContext context)
+        public bool Updated(Context context)
         {
-            return
-                ReferenceId_Updated(context: context) ||
-                Ver_Updated(context: context) ||
-                ReferenceType_Updated(context: context) ||
-                SiteId_Updated(context: context) ||
-                Title_Updated(context: context) ||
-                FullText_Updated(context: context) ||
-                SearchIndexCreatedTime_Updated(context: context) ||
-                Comments_Updated(context: context) ||
-                Creator_Updated(context: context) ||
-                Updator_Updated(context: context);
+            return Updated()
+                || ReferenceId_Updated(context: context)
+                || Ver_Updated(context: context)
+                || ReferenceType_Updated(context: context)
+                || SiteId_Updated(context: context)
+                || Title_Updated(context: context)
+                || FullText_Updated(context: context)
+                || SearchIndexCreatedTime_Updated(context: context)
+                || Comments_Updated(context: context)
+                || Creator_Updated(context: context)
+                || Updator_Updated(context: context);
         }
 
         /// <summary>
@@ -2054,7 +2302,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public ItemModel(IContext context, long referenceId)
+        public ItemModel(Context context, long referenceId)
         {
             OnConstructing(context: context);
             ReferenceId = referenceId;

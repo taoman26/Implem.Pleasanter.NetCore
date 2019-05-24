@@ -5,7 +5,7 @@ namespace Implem.Pleasanter.Libraries.Migrators
 {
     public static class StatusesMigrator
     {
-        public static void Migrate(IContext context)
+        public static void Migrate(Context context)
         {
             if (LowerThan(context: context, version: "0.37.10.0"))
             {
@@ -30,7 +30,7 @@ namespace Implem.Pleasanter.Libraries.Migrators
             }
         }
 
-        private static bool LowerThan(IContext context, string version)
+        private static bool LowerThan(Context context, string version)
         {
             return new AssemblyVersion(context: context)
                 .LowerThan(new AssemblyVersion(version));

@@ -3,36 +3,35 @@ using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.General;
 using Implem.Pleasanter.Libraries.Requests;
 using Implem.Pleasanter.Libraries.Security;
-using Implem.Pleasanter.Libraries.Server;
 using Implem.Pleasanter.Libraries.Settings;
 using System.Linq;
 namespace Implem.Pleasanter.Models
 {
     public static class BinaryValidators
     {
-        public static Error.Types OnGetting(IContext context, SiteSettings ss)
+        public static ErrorData OnGetting(Context context, SiteSettings ss)
         {
             if (!context.HasPermission(ss: ss))
             {
-                return Error.Types.HasNotPermission;
+                return new ErrorData(type: Error.Types.HasNotPermission);
             }
-            return Error.Types.None;
+            return new ErrorData(type: Error.Types.None);
         }
 
-        public static Error.Types OnUpdating(IContext context, SiteSettings ss)
+        public static ErrorData OnUpdating(Context context, SiteSettings ss)
         {
             if (!context.CanManageSite(ss: ss))
             {
-                return Error.Types.HasNotPermission;
+                return new ErrorData(type: Error.Types.HasNotPermission);
             }
-            return Error.Types.None;
+            return new ErrorData(type: Error.Types.None);
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
         public static Error.Types OnUploadingSiteImage(
-            IContext context, SiteSettings ss, byte[] bin)
+            Context context, SiteSettings ss, byte[] bin)
         {
             if (!context.CanManageSite(ss: ss))
             {
@@ -57,7 +56,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static Error.Types OnUploadingTenantImage(
-            IContext context, SiteSettings ss, byte[] bin)
+            Context context, SiteSettings ss, byte[] bin)
         {
             if (!Permissions.CanManageTenant(context)
                 && context.UserSettings?.EnableManageTenant != true)
@@ -82,7 +81,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static Error.Types OnDeletingSiteImage(IContext context, SiteSettings ss)
+        public static Error.Types OnDeletingSiteImage(Context context, SiteSettings ss)
         {
             if (!context.CanManageSite(ss: ss))
             {
@@ -94,7 +93,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static Error.Types OnDeletingTenantImage(IContext context, SiteSettings ss)
+        public static Error.Types OnDeletingTenantImage(Context context, SiteSettings ss)
         {
             if (!Permissions.CanManageTenant(context)
                 && context.UserSettings?.EnableManageTenant != true)
@@ -107,7 +106,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static Error.Types OnUploadingImage(IContext context)
+        public static Error.Types OnUploadingImage(Context context)
         {
             if (!context.ContractSettings.Attachments())
             {
@@ -128,7 +127,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static Error.Types OnDeletingImage(
-            IContext context, SiteSettings ss, BinaryModel binaryModel)
+            Context context, SiteSettings ss, BinaryModel binaryModel)
         {
             if (!context.CanUpdate(ss: ss))
             {
@@ -145,7 +144,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static Error.Types OnUploading(
-            IContext context,
+            Context context,
             Column column,
             Libraries.DataTypes.Attachments attachments)
         {
@@ -195,7 +194,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static bool OverLimitSize(IContext context, decimal? limit)
+        private static bool OverLimitSize(Context context, decimal? limit)
         {
             foreach (var item in context.PostedFiles)
             {

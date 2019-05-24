@@ -19,13 +19,13 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         {
         }
 
-        public Time(IContext context, DataRow dataRow, string name)
+        public Time(Context context, DataRow dataRow, string name)
         {
             Value = dataRow.DateTime(name);
             DisplayValue = Value.ToLocal(context: context);
         }
 
-        public Time(IContext context, DateTime value, bool byForm = false)
+        public Time(Context context, DateTime value, bool byForm = false)
         {
             Value = value.InRange()
                 ? byForm
@@ -35,7 +35,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             DisplayValue = value;
         }
 
-        public virtual string ToControl(IContext context, SiteSettings ss, Column column)
+        public virtual string ToControl(Context context, SiteSettings ss, Column column)
         {
             return Value.InRange()
                 ? column.DisplayControl(
@@ -44,7 +44,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 : string.Empty;
         }
 
-        public virtual string ToResponse(IContext context, SiteSettings ss, Column column)
+        public virtual string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return Value.InRange()
                 ? column.DisplayControl(
@@ -60,12 +60,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 : string.Empty;
         }
 
-        public bool DifferentDate(IContext context)
+        public bool DifferentDate(Context context)
         {
             return DisplayValue.Date != DateTime.Now.ToLocal(context: context).Date;
         }
 
-        public virtual HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public virtual HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return hb.Td(action: () => hb
                 .P(css: "time", action: () => hb
@@ -74,14 +74,14 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                         value: DisplayValue))));
         }
 
-        public virtual string GridText(IContext context, Column column)
+        public virtual string GridText(Context context, Column column)
         {
             return column.DisplayGrid(
                 context: context,
                 value: DisplayValue);
         }
 
-        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             return DisplayValue.Display(
                 context: context,
@@ -91,7 +91,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public virtual string ToNotice(
-            IContext context,
+            Context context,
             DateTime saved,
             Column column,
             bool updated,
@@ -109,7 +109,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     update: update);
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return Value == 0.ToDateTime();
         }

@@ -24,7 +24,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
 
         public HtmlBuilder Html(
             HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             bool allowEditing,
             bool allowImage,
@@ -70,7 +70,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 });
         }
 
-        public string CreatedTimeDisplayValue(IContext context)
+        public string CreatedTimeDisplayValue(Context context)
         {
             return UpdatedTime == null
                 ? CreatedTime.ToLocal(
@@ -88,12 +88,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                                 + $" [{Displays.CommentUpdated(context: context)}]";
         }
 
-        private bool CanEdit(IContext context, SiteSettings ss, bool allowEditing, bool readOnly)
+        private bool CanEdit(Context context, SiteSettings ss, bool allowEditing, bool readOnly)
         {
             return allowEditing && !readOnly && Creator == context.UserId;
         }
 
-        public void Update(IContext context, SiteSettings ss, string body)
+        public void Update(Context context, SiteSettings ss, string body)
         {
             UpdatedTime = DateTime.Now;
             Updator = context.UserId;
@@ -101,7 +101,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             Updated = true;
         }
 
-        public Comment ToLocal(IContext context)
+        public Comment ToLocal(Context context)
         {
             return new Comment()
             {

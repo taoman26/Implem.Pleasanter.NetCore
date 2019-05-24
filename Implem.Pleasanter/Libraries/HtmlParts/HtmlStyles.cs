@@ -9,7 +9,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 {
     public static class HtmlStyles
     {
-        public static HtmlBuilder ExtendedStyles(this HtmlBuilder hb, IContext context)
+        public static HtmlBuilder ExtendedStyles(this HtmlBuilder hb, Context context)
         {
             return hb
                 .Link(
@@ -22,7 +22,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         public static HtmlBuilder Styles(
-            this HtmlBuilder hb, IContext context, SiteSettings ss, string userStyle = null)
+            this HtmlBuilder hb, Context context, SiteSettings ss, string userStyle = null)
         {
             return hb
                 .Style(
@@ -35,7 +35,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                         && !userStyle.IsNullOrEmpty());
         }
 
-        public static HtmlBuilder LinkedStyles(this HtmlBuilder hb, IContext context)
+        public static HtmlBuilder LinkedStyles(this HtmlBuilder hb, Context context)
         {
             return hb
                 .Link(

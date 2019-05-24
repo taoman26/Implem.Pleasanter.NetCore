@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.2</TargetFramework>
-    <Copyright>Copyright © Implem Inc 2014 - 2018</Copyright>
+    <Copyright>Copyright © Implem Inc 2014 - 2019</Copyright>
     <Description>This program does the automatic code creation and merging of existing code based on the definition. Also it will make the configuration change of sql server database.</Description>
   </PropertyGroup>
 

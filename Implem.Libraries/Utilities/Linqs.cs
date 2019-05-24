@@ -30,6 +30,30 @@ namespace Implem.Libraries.Utilities
             }
         }
 
+        public static Dictionary<K, V> AddIfNotConainsKey<K, V>(
+            this IDictionary<K, V> self, K key, V value)
+        {
+            if (!self.ContainsKey(key))
+            {
+                self.Add(key, value);
+            }
+            return self.ToDictionary(o => o.Key, o => o.Value);
+        }
+
+        public static Dictionary<K, V> AddOrUpdate<K, V>(
+            this IDictionary<K, V> self, K key, V value)
+        {
+            if (!self.ContainsKey(key))
+            {
+                self.Add(key, value);
+            }
+            else
+            {
+                self[key] = value;
+            }
+            return self.ToDictionary(o => o.Key, o => o.Value);
+        }
+
         public static Dictionary<K, V> AddRange<K, V>(
             this IDictionary<K, V> self, IDictionary<K, V> data)
         {

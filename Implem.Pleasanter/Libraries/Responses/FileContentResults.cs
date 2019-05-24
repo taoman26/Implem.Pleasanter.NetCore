@@ -12,7 +12,7 @@ namespace Implem.Pleasanter.Libraries.Responses
 {
     public static class FileContentResults
     {
-        public static FileContentResult Download(IContext context, string guid)
+        public static FileContentResult Download(Context context, string guid)
         {
             var dataRow = Rds.ExecuteTable(
                 context: context,

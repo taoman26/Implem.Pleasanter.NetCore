@@ -53,18 +53,18 @@ namespace Implem.Pleasanter.Libraries.Settings
             return null;
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return this.ToJson() == "[]";
         }
 
-        public bool OverDeadline(IContext context)
+        public bool OverDeadline(Context context)
         {
             return Deadline?.InRange() == true
                 && Deadline.ToDateTime() < DateTime.Now.ToLocal(context: context);
         }
 
-        public bool UsersLimit(IContext context, int number = 1)
+        public bool UsersLimit(Context context, int number = 1)
         {
             return Users > 0
                 && Rds.ExecuteScalar_int(
@@ -74,7 +74,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                         where: Rds.UsersWhere().TenantId(context.TenantId))) + number > Users;
         }
 
-        public bool SitesLimit(IContext context, int number = 1)
+        public bool SitesLimit(Context context, int number = 1)
         {
             return Sites > 0
                 && Rds.ExecuteScalar_int(
@@ -84,7 +84,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                         where: Rds.SitesWhere().TenantId(context.TenantId))) + number > Sites;
         }
 
-        public bool ItemsLimit(IContext context, long siteId, int number = 1)
+        public bool ItemsLimit(Context context, long siteId, int number = 1)
         {
             return Items > 0
                 && Rds.ExecuteScalar_int(

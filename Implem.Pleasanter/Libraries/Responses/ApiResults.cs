@@ -2,7 +2,6 @@
 using Implem.Pleasanter.Libraries.General;
 using Implem.Pleasanter.Libraries.Requests;
 using System.Net.Http;
-using System.Web.Http;
 using System.Web.Mvc;
 namespace Implem.Pleasanter.Libraries.Responses
 {
@@ -13,11 +12,11 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(ApiResponses.Success(id, message));
         }
 
-        public static ContentResult Error(IContext context, Error.Types type, params string[] data)
+        public static ContentResult Error(Context context, ErrorData errorData, params string[] data)
         {
             return Get(ApiResponses.Error(
                 context: context,
-                type: type,
+                errorData: errorData,
                 data: data));
         }
 
@@ -35,12 +34,12 @@ namespace Implem.Pleasanter.Libraries.Responses
             };
         }
 
-        public static ContentResult BadRequest(IContext context)
+        public static ContentResult BadRequest(Context context)
         {
             return Get(ApiResponses.BadRequest(context: context));
         }
 
-        public static ContentResult Unauthorized(IContext context)
+        public static ContentResult Unauthorized(Context context)
         {
             return Get(ApiResponses.Unauthorized(context: context));
         }

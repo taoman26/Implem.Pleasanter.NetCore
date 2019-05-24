@@ -4,7 +4,7 @@ namespace Implem.Pleasanter.Libraries.Initializers
 {
     public static class StatusesInitializer
     {
-        public static void Initialize(IContext context)
+        public static void Initialize(Context context)
         {
             StatusUtilities.Initialize(context: context);
         }

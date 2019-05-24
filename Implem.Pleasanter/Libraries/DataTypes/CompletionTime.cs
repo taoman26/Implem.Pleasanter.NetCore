@@ -26,7 +26,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public CompletionTime(
-            IContext context, SiteSettings ss, DataRow dataRow, ColumnNameInfo column = null)
+            Context context, SiteSettings ss, DataRow dataRow, ColumnNameInfo column = null)
         {
             column = column ?? new ColumnNameInfo("CompletionTime");
             Value = dataRow.DateTime(Rds.DataColumnName(column, "CompletionTime"));
@@ -43,7 +43,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public CompletionTime(
-            IContext context,
+            Context context,
             SiteSettings ss,
             DateTime value,
             Status status,
@@ -69,7 +69,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             Status = status;
         }
 
-        public CompletionTime(IContext context, SiteSettings ss, DateTime value)
+        public CompletionTime(Context context, SiteSettings ss, DateTime value)
         {
             Value = value;
             DisplayValue = Value
@@ -79,7 +79,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     columnName: "CompletionTime")?.EditorFormat, minus: true);
         }
 
-        public override HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public override HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return hb.Td(action: () =>
             {
@@ -94,7 +94,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             });
         }
 
-        public bool Near(IContext context, SiteSettings ss)
+        public bool Near(Context context, SiteSettings ss)
         {
             return
                 DateTime.Now.ToLocal(context: context).Date.AddDays(
@@ -110,7 +110,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return Status.Incomplete() && Value < DateTime.Now;
         }
 
-        private HtmlBuilder LimitText(HtmlBuilder hb, IContext context)
+        private HtmlBuilder LimitText(HtmlBuilder hb, Context context)
         {
             var value = Value.ToLocal(context: context);
             if (!Times.InRange(value))
@@ -224,7 +224,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             }
         }
 
-        public override string GridText(IContext context, Column column)
+        public override string GridText(Context context, Column column)
         {
             return column.DisplayGrid(
                 context: context,
@@ -232,7 +232,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         }
 
         public override string ToNotice(
-            IContext context,
+            Context context,
             DateTime saved,
             Column column,
             bool updated,

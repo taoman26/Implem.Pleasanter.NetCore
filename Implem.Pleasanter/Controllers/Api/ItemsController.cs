@@ -10,7 +10,7 @@ namespace Implem.Pleasanter.Controllers.Api
 {
     public class ItemsController
     {
-        public ContentResult Get(IContext context, long id)
+        public ContentResult Get(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var result = context.Authenticated
@@ -20,7 +20,7 @@ namespace Implem.Pleasanter.Controllers.Api
             return result;
         }
 
-        public ContentResult Create(IContext context, long id)
+        public ContentResult Create(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var result = context.Authenticated
@@ -30,7 +30,7 @@ namespace Implem.Pleasanter.Controllers.Api
             return result;
         }
 
-        public ContentResult Update(IContext context, long id)
+        public ContentResult Update(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var result = context.Authenticated
@@ -40,7 +40,7 @@ namespace Implem.Pleasanter.Controllers.Api
             return result;
         }
 
-        public ContentResult Delete(IContext context, long id)
+        public ContentResult Delete(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var result = context.Authenticated

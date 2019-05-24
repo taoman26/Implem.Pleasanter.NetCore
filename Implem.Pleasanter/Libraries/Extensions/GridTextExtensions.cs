@@ -9,14 +9,14 @@ namespace Implem.Pleasanter.Libraries.Extensions
 {
     public static class GridTextExtensions
     {
-        public static string GridText(this IConvertable value, IContext context, Column column)
+        public static string GridText(this IConvertable value, Context context, Column column)
         {
             return column != null && value != null
                 ? value.ToString()
                 : string.Empty;
         }
 
-        public static string GridText(this bool value, IContext context, Column column)
+        public static string GridText(this bool value, Context context, Column column)
         {
             return column.HasChoices()
                 ? value
@@ -25,17 +25,17 @@ namespace Implem.Pleasanter.Libraries.Extensions
                 : value.ToString();
         }
 
-        public static string GridText(this int value, IContext context, Column column)
+        public static string GridText(this int value, Context context, Column column)
         {
             return value.ToString(column.StringFormat) + column.Unit;
         }
 
-        public static string GridText(this long value, IContext context, Column column)
+        public static string GridText(this long value, Context context, Column column)
         {
             return value.ToString(column.StringFormat) + column.Unit;
         }
 
-        public static string GridText(this decimal value, IContext context, Column column)
+        public static string GridText(this decimal value, Context context, Column column)
         {
             return column.Display(
                 context: context,
@@ -43,21 +43,21 @@ namespace Implem.Pleasanter.Libraries.Extensions
                 unit: true);
         }
 
-        public static string GridText(this DateTime value, IContext context, Column column)
+        public static string GridText(this DateTime value, Context context, Column column)
         {
             return column.DisplayGrid(
                 context: context,
                 value: value.ToLocal(context: context));
         }
 
-        public static string GridText(this string value, IContext context, Column column)
+        public static string GridText(this string value, Context context, Column column)
         {
             return column.HasChoices()
                 ? column.Choice(value).TextMini
                 : value;
         }
 
-        public static string GridText(this TimeZoneInfo value, IContext context, Column column)
+        public static string GridText(this TimeZoneInfo value, Context context, Column column)
         {
             return value.StandardName;
         }

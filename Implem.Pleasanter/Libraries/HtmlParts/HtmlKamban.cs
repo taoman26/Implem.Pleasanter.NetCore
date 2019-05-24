@@ -15,14 +15,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
     {
         public static HtmlBuilder Kamban(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByX,
             Column groupByY,
             string aggregateType,
             Column value,
-            int? columns,
+            int columns,
             bool aggregationView,
             IEnumerable<KambanElement> data,
             bool inRange)
@@ -79,7 +79,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                             Parameters.General.KambanMinColumns,
                             Parameters.General.KambanMaxColumns)
                                 .ToDictionary(o => o.ToString(), o => o.ToString()),
-                        selectedValue: columns?.ToString(),
+                        selectedValue: columns.ToString(),
                         method: "post")
                     .FieldCheckBox(
                         controlId: "KambanAggregationView",
@@ -105,14 +105,14 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         public static HtmlBuilder KambanBody(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             View view,
             Column groupByX,
             Column groupByY,
             string aggregateType,
             Column value,
-            int? columns,
+            int columns,
             bool aggregationView,
             IEnumerable<KambanElement> data,
             long changedItemId = 0,
@@ -133,7 +133,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
                     context: context,
                     insertBlank: true,
                     view: view)
-                        .Chunk(columns.ToInt())
+                        .Chunk(columns)
                         .ForEach(choicesX => hb
                             .Table(
                                 context: context,
@@ -161,7 +161,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Table(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             Dictionary<string, ControlData> choicesX,
             Dictionary<string, ControlData> choicesY,
@@ -251,7 +251,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Td(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string choiceX,
             string choiceY,
@@ -295,7 +295,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Td(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string choiceX,
             string choiceY,
@@ -327,7 +327,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder HeaderText(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string aggregateType,
             Column value,
@@ -369,7 +369,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
 
         private static HtmlBuilder Element(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             SiteSettings ss,
             string aggregateType,
             Column value,
@@ -390,7 +390,7 @@ namespace Implem.Pleasanter.Libraries.HtmlParts
         }
 
         private static string ItemText(
-            IContext context, string aggregateType, Column value, KambanElement data)
+            Context context, string aggregateType, Column value, KambanElement data)
         {
             return data.Title + (value == null || aggregateType == "Count"
                 ? string.Empty

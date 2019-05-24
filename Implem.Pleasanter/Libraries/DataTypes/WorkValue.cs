@@ -33,7 +33,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             ProgressRate = progressRate;
         }
 
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return column.Display(
                 context: context,
@@ -41,7 +41,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 value: Value);
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return column.Display(
                 context: context,
@@ -49,7 +49,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 value: Value);
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return hb.Td(action: () => Svg(
                 hb: hb,
@@ -57,7 +57,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 column: column));
         }
 
-        private HtmlBuilder Svg(HtmlBuilder hb, IContext context, Column column)
+        private HtmlBuilder Svg(HtmlBuilder hb, Context context, Column column)
         {
             var width = column.Max != null && column.Max != 0
                 ? Convert.ToInt32(Value / column.Max.ToInt() * 100)
@@ -84,7 +84,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     height: (Parameters.General.WorkValueHeight / 2).ToString()));
         }
 
-        public string GridText(IContext context, Column column)
+        public string GridText(Context context, Column column)
         {
             return column.Display(
                 context: context,
@@ -92,13 +92,13 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 unit: true);
         }
 
-        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             return Value.ToString();
         }
 
         public string ToNotice(
-            IContext context,
+            Context context,
             decimal saved,
             Column column,
             bool updated,
@@ -118,7 +118,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     update: update);
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return Value == 0;
         }

@@ -11,7 +11,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
     public static class TdExtensions
     {
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, IConvertable value)
+            this HtmlBuilder hb, Context context, Column column, IConvertable value)
         {
             return column != null && value != null
                 ? value.Td(hb: hb, context: context, column: column)
@@ -20,14 +20,14 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, TimeZoneInfo value)
+            this HtmlBuilder hb, Context context, Column column, TimeZoneInfo value)
         {
             return hb.Td(action: () => hb
                 .Text(text: value?.StandardName ?? string.Empty));
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, string value)
+            this HtmlBuilder hb, Context context, Column column, string value)
         {
             return column.HasChoices()
                 ? hb.Td(action: () =>
@@ -54,21 +54,21 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, int value)
+            this HtmlBuilder hb, Context context, Column column, int value)
         {
             return hb.Td(action: () => hb
                 .Text(text: value.ToString(column.StringFormat) + column.Unit));
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, long value)
+            this HtmlBuilder hb, Context context, Column column, long value)
         {
             return hb.Td(action: () => hb
                 .Text(text: value.ToString(column.StringFormat) + column.Unit));
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, decimal value)
+            this HtmlBuilder hb, Context context, Column column, decimal value)
         {
             return hb.Td(action: () => hb
                 .Text(text: column.Display(
@@ -78,7 +78,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, DateTime value)
+            this HtmlBuilder hb, Context context, Column column, DateTime value)
         {
             return hb.Td(action: () => hb
                 .Text(text: column.DisplayGrid(
@@ -87,7 +87,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, bool value)
+            this HtmlBuilder hb, Context context, Column column, bool value)
         {
             return column.HasChoices()
                 ? value
@@ -100,7 +100,7 @@ namespace Implem.Pleasanter.Libraries.Extensions
         }
 
         public static HtmlBuilder Td(
-            this HtmlBuilder hb, IContext context, Column column, Enum value)
+            this HtmlBuilder hb, Context context, Column column, Enum value)
         {
             return hb.Td(action: () => hb
                 .Text(text: value.ToString()));

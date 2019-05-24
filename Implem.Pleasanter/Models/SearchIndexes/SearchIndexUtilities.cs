@@ -1,5 +1,6 @@
 ﻿using Implem.DefinitionAccessor;
 using Implem.Libraries.Classes;
+using Implem.Libraries.DataSources.Interfaces;
 using Implem.Libraries.DataSources.SqlServer;
 using Implem.Libraries.Utilities;
 using Implem.Pleasanter.Libraries.DataSources;
@@ -24,7 +25,7 @@ namespace Implem.Pleasanter.Models
     public static class SearchIndexUtilities
     {
         private static DataSet ResultContents(
-            IContext context, IEnumerable<DataRow> dataRows)
+            Context context, EnumerableRowCollection<DataRow> dataRows)
         {
             var statements = new List<SqlStatement>();
             if (dataRows.Any(o => o.String("ReferenceType") == "Sites"))
@@ -112,7 +113,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string Search(IContext context)
+        public static string Search(Context context)
         {
             var dataSet = Get(
                 context: context,
@@ -131,7 +132,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string SearchJson(IContext context)
+        public static string SearchJson(Context context)
         {
             var offset = context.QueryStrings.Int("offset");
             var searchText = context.QueryStrings.Data("text");
@@ -177,10 +178,10 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static HtmlBuilder MainContainer(
-            IContext context,
+            Context context,
             string text,
             int offset,
-            IEnumerable<DataRow> results,
+            EnumerableRowCollection<DataRow> results,
             int count)
         {
             var hb = new HtmlBuilder();
@@ -218,7 +219,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static HtmlBuilder Command(this HtmlBuilder hb, IContext context, string text)
+        private static HtmlBuilder Command(this HtmlBuilder hb, Context context, string text)
         {
             return hb.Div(css: "command-center", action: () => hb
                 .TextBox(
@@ -231,7 +232,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static HtmlBuilder Count(this HtmlBuilder hb, IContext context, int count)
+        private static HtmlBuilder Count(this HtmlBuilder hb, Context context, int count)
         {
             return hb.Div(css: "count", action: () => hb
                 .Span(css: "label", action: () => hb
@@ -245,10 +246,10 @@ namespace Implem.Pleasanter.Models
         /// </summary>
         private static HtmlBuilder Results(
             this HtmlBuilder hb,
-            IContext context,
+            Context context,
             string text,
             int offset,
-            IEnumerable<DataRow> dataRows)
+            EnumerableRowCollection<DataRow> dataRows)
         {
             if (dataRows?.Any() == true)
             {
@@ -304,7 +305,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static SqlSelect Select(
-            IContext context,
+            Context context,
             SiteSettings ss,
             string searchText,
             IEnumerable<long> siteIdList)
@@ -374,6 +375,7 @@ namespace Implem.Pleasanter.Models
                 where: Rds.ItemsWhere()
                     .SiteId_In(siteIdList)
                     .SqlWhereLike(
+                        tableName: null,
                         name: "SearchText",
                         searchText: searchText,
                         clauseCollection: like.ToSingleList()));
@@ -382,8 +384,83 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
+        public static SqlWhereCollection FullTextWhere(
+            this SqlWhereCollection where,
+            SiteSettings ss,
+            string tableName,
+            string searchText)
+        {
+            if (ss != null && ss.TableType != Sqls.TableTypes.Normal)
+            {
+                return where.Add(Rds.ItemsWhere().SqlWhereLike(
+                    tableName: tableName + "_Items",
+                    name: "SearchText",
+                    searchText: searchText,
+                    clauseCollection: Rds.Items_FullText_WhereLike(
+                        tableName: tableName + "_Items",
+                        forward: false)
+                            .ToSingleList()));
+            }
+            switch (ss?.SearchType)
+            {
+                case SiteSettings.SearchTypes.PartialMatch:
+                    return where.Add(Rds.ItemsWhere().SqlWhereLike(
+                        tableName: tableName + "_Items",
+                        name: "SearchText",
+                        searchText: searchText,
+                        clauseCollection: Rds.Items_FullText_WhereLike(
+                            tableName: tableName + "_Items",
+                            forward: false)
+                                .ToSingleList()));
+                case SiteSettings.SearchTypes.MatchInFrontOfTitle:
+                    return where.Add(Rds.ItemsWhere().SqlWhereLike(
+                        tableName: tableName + "_Items",
+                        name: "SearchText",
+                        searchText: searchText,
+                        clauseCollection: Rds.Items_Title_WhereLike(
+                            tableName: tableName + "_Items",
+                            forward: true)
+                                .ToSingleList()));
+                case SiteSettings.SearchTypes.BroadMatchOfTitle:
+                    return where.Add(Rds.ItemsWhere().SqlWhereLike(
+                        tableName: tableName + "_Items",
+                        name: "SearchText",
+                        searchText: searchText,
+                        clauseCollection: Rds.Items_Title_WhereLike(
+                            tableName: tableName + "_Items",
+                            forward: false)
+                                .ToSingleList()));
+                default:
+                    switch (Parameters.Search.Provider)
+                    {
+                        case "FullText":
+                            var words = Words(searchText);
+                            if (words?.Any() != true) return where;
+                            where.Add(new SqlWhere(
+                                name: "SearchText",
+                                value: words,
+                                raw: FullTextWhere(
+                                    words: words,
+                                    itemsTableName: tableName + "_Items")));
+                            return where;
+                        default:
+                            return where.Add(Rds.ItemsWhere().SqlWhereLike(
+                                tableName: tableName + "_Items",
+                                name: "SearchText",
+                                searchText: searchText,
+                                clauseCollection: Rds.Items_FullText_WhereLike(
+                                    tableName: tableName + "_Items",
+                                    forward: false)
+                                        .ToSingleList()));
+                    }
+            }
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
         public static DataSet Get(
-            IContext context,
+            Context context,
             string searchText,
             string dataTableName,
             int offset,
@@ -419,7 +496,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         public static DataSet Get(
-            IContext context,
+            Context context,
             string searchText,
             IEnumerable<long> siteIdList = null,
             string dataTableName = null,
@@ -429,10 +506,11 @@ namespace Implem.Pleasanter.Models
         {
             var words = Words(searchText);
             if (words?.Any() != true) return null;
-            return Rds.ExecuteDataSet(
-                context: context,
-                statements: SelectByFullText(
+            var statements = new List<SqlStatement>
+            {
+                SelectByFullText(
                     context: context,
+                    words: words,
                     column: Rds.ItemsColumn()
                         .ReferenceId()
                         .ReferenceType()
@@ -441,10 +519,19 @@ namespace Implem.Pleasanter.Models
                         .UpdatedTime(SqlOrderBy.Types.desc),
                     siteIdList: siteIdList,
                     dataTableName: dataTableName,
-                    words: words,
                     offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord));
+                    pageSize: pageSize)
+            };
+            if (countRecord)
+            {
+                statements.Add(SelectByFullText(
+                    context: context,
+                    words: words,
+                    countRecord: true));
+            }
+            return Rds.ExecuteDataSet(
+                context: context,
+                statements: statements.ToArray());
         }
 
         /// <summary>
@@ -468,49 +555,65 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static SqlSelect SelectByFullText(
-            IContext context,
-            SqlColumnCollection column,
-            SqlOrderByCollection orderBy,
-            IEnumerable<long> siteIdList,
+            Context context,
             List<string> words,
+            SqlColumnCollection column = null,
+            SqlOrderByCollection orderBy = null,
+            IEnumerable<long> siteIdList = null,
             string dataTableName = null,
             int offset = 0,
             int pageSize = 0,
             bool countRecord = false)
         {
-            return Rds.SelectItems(
-                dataTableName: dataTableName,
-                column: column,
-                join: new SqlJoinCollection(
-                    new SqlJoin(
-                        tableBracket: "[Sites]",
-                        joinType: SqlJoin.JoinTypes.Inner,
-                        joinExpression: "[Items].[SiteId]=[Sites].[SiteId]")),
-                where: Rds.ItemsWhere()
-                    .Add(raw: FullTextWhere(words))
-                    .Add(
-                        raw: Def.Sql.CanRead,
-                        _using: !context.HasPrivilege)
-                    .Add(
-                        raw: "[Items].[SiteId] in ({0})".Params(siteIdList?.Join()),
-                        _using: siteIdList?.Any() == true),
-                param: FullTextParam(words),
-                orderBy: orderBy,
-                offset: offset,
-                pageSize: pageSize,
-                countRecord: countRecord);
+            return !countRecord
+                ? Rds.SelectItems(
+                    dataTableName: dataTableName,
+                    column: column,
+                    join: new SqlJoinCollection(
+                        new SqlJoin(
+                            tableBracket: "[Sites]",
+                            joinType: SqlJoin.JoinTypes.Inner,
+                            joinExpression: "[Items].[SiteId]=[Sites].[SiteId]")),
+                    where: Rds.ItemsWhere()
+                        .Add(raw: FullTextWhere(words))
+                        .Add(
+                            raw: Def.Sql.CanRead,
+                            _using: !context.HasPrivilege && !context.Publish)
+                        .Add(
+                            raw: "[Items].[SiteId] in ({0})".Params(siteIdList?.Join()),
+                            _using: siteIdList?.Any() == true),
+                    param: FullTextParam(words),
+                    orderBy: orderBy,
+                    offset: offset,
+                    pageSize: pageSize)
+                : Rds.SelectCount(
+                    tableName: "Items",
+                    join: new SqlJoinCollection(
+                        new SqlJoin(
+                            tableBracket: "[Sites]",
+                            joinType: SqlJoin.JoinTypes.Inner,
+                            joinExpression: "[Items].[SiteId]=[Sites].[SiteId]")),
+                    where: Rds.ItemsWhere()
+                        .Add(raw: FullTextWhere(words))
+                        .Add(
+                            raw: Def.Sql.CanRead,
+                            _using: !context.HasPrivilege && !context.Publish)
+                        .Add(
+                            raw: "[Items].[SiteId] in ({0})".Params(siteIdList?.Join()),
+                            _using: siteIdList?.Any() == true),
+                    param: FullTextParam(words));
         }
 
         /// <summary>
         /// Fixed:
         /// </summary>
-        private static string FullTextWhere(List<string> words)
+        private static string FullTextWhere(List<string> words, string itemsTableName = "Items")
         {
             var contains = new List<string>();
             for (var count = 0; count < words.Count(); count++)
             {
-                var item = $"(contains([FullText], @SearchText{count}_Param#CommandCount#))";
-                var binary = $"(exists(select * from [Binaries] where [Binaries].[ReferenceId]=[Items].[ReferenceId] and contains([Bin], @SearchText{count}_Param#CommandCount#)))";
+                var item = $"(contains([{itemsTableName}].[FullText], @SearchText{count}_#CommandCount#))";
+                var binary = $"(exists(select * from [Binaries] where [Binaries].[ReferenceId]=[{itemsTableName}].[ReferenceId] and contains([Bin], @SearchText{count}_#CommandCount#)))";
                 contains.Add(Parameters.Search.SearchDocuments
                     ? $"({item} or {binary})"
                     : item);
@@ -544,7 +647,12 @@ namespace Implem.Pleasanter.Models
             if (word != katakana) data.Add(katakana);
             if (word != hiragana) data.Add(hiragana);
             return "(" + data
-                .SelectMany(o => new List<string> { o, o + "*" })
+                .SelectMany(part => new List<string>
+                {
+                    part,
+                    ForwardMatchSearch(part: part)
+                })
+                .Where(o => o != null)
                 .Distinct()
                 .Select(o => "\"" + o + "\"")
                 .Join(" or ") + ")";
@@ -553,8 +661,24 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
+        private static string ForwardMatchSearch(string part)
+        {
+            var separators = "!#$%&()*+,-./:<=>?@[\\]^_`{|}~";
+            foreach (var separator in separators)
+            {
+                if ( part.Split(separator).Any(o => o.RegexExists("^[0-9]$")))
+                {
+                    return null;
+                }
+            }
+            return part + "*";
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
         private static DataSet Get(
-            IContext context,
+            Context context,
             IEnumerable<string> searchIndexes,
             SqlColumnCollection column,
             IEnumerable<long> siteIdList = null,
@@ -585,7 +709,7 @@ namespace Implem.Pleasanter.Models
         /// Fixed:
         /// </summary>
         private static SqlSelect SelectBySearchIndexes(
-            IContext context,
+            Context context,
             IEnumerable<string> searchIndexes,
             SqlColumnCollection column,
             SqlOrderByCollection orderBy,
@@ -616,8 +740,7 @@ namespace Implem.Pleasanter.Models
                         _operator: ">="),
                 orderBy: orderBy,
                 offset: offset,
-                pageSize: pageSize,
-                countRecord: countRecord);
+                pageSize: pageSize);
         }
 
         /// <summary>
@@ -631,7 +754,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void Maintain(IContext context)
+        public static void Maintain(Context context)
         {
             if ((DateTime.Now - Applications.SearchIndexesMaintenanceDate).Days > 0)
             {
@@ -650,7 +773,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static string RebuildSearchIndexes(IContext context, SiteModel siteModel)
+        public static string RebuildSearchIndexes(Context context, SiteModel siteModel)
         {
             siteModel.SiteSettings = SiteSettingsUtilities.Get(
                 context: context,
@@ -661,10 +784,10 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 siteModel: siteModel);
-            switch (invalid)
+            switch (invalid.Type)
             {
                 case Error.Types.None: break;
-                default: return invalid.MessageJson(context: context);
+                default: return invalid.Type.MessageJson(context: context);
             }
             RebuildSearchIndexes(
                 context: context,
@@ -677,7 +800,7 @@ namespace Implem.Pleasanter.Models
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static void RebuildSearchIndexes(IContext context, long siteId = -1)
+        public static void RebuildSearchIndexes(Context context, long siteId = -1)
         {
             var hash = new Dictionary<long, SiteModel>();
             Rds.ExecuteTable(

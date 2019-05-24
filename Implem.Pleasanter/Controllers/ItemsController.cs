@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class ItemsController
     {
-        public string Index(IContext context, long id = 0)
+        public string Index(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -25,7 +25,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string TrashBox(IContext context, long id = 0)
+        public string TrashBox(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -43,7 +43,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Calendar(IContext context, long id = 0)
+        public string Calendar(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -61,7 +61,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Crosstab(IContext context, long id = 0)
+        public string Crosstab(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -79,7 +79,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Gantt(IContext context, long id = 0)
+        public string Gantt(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -97,7 +97,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string BurnDown(IContext context, long id = 0)
+        public string BurnDown(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -115,7 +115,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string TimeSeries(IContext context, long id = 0)
+        public string TimeSeries(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -133,7 +133,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Kamban(IContext context, long id = 0)
+        public string Kamban(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -151,7 +151,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string ImageLib(IContext context, long id = 0)
+        public string ImageLib(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -169,7 +169,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string New(IContext context, long id = 0)
+        public string New(Context context, long id = 0)
         {
             if (!context.Ajax)
             {
@@ -187,7 +187,33 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Edit(IContext context, long id)
+        public string NewOnGrid(Context context, long id = 0)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .NewOnGrid(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string CancelNewRow(Context context, long id = 0)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .CancelNewRow(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string Edit(Context context, long id)
         {
             if (!context.Ajax)
             {
@@ -205,7 +231,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string LinkTable(IContext context, long id)
+        public string LinkTable(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).LinkTable(context: context);
@@ -213,7 +239,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Import(IContext context, long id, IHttpPostedFile[] file)
+        public string Import(Context context, long id, IHttpPostedFile[] file)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Import(context: context);
@@ -221,7 +247,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string OpenExportSelectorDialog(IContext context, long id)
+        public string OpenExportSelectorDialog(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).OpenExportSelectorDialog(context: context);
@@ -229,7 +255,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public FileContentResult Export(IContext context, long id)
+        public FileContentResult Export(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var responseFile = new ItemModel(context: context, referenceId: id).Export(context: context);
@@ -245,7 +271,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public FileContentResult ExportCrosstab(IContext context, long id)
+        public FileContentResult ExportCrosstab(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var responseFile = new ItemModel(context: context, referenceId: id).ExportCrosstab(context: context);
@@ -261,7 +287,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string Search(IContext context)
+        public string Search(Context context)
         {
             if (!context.Ajax)
             {
@@ -279,7 +305,7 @@ namespace Implem.Pleasanter.Controllers
             }
         }
 
-        public string SearchDropDown(IContext context, long id = 0)
+        public string SearchDropDown(Context context, long id = 0)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SearchDropDown(context: context);
@@ -287,7 +313,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SelectSearchDropDown(IContext context, long id = 0)
+        public string SelectSearchDropDown(Context context, long id = 0)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SelectSearchDropDown(context: context);
@@ -295,15 +321,60 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string GridRows(IContext context, long id)
+        public string GridRows(Context context, long id)
         {
             var log = new SysLogModel(context: context);
-            var json = new ItemModel(context: context, referenceId: id).GridRows(context: context);
-            log.Finish(context: context, responseSize: json.Length);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .GridRows(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
             return json;
         }
 
-        public string TrashBoxGridRows(IContext context, long id)
+        public string EditOnGrid(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .GridRows(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        [HttpPost]
+        public string ReloadRow(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .ReloadRow(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string CopyRow(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .CopyRow(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string TrashBoxGridRows(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).TrashBoxGridRows(context: context);
@@ -311,7 +382,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string ImageLibNext(IContext context, long id)
+        public string ImageLibNext(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).ImageLibNext(context: context);
@@ -319,7 +390,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Create(IContext context, long id)
+        public string Create(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Create(context: context);
@@ -327,7 +398,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string PreviewTemplate(IContext context, long id)
+        public string PreviewTemplate(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = SiteUtilities.PreviewTemplate(context: context);
@@ -335,7 +406,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Templates(IContext context, long id)
+        public string Templates(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Templates(context: context);
@@ -343,7 +414,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string CreateByTemplate(IContext context, long id)
+        public string CreateByTemplate(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).CreateByTemplate(context: context);
@@ -351,7 +422,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SiteMenu(IContext context, long id)
+        public string SiteMenu(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SiteMenu(context: context);
@@ -359,15 +430,33 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Update(IContext context, long id)
+        public string Update(Context context, long id)
         {
             var log = new SysLogModel(context: context);
-            var json = new ItemModel(context: context, referenceId: id).Update(context: context);
-            log.Finish(context: context, responseSize: json.Length);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .Update(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
             return json;
         }
 
-        public string Copy(IContext context, long id)
+        public string BulkUpdate(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .BulkUpdate(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string Copy(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Copy(context: context);
@@ -375,7 +464,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string MoveTargets(IContext context, long id)
+        public string MoveTargets(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).MoveTargets(context: context);
@@ -383,7 +472,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Move(IContext context, long id)
+        public string Move(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Move(context: context);
@@ -391,7 +480,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string MoveSiteMenu(IContext context, long id)
+        public string MoveSiteMenu(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = SiteUtilities.MoveSiteMenu(context: context, id: id);
@@ -399,7 +488,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string CreateLink(IContext context, long id)
+        public string CreateLink(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = SiteUtilities.CreateLink(context: context, id: id);
@@ -407,7 +496,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SortSiteMenu(IContext context, long id)
+        public string SortSiteMenu(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = SiteUtilities.SortSiteMenu(context: context, siteId: id);
@@ -415,7 +504,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string BulkMove(IContext context, long id)
+        public string BulkMove(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).BulkMove(context: context);
@@ -423,7 +512,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Delete(IContext context, long id)
+        public string Delete(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Delete(context: context);
@@ -431,7 +520,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string BulkDelete(IContext context, long id)
+        public string BulkDelete(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).BulkDelete(context: context);
@@ -439,7 +528,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string DeleteComment(IContext context, long id)
+        public string DeleteComment(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).DeleteComment(context: context);
@@ -447,7 +536,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string DeleteHistory(IContext context, long id)
+        public string DeleteHistory(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).DeleteHistory(context: context);
@@ -455,7 +544,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string PhysicalDelete(IContext context, long id)
+        public string PhysicalDelete(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).PhysicalDelete(context: context);
@@ -463,7 +552,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Restore(IContext context, long id)
+        public string Restore(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Restore(context: context);
@@ -471,7 +560,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string RestoreFromHistory(IContext context, long id)
+        public string RestoreFromHistory(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).RestoreFromHistory(context: context);
@@ -479,7 +568,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string EditSeparateSettings(IContext context, long id)
+        public string EditSeparateSettings(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).EditSeparateSettings(context: context);
@@ -487,7 +576,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Separate(IContext context, long id)
+        public string Separate(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Separate(context: context);
@@ -495,7 +584,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SetSiteSettings(IContext context, long id)
+        public string SetSiteSettings(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new SiteModel(context: context, siteId: id)
@@ -504,7 +593,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string RebuildSearchIndexes(IContext context, long id)
+        public string RebuildSearchIndexes(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = SearchIndexUtilities.RebuildSearchIndexes(
@@ -516,7 +605,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Histories(IContext context, long id)
+        public string Histories(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).Histories(context: context);
@@ -524,7 +613,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string History(IContext context, long id)
+        public string History(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).History(context: context);
@@ -532,7 +621,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string Permissions(IContext context, long id)
+        public string Permissions(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.Permission(context: context, referenceId: id);
@@ -540,7 +629,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SearchPermissionElements(IContext context, long id)
+        public string SearchPermissionElements(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.SearchPermissionElements(
@@ -549,7 +638,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SetPermissions(IContext context, long id)
+        public string SetPermissions(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.SetPermissions(context: context, referenceId: id);
@@ -557,7 +646,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string OpenPermissionsDialog(IContext context, long id)
+        public string OpenPermissionsDialog(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.OpenPermissionsDialog(
@@ -566,7 +655,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string PermissionForCreating(IContext context, long id)
+        public string PermissionForCreating(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.PermissionForCreating(
@@ -575,7 +664,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SetPermissionForCreating(IContext context, long id)
+        public string SetPermissionForCreating(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.SetPermissionForCreating(
@@ -584,7 +673,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string OpenPermissionForCreatingDialog(IContext context, long id)
+        public string OpenPermissionForCreatingDialog(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.OpenPermissionForCreatingDialog(
@@ -593,7 +682,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string ColumnAccessControl(IContext context, long id)
+        public string ColumnAccessControl(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.ColumnAccessControl(context: context, referenceId: id);
@@ -601,7 +690,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SetColumnAccessControl(IContext context, long id)
+        public string SetColumnAccessControl(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.SetColumnAccessControl(
@@ -610,7 +699,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string OpenColumnAccessControlDialog(IContext context, long id)
+        public string OpenColumnAccessControlDialog(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.OpenColumnAccessControlDialog(
@@ -619,7 +708,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SearchColumnAccessControl(IContext context, long id)
+        public string SearchColumnAccessControl(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = PermissionUtilities.SearchColumnAccessControl(
@@ -628,7 +717,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string BurnDownRecordDetails(IContext context, long id)
+        public string BurnDownRecordDetails(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).BurnDownRecordDetailsJson(context: context);
@@ -636,7 +725,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string UpdateByCalendar(IContext context, long id)
+        public string UpdateByCalendar(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).UpdateByCalendar(context: context);
@@ -644,7 +733,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string UpdateByKamban(IContext context, long id)
+        public string UpdateByKamban(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).UpdateByKamban(context: context);
@@ -652,7 +741,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SynchronizeTitles(IContext context, long id)
+        public string SynchronizeTitles(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SynchronizeTitles(context: context);
@@ -660,7 +749,7 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SynchronizeSummaries(IContext context, long id)
+        public string SynchronizeSummaries(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SynchronizeSummaries(context: context);
@@ -668,11 +757,50 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
-        public string SynchronizeFormulas(IContext context, long id)
+        public string SynchronizeFormulas(Context context, long id)
         {
             var log = new SysLogModel(context: context);
             var json = new ItemModel(context: context, referenceId: id).SynchronizeFormulas(context: context);
             log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
+        public string LockTable(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .LockTable(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string UnlockTable(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .UnlockTable(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
+            return json;
+        }
+
+        public string ForceUnlockTable(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(
+                context: context,
+                referenceId: id)
+                    .ForceUnlockTable(context: context);
+            log.Finish(
+                context: context,
+                responseSize: json.Length);
             return json;
         }
     }

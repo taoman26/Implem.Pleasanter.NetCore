@@ -61,7 +61,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
         {
         }
 
-        public string ToControl(IContext context, SiteSettings ss, Column column)
+        public string ToControl(Context context, SiteSettings ss, Column column)
         {
             return column.Display(
                 context: context,
@@ -69,7 +69,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 value: Value);
         }
 
-        public string ToResponse(IContext context, SiteSettings ss, Column column)
+        public string ToResponse(Context context, SiteSettings ss, Column column)
         {
             return column.Display(
                 context: context,
@@ -77,12 +77,12 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 value: Value);
         }
 
-        public HtmlBuilder Td(HtmlBuilder hb, IContext context, Column column)
+        public HtmlBuilder Td(HtmlBuilder hb, Context context, Column column)
         {
             return hb.Td(action: () => Svg(hb, context, column));
         }
 
-        public bool Delay(IContext context, Status status)
+        public bool Delay(Context context, Status status)
         {
             if (!status.Incomplete()) return false;
             var now = VerType == Versions.VerTypes.Latest
@@ -96,7 +96,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
             return plannedValue > earnedValue && Value < 100;
         }
 
-        private HtmlBuilder Svg(HtmlBuilder hb, IContext context, Column column)
+        private HtmlBuilder Svg(HtmlBuilder hb, Context context, Column column)
         {
             var now = VerType == Versions.VerTypes.Latest
                 ? DateTime.Now.ToLocal(context: context)
@@ -163,7 +163,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 : 0;
         }
 
-        public string GridText(IContext context, Column column)
+        public string GridText(Context context, Column column)
         {
             return column.Display(
                 context: context,
@@ -171,13 +171,13 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                 unit: true);
         }
 
-        public string ToExport(IContext context, Column column, ExportColumn exportColumn = null)
+        public string ToExport(Context context, Column column, ExportColumn exportColumn = null)
         {
             return Value.ToString();
         }
 
         public string ToNotice(
-            IContext context,
+            Context context,
             decimal saved,
             Column column,
             bool updated,
@@ -197,7 +197,7 @@ namespace Implem.Pleasanter.Libraries.DataTypes
                     update: update);
         }
 
-        public bool InitialValue(IContext context)
+        public bool InitialValue(Context context)
         {
             return Value == 0;
         }

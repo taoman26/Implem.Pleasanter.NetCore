@@ -24,7 +24,7 @@ namespace Implem.Pleasanter.Libraries.ViewModes
         public decimal PlannedValueOfDaily;
 
         public BurnDownElement(
-            IContext context,
+            Context context,
             long id,
             int ver,
             string title,

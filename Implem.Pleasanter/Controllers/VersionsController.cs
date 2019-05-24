@@ -7,7 +7,7 @@ namespace Implem.Pleasanter.Controllers
 {
     public class VersionsController
     {
-        public string Index(IContext context)
+        public string Index(Context context)
         {
             var log = new SysLogModel(context: context);
             var html = new HtmlBuilder().AssemblyVersions(context: context);

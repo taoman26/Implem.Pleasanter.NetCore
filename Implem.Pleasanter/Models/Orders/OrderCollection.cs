@@ -26,7 +26,7 @@ namespace Implem.Pleasanter.Models
         public int TotalCount;
 
         public OrderCollection(
-            IContext context,
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -37,39 +37,47 @@ namespace Implem.Pleasanter.Models
             int top = 0,
             int offset = 0,
             int pageSize = 0,
-            bool countRecord = false,
             bool get = true)
         {
             if (get)
             {
-                Set(context, Get(
+                Set(
                     context: context,
-                    column: column,
-                    join: join,
-                    where: where,
-                    orderBy: orderBy,
-                    param: param,
-                    tableType: tableType,
-                    distinct: distinct,
-                    top: top,
-                    offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord));
+                    dataRows: Get(
+                        context: context,
+                        column: column,
+                        join: join,
+                        where: where,
+                        orderBy: orderBy,
+                        param: param,
+                        tableType: tableType,
+                        distinct: distinct,
+                        top: top,
+                        offset: offset,
+                        pageSize: pageSize));
             }
         }
 
-        public OrderCollection(IContext context, IEnumerable<DataRow> dataRows)
+        public OrderCollection(
+            Context context,
+            EnumerableRowCollection<DataRow> dataRows)
         {
-            Set(context, dataRows);
+                Set(
+                    context: context,
+                    dataRows: dataRows);
         }
 
-        private OrderCollection Set(IContext context, IEnumerable<DataRow> dataRows)
+        private OrderCollection Set(
+            Context context,
+            EnumerableRowCollection<DataRow> dataRows)
         {
             if (dataRows.Any())
             {
                 foreach (DataRow dataRow in dataRows)
                 {
-                    Add(new OrderModel(context, dataRow));
+                    Add(new OrderModel(
+                        context: context,
+                        dataRow: dataRow));
                 }
                 AccessStatus = Databases.AccessStatuses.Selected;
             }
@@ -80,8 +88,8 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
-        private IEnumerable<DataRow> Get(
-            IContext context,
+        private EnumerableRowCollection<DataRow> Get(
+            Context context,
             SqlColumnCollection column = null,
             SqlJoinCollection join = null,
             SqlWhereCollection where = null,
@@ -91,9 +99,7 @@ namespace Implem.Pleasanter.Models
             bool distinct = false,
             int top = 0,
             int offset = 0,
-            int pageSize = 0,
-            bool history = false,
-            bool countRecord = false)
+            int pageSize = 0)
         {
             var statements = new List<SqlStatement>
             {
@@ -108,8 +114,12 @@ namespace Implem.Pleasanter.Models
                     distinct: distinct,
                     top: top,
                     offset: offset,
-                    pageSize: pageSize,
-                    countRecord: countRecord)
+                    pageSize: pageSize),
+                Rds.SelectCount(
+                    tableName: "Orders",
+                    tableType: tableType,
+                    join: join ?? Rds.OrdersJoinDefault(),
+                    where: where)
             };
             var dataSet = Rds.ExecuteDataSet(
                 context: context,

@@ -11,10 +11,10 @@ namespace Implem.Pleasanter.Libraries.Settings
 {
     public static class SiteSettingsUtilities
     {
-        public const decimal Version = 1.014M;
+        public const decimal Version = 1.016M;
 
         public static SiteSettings Get(
-            IContext context,
+            Context context,
             long siteId,
             long referenceId = 0,
             bool setSiteIntegration = false,
@@ -32,16 +32,14 @@ namespace Implem.Pleasanter.Libraries.Settings
                 tableType: tableType);
         }
 
-        public static SiteSettings Get(IContext context, DataRow dataRow)
+        public static SiteSettings Get(Context context, DataRow dataRow)
         {
             return dataRow != null
-                ? dataRow["SiteSettings"]
-                    .ToString()
-                    .Deserialize<SiteSettings>() ??
-                        Get(
-                            context: context,
-                            referenceType: dataRow.String("ReferenceType"),
-                            siteId: dataRow.Long("SiteId"))
+                ? dataRow.String("SiteSettings").DeserializeSiteSettings(context: context)
+                    ?? Get(
+                        context: context,
+                        referenceType: dataRow.String("ReferenceType"),
+                        siteId: dataRow.Long("SiteId"))
                 : null;
         }
 
@@ -55,7 +53,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return views?.FirstOrDefault(o => o.Id == id);
         }
 
-        public static SiteSettings Get(IContext context, string referenceType, long siteId)
+        public static SiteSettings Get(Context context, string referenceType, long siteId)
         {
             switch (referenceType)
             {
@@ -68,7 +66,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static SiteSettings Get(
-            IContext context,
+            Context context,
             SiteModel siteModel,
             long referenceId,
             bool setSiteIntegration = false,
@@ -110,7 +108,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static SiteSettings GetByReference(
-            IContext context, string reference, long referenceId)
+            Context context, string reference, long referenceId)
         {
             switch (reference.ToLower())
             {
@@ -143,7 +141,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             }
         }
 
-        public static SiteSettings TenantsSiteSettings(IContext context)
+        public static SiteSettings TenantsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -155,7 +153,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings DemosSiteSettings(IContext context)
+        public static SiteSettings DemosSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -165,7 +163,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings SessionsSiteSettings(IContext context)
+        public static SiteSettings SessionsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -175,7 +173,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings SysLogsSiteSettings(IContext context)
+        public static SiteSettings SysLogsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -185,7 +183,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings StatusesSiteSettings(IContext context)
+        public static SiteSettings StatusesSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -195,7 +193,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings ReminderSchedulesSiteSettings(IContext context)
+        public static SiteSettings ReminderSchedulesSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -205,7 +203,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings DeptsSiteSettings(IContext context)
+        public static SiteSettings DeptsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -217,7 +215,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings GroupsSiteSettings(IContext context)
+        public static SiteSettings GroupsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -229,7 +227,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings GroupMembersSiteSettings(IContext context)
+        public static SiteSettings GroupMembersSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -239,7 +237,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings UsersSiteSettings(IContext context)
+        public static SiteSettings UsersSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -251,7 +249,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings LoginKeysSiteSettings(IContext context)
+        public static SiteSettings LoginKeysSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -261,7 +259,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings MailAddressesSiteSettings(IContext context)
+        public static SiteSettings MailAddressesSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -271,7 +269,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings OutgoingMailsSiteSettings(IContext context)
+        public static SiteSettings OutgoingMailsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -281,7 +279,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings SearchIndexesSiteSettings(IContext context)
+        public static SiteSettings SearchIndexesSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -291,7 +289,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings ItemsSiteSettings(IContext context)
+        public static SiteSettings ItemsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -301,7 +299,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings OrdersSiteSettings(IContext context)
+        public static SiteSettings OrdersSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -311,7 +309,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings ExportSettingsSiteSettings(IContext context)
+        public static SiteSettings ExportSettingsSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -321,7 +319,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings LinksSiteSettings(IContext context)
+        public static SiteSettings LinksSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -331,7 +329,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             return ss;
         }
 
-        public static SiteSettings BinariesSiteSettings(IContext context)
+        public static SiteSettings BinariesSiteSettings(Context context)
         {
             var ss = new SiteSettings()
             {
@@ -343,17 +341,22 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static SiteSettings SitesSiteSettings(
             this SiteModel siteModel,
-            IContext context,
+            Context context,
             long referenceId,
             bool setSiteIntegration = false,
             bool setAllChoices = false,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             var ss = siteModel.SiteSettings ?? new SiteSettings();
+            ss.LockedTime = siteModel.LockedTime;
+            ss.LockedUser = siteModel.LockedUser;
             ss.TableType = tableType;
             ss.SiteId = siteModel.SiteId;
             ss.ReferenceId = referenceId;
             ss.Title = siteModel.Title.Value;
+            ss.Body = siteModel.Body;
+            ss.GridGuide = siteModel.GridGuide;
+            ss.EditorGuide = siteModel.EditorGuide;
             ss.ReferenceType = "Sites";
             ss.ParentId = siteModel.ParentId;
             ss.InheritPermission = siteModel.InheritPermission;
@@ -362,13 +365,12 @@ namespace Implem.Pleasanter.Libraries.Settings
             ss.Init(context: context);
             ss.SetLinkedSiteSettings(context: context);
             ss.SetPermissions(context: context, referenceId: referenceId);
-            ss.SetJoinedSsHash(context: context);
             if (setSiteIntegration) ss.SetSiteIntegration(context: context);
             return ss;
         }
 
         public static SiteSettings SitesSiteSettings(
-            IContext context, long siteId, bool setAllChoices = false)
+            Context context, long siteId, bool setAllChoices = false)
         {
             var ss = new SiteSettings();
             ss.ReferenceType = "Sites";
@@ -379,17 +381,22 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static SiteSettings IssuesSiteSettings(
             this SiteModel siteModel,
-            IContext context,
+            Context context,
             long referenceId,
             bool setSiteIntegration = false,
             bool setAllChoices = false,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             var ss = siteModel.SiteSettings ?? new SiteSettings();
+            ss.LockedTime = siteModel.LockedTime;
+            ss.LockedUser = siteModel.LockedUser;
             ss.TableType = tableType;
             ss.SiteId = siteModel.SiteId;
             ss.ReferenceId = referenceId;
             ss.Title = siteModel.Title.Value;
+            ss.Body = siteModel.Body;
+            ss.GridGuide = siteModel.GridGuide;
+            ss.EditorGuide = siteModel.EditorGuide;
             ss.ReferenceType = "Issues";
             ss.ParentId = siteModel.ParentId;
             ss.InheritPermission = siteModel.InheritPermission;
@@ -398,14 +405,13 @@ namespace Implem.Pleasanter.Libraries.Settings
             ss.Init(context: context);
             ss.SetLinkedSiteSettings(context: context);
             ss.SetPermissions(context: context, referenceId: referenceId);
-            ss.SetJoinedSsHash(context: context);
             if (setSiteIntegration) ss.SetSiteIntegration(context: context);
             ss.SetChoiceHash(context: context, all: setAllChoices);
             return ss;
         }
 
         public static SiteSettings IssuesSiteSettings(
-            IContext context, long siteId, bool setAllChoices = false)
+            Context context, long siteId, bool setAllChoices = false)
         {
             var ss = new SiteSettings();
             ss.ReferenceType = "Issues";
@@ -417,17 +423,22 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static SiteSettings ResultsSiteSettings(
             this SiteModel siteModel,
-            IContext context,
+            Context context,
             long referenceId,
             bool setSiteIntegration = false,
             bool setAllChoices = false,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             var ss = siteModel.SiteSettings ?? new SiteSettings();
+            ss.LockedTime = siteModel.LockedTime;
+            ss.LockedUser = siteModel.LockedUser;
             ss.TableType = tableType;
             ss.SiteId = siteModel.SiteId;
             ss.ReferenceId = referenceId;
             ss.Title = siteModel.Title.Value;
+            ss.Body = siteModel.Body;
+            ss.GridGuide = siteModel.GridGuide;
+            ss.EditorGuide = siteModel.EditorGuide;
             ss.ReferenceType = "Results";
             ss.ParentId = siteModel.ParentId;
             ss.InheritPermission = siteModel.InheritPermission;
@@ -436,14 +447,13 @@ namespace Implem.Pleasanter.Libraries.Settings
             ss.Init(context: context);
             ss.SetLinkedSiteSettings(context: context);
             ss.SetPermissions(context: context, referenceId: referenceId);
-            ss.SetJoinedSsHash(context: context);
             if (setSiteIntegration) ss.SetSiteIntegration(context: context);
             ss.SetChoiceHash(context: context, all: setAllChoices);
             return ss;
         }
 
         public static SiteSettings ResultsSiteSettings(
-            IContext context, long siteId, bool setAllChoices = false)
+            Context context, long siteId, bool setAllChoices = false)
         {
             var ss = new SiteSettings();
             ss.ReferenceType = "Results";
@@ -455,17 +465,22 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public static SiteSettings WikisSiteSettings(
             this SiteModel siteModel,
-            IContext context,
+            Context context,
             long referenceId,
             bool setSiteIntegration = false,
             bool setAllChoices = false,
             Sqls.TableTypes tableType = Sqls.TableTypes.Normal)
         {
             var ss = siteModel.SiteSettings ?? new SiteSettings();
+            ss.LockedTime = siteModel.LockedTime;
+            ss.LockedUser = siteModel.LockedUser;
             ss.TableType = tableType;
             ss.SiteId = siteModel.SiteId;
             ss.ReferenceId = referenceId;
             ss.Title = siteModel.Title.Value;
+            ss.Body = siteModel.Body;
+            ss.GridGuide = siteModel.GridGuide;
+            ss.EditorGuide = siteModel.EditorGuide;
             ss.ReferenceType = "Wikis";
             ss.ParentId = siteModel.ParentId;
             ss.InheritPermission = siteModel.InheritPermission;
@@ -474,13 +489,12 @@ namespace Implem.Pleasanter.Libraries.Settings
             ss.Init(context: context);
             ss.SetLinkedSiteSettings(context: context);
             ss.SetPermissions(context: context, referenceId: referenceId);
-            ss.SetJoinedSsHash(context: context);
             ss.SetChoiceHash(context: context, all: setAllChoices);
             return ss;
         }
 
         public static SiteSettings WikisSiteSettings(
-            IContext context, long siteId, bool setAllChoices = false)
+            Context context, long siteId, bool setAllChoices = false)
         {
             var ss = new SiteSettings();
             ss.ReferenceType = "Wikis";
@@ -491,7 +505,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         }
 
         public static SiteSettings PermissionsSiteSettings(
-            this SiteModel siteModel, IContext context)
+            this SiteModel siteModel, Context context)
         {
             var ss = new SiteSettings();
             ss.ReferenceType = "Permissions";
@@ -499,12 +513,13 @@ namespace Implem.Pleasanter.Libraries.Settings
             ss.InheritPermission = siteModel.InheritPermission;
             ss.ParentId = siteModel.ParentId;
             ss.Title = siteModel.Title.Value;
+            ss.Body = siteModel.Body;
             ss.AccessStatus = siteModel.AccessStatus;
             ss.Init(context: context);
             return ss;
         }
 
-        public static SiteSettings GetByDataRow(IContext context, long siteId)
+        public static SiteSettings GetByDataRow(Context context, long siteId)
         {
             var dataRow = Rds.ExecuteTable(
                 context: context,
@@ -522,7 +537,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             {
                 var ss = dataRow
                     .String("SiteSettings")
-                    .Deserialize<SiteSettings>() ?? new SiteSettings();
+                    .DeserializeSiteSettings(context: context) ?? new SiteSettings();
                 ss.SiteId = siteId;
                 ss.Title = dataRow.String("Title");
                 ss.InheritPermission = dataRow.Long("InheritPermission");
@@ -537,17 +552,18 @@ namespace Implem.Pleasanter.Libraries.Settings
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static SiteSettings ApiUsersSiteSettings(IContext context)
+        public static SiteSettings DeserializeSiteSettings(this string json, Context context)
         {
-            var ss = UsersSiteSettings(context);
-            ss?.Columns?
-                .Where(c => c.Name == "Disabled")?
-                .ForEach(c => c.CheckFilterControlType = ColumnUtilities.CheckFilterControlTypes.OnAndOff);
-            ss?.EditorColumns?.Clear();
-            new[] { "Password" }.ForEach(c => ss.GridColumns.Remove(c));
-            if (context.User?.TenantManager != true)
+            var ss = !json.IsNullOrEmpty()
+                ? json.Deserialize<SiteSettings>()
+                : null;
+            if (ss != null)
             {
-                ss.GridColumns = new List<string>() { "UserId", "LoginId", "Name", "Disabled" };
+                if (ss.Version != Version)
+                {
+                    Migrators.SiteSettingsMigrator.Migrate(ss);
+                }
+                ss.Init(context: context);
             }
             return ss;
         }
@@ -555,7 +571,19 @@ namespace Implem.Pleasanter.Libraries.Settings
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static SiteSettings ApiGroupsSiteSettings(IContext context)
+        public static SiteSettings ApiUsersSiteSettings(Context context)
+        {
+            var ss = UsersSiteSettings(context);
+            ss?.Columns?
+                .Where(c => c.Name == "Disabled")?
+                .ForEach(c => c.CheckFilterControlType = ColumnUtilities.CheckFilterControlTypes.OnAndOff);
+            return ss;
+        }
+
+        /// <summary>
+        /// Fixed:
+        /// </summary>
+        public static SiteSettings ApiGroupsSiteSettings(Context context)
         {
             var ss = GroupsSiteSettings(context);
             ss?.Columns?
@@ -567,7 +595,7 @@ namespace Implem.Pleasanter.Libraries.Settings
         /// <summary>
         /// Fixed:
         /// </summary>
-        public static SiteSettings ApiDeptsSiteSettings(IContext context)
+        public static SiteSettings ApiDeptsSiteSettings(Context context)
         {
             var ss = DeptsSiteSettings(context);
             ss?.Columns?

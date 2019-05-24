@@ -17,7 +17,7 @@ namespace Implem.CodeDefiner
             ValidateArgs(argList);
             var argHash = new TextData(argList.Skip(1).Join(string.Empty), '/', 1);
             var action = args[0];
-            var path = argHash.Get("p");
+            var path = argHash.Get("p")?.Replace('\\', System.IO.Path.DirectorySeparatorChar);
             var target = argHash.Get("t");
             Initializer.Initialize(
                 path,
