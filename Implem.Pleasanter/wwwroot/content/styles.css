@@ -148,7 +148,7 @@ td{
 }
 
 pre{
-    line-height:1.2em;
+    line-height:1.5em;
     font-family:Terminal;
     word-wrap:break-word;
     word-break:break-all;
@@ -228,6 +228,19 @@ pre{
 
 #Breadcrumb .separator{
     margin:0px 0px 0px 8px;
+}
+
+#Guide > div{
+    width:100%;
+    display:block;
+    float:left;
+    margin:0px 0px 5px 0px;
+    padding:5px 10px;
+    background:lightgoldenrodyellow;
+    border:solid 1px silver;
+    position:relative;
+    clear:both;
+    border-radius:5px;
 }
 
 #CopyToClipboards > .display-control{
@@ -364,6 +377,24 @@ pre{
 }
 
 #PublishWarning > a{
+    width:100%;
+    display:block;
+    float:left;
+    color:white;
+    text-decoration:none;
+}
+
+#LockedWarning{
+    width:100%;
+    display:block;
+    float:left;
+    margin:0px 10px 5px 0px;
+    padding:5px 10px;
+    background:red;
+    border-radius:7px;
+}
+
+#LockedWarning > div{
     width:100%;
     display:block;
     float:left;
@@ -919,6 +950,7 @@ pre{
 }
 
 #ImageLib .item .image{
+    width:100%;
     float:left;
     margin:5px 0px 0px 0px;
 }
@@ -1547,7 +1579,6 @@ pre{
 .field-normal .container-normal{
     width:auto;
     margin-left:120px;
-    position:relative;
 }
 
 .field-normal > .buttons{
@@ -1581,7 +1612,6 @@ pre{
 
 .field-wide .container-normal{
     margin-left:120px;
-    position:relative;
 }
 
 .field-markdown{
@@ -1607,7 +1637,6 @@ pre{
 
 .field-markdown .container-normal{
     margin-left:120px;
-    position:relative;
 }
 
 .field-auto{
@@ -1707,6 +1736,10 @@ pre{
     font-weight:bold;
     border-bottom:solid 1px silver;
     clear:both;
+}
+
+.container-normal{
+    position:relative;
 }
 
 .container-left{
@@ -1850,8 +1883,9 @@ pre{
 }
 
 .md{
+    width:100%;
     float:left;
-    line-height:1.2em;
+    line-height:1.5em;
     font-family:Terminal;
     word-wrap:break-word;
     word-break:break-all;
@@ -1917,6 +1951,7 @@ pre{
 }
 
 .md hr{
+    float:none;
     clear:both;
 }
 
@@ -2221,10 +2256,14 @@ pre{
 
 .grid > tbody > tr > td{
     max-width:300px;
-    padding:2px;
     border-left:dotted 1px silver;
     border-right:dotted 1px silver;
     word-wrap:break-word;
+}
+
+.grid > tbody > tr.message-row > td{
+    padding:0px;
+    text-align:center;
 }
 
 .grid > tbody > tr [class*="status-"]{
@@ -2277,11 +2316,10 @@ pre{
 
 .grid-row:hover .comment{
     background-color:lightyellow;
-    border:solid 1px gainsboro;
 }
 
 .grid-row:hover .grid-title-body{
-    border:solid 1px gainsboro;
+
 }
 
 .grid-row p{
@@ -2292,20 +2330,27 @@ pre{
     clear:both;
 }
 
+.grid-row[data-history]{
+    background-color:lightgray;
+}
+
 .grid-title-body{
     min-width:200px;
     max-height:306px;
     margin:0px 0px 3px 0px;
     padding:3px 6px;
-    background:white;
-    border:solid 1px white;
+    background:inherit;
+    border:solid 1px transparent;
     clear:both;
     overflow:hidden;
 }
 
-.grid-title-body > .title + .body{
+.grid-title-body > .body{
     width:100%;
-    margin:8px 0px 0px 10px;
+}
+
+.grid-title-body > .title + .body{
+    padding:8px 0px 0px 10px;
 }
 
 .links{
@@ -2781,7 +2826,7 @@ h3.title-header{
 }
 
 .ui-widget textarea{
-    line-height:1.2em;
+    line-height:1.5em;
     font-family:Terminal;
 }
 
@@ -2871,6 +2916,12 @@ h3.title-header{
     display:block;
     float:left;
     margin:0px 5px 0px 0px;
+}
+
+.menu-sort > li > div.field-control > *{
+    color:initial;
+    background-color:white;
+    border:solid 1px silver;
 }
 
 input:focus{

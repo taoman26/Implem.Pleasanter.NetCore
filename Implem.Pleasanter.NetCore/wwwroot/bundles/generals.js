@@ -4,7 +4,9 @@ var $p = {
     ex: {}
 };
 $p.ajax = function (url, methodType, data, $control, async) {
-    $p.before_send($p.eventArgs(url, methodType, data, $control, async));
+    if ($p.before_send($p.eventArgs(url, methodType, data, $control, async)) === false) {
+        return false;
+    }
     if ($control) {
         var _confirm = $control.attr('data-confirm');
         if (_confirm !== undefined) {
@@ -133,6 +135,36 @@ $p.apiExec = function (url, args) {
         .fail(args.fail)
         .always(args.always);
 }
+
+$p.apiUsersUrl = function (action, id) {
+    switch (action) {
+        case 'get':
+        case 'create':
+            return $('#ApplicationPath').val() + 'api/users/' + action;
+            break;
+        case 'update':
+        case 'delete':
+            return $('#ApplicationPath').val() + 'api/users/' + id + '/' + action;
+            break;
+    }
+}
+
+$p.apiUsersGet = function (args) {
+    $p.apiExec($p.apiUsersUrl('get'), args);
+}
+
+$p.apiUsersCreate = function (args) {
+    $p.apiExec($p.apiUsersUrl('create'), args);
+}
+
+$p.apiUsersUpdate = function (args) {
+    $p.apiExec($p.apiUsersUrl('update', args.id), args);
+}
+
+$p.apiUsersDelete = function (args) {
+    $p.apiExec($p.apiUsersUrl('delete', args.id), args);
+}
+
 $p.getData = function ($control) {
     formId = $p.getFormId($control);
     if (!(formId in $p.data)) {
@@ -170,7 +202,10 @@ $p.set = function ($control, val) {
 $p.setData = function ($control, data) {
     var controlId = $control.attr('id');
     if (!$control.hasClass('not-send')) {
-        if (data === undefined) data = $p.getData($control);
+        if (data === undefined) {
+            data = $p.getData($control);
+        }
+        $p.setGridTimestamp($control, data);
         switch ($control.prop('type')) {
             case 'checkbox':
                 data[controlId] = $control.prop('checked');
@@ -229,6 +264,13 @@ $p.setData = function ($control, data) {
     }
 }
 
+$p.setGridTimestamp = function ($control, data) {
+    var timestamp = $control.closest('.grid-row').find('.timestamp');
+    if (timestamp.length === 1) {
+        data[timestamp.attr('id')] = timestamp.val();
+    }
+}
+
 $p.setAndSend = function (selector, $control) {
     $p.setData($(selector));
     $p.send($control);
@@ -240,14 +282,14 @@ $p.setMustData = function ($form, action) {
             $p.setData($(this));
         });
     } else {
-        $form.find('.always-send').each(function () {
+        $form.find('.always-send,[data-always-send="1"]').each(function () {
             $p.setData($(this));
         });
     }
 }
 
 $p.clearData = function (target, data, type) {
-    if (data === null) {
+    if (!data) {
         data = $p.getData($('.main-form'))
     }
     if (target === undefined) {
@@ -289,7 +331,9 @@ $p.setByJson = function (url, methodType, data, $control, async, json) {
         return d.Method === 'Html' ||
             d.Method === 'ReplaceAll' ||
             d.Method === 'Append' ||
-            d.Method === 'Prepend';
+            d.Method === 'Prepend' ||
+            d.Method === 'After' ||
+            d.Method === 'Before';
     }).length > 0) {
         $p.apply();
         $p.applyValidator();
@@ -393,7 +437,7 @@ $p.setByJsonElement = function (jsonElement, data, $control) {
             $p[target]();
             break;
         case 'Events':
-            $p.execOnEditorLoad();
+            $p.execEvents(target,'');
             break;
         case 'WindowScrollTop':
             $(window).scrollTop(value);
@@ -425,26 +469,29 @@ $p.eventArgs = function (url, methodType, data, $control, async, ret, json) {
 }
 
 $p.execEvents = function (event, args) {
-    exec(event);
+    var result = exec(event);
     if (args.$control) {
-        exec(event + '_' + args.$control.attr('id'));
-        exec(event + '_' + args.$control.attr('data-action'));
+        result = exec(event + '_' + args.$control.attr('id')) && result;
+        result = exec(event + '_' + args.$control.attr('data-action')) && result;
     }
+    return result;
     function exec(name) {
-        if ($p.events[name] !== undefined) $p.events[name](args);
+        if ($p.events[name] !== undefined) {
+            return ($p.events[name](args) === false) ? false : true;
+        }
     }
 }
 
 $p.before_validate = function (args) {
-    $p.execEvents('before_validate', args);
+    return $p.execEvents('before_validate', args);
 }
 
 $p.after_validate = function (args) {
-    $p.execEvents('after_validate', args);
+    return $p.execEvents('after_validate', args);
 }
 
 $p.before_send = function (args) {
-    $p.execEvents('before_send', args);
+    return $p.execEvents('before_send', args);
 }
 
 $p.after_send = function (args) {
@@ -523,7 +570,9 @@ $p.send = function ($control, formId, async) {
         $p.setMustData($form, action);
     }
     if ($control.hasClass('validate')) {
-        $p.before_validate($p.eventArgs(url, methodType, data, $control, async));
+        if ($p.before_validate($p.eventArgs(url, methodType, data, $control, async)) === false) {
+            return false;
+        }
         $form.validate();
         if (!$form.valid()) {
             $p.setValidationError($form);
@@ -535,7 +584,9 @@ $p.send = function ($control, formId, async) {
             }
             return false;
         }
-        $p.after_validate($p.eventArgs(url, methodType, data, $control, async));
+        if ($p.after_validate($p.eventArgs(url, methodType, data, $control, async)) === false) {
+            return false;
+        }
     }
     if (methodType !== undefined) {
         return $p.ajax(
@@ -630,7 +681,9 @@ $(function () {
     });
     $(document).on('spin', '.control-spinner', function (event, ui) {
         var $control = $(this);
-        $p.getData($control)[this.id] = ui.value;
+        var data = $p.getData($control);
+        data[this.id] = ui.value;
+        $p.setGridTimestamp($control, data);
         $p.setFormChanged($control);
     });
     $(document).on('change', '.control-checkbox.visible', function () {
@@ -1254,8 +1307,8 @@ $p.changeColumnAccessControl = function ($control, type) {
     $p.send($control);
 }
 $p.confirmReload = function confirmReload() {
-    if ($p.formChanged && $('#Editor').length === 1) {
-        return confirm($p.display('ConfirmReload'));
+    if ($p.formChanged) {
+        return confirm($p.display('ConfirmUnload'));
     } else {
         return true;
     }
@@ -1263,13 +1316,13 @@ $p.confirmReload = function confirmReload() {
 $(function () {
     $(document).on(
         'change',
-        'form.confirm-reload input, form.confirm-reload select, form.confirm-reload textarea',
+        '.confirm-unload input, .confirm-unload select, .confirm-unload textarea',
         function () {
             $p.setFormChanged($(this));
         });
     $(window).bind("beforeunload", function () {
-        if ($p.formChanged && $('#Editor').length === 1) {
-            return $p.display('ConfirmReload');
+        if ($p.formChanged) {
+            return $p.display('ConfirmUnload');
         }
     });
 });
@@ -1328,8 +1381,6 @@ $p.display = function (defaultId) {
         ConfirmPhysicalDelete_ja: 'この操作を行うと元に戻すことはできません。本当に削除してもよろしいですか？',
         ConfirmRebuildSearchIndex: 'Would you like to rebuild the search index ?',
         ConfirmRebuildSearchIndex_ja: '検索インデックスを再構築しますか？',
-        ConfirmReload: 'Are you sure you want to reload this page?',
-        ConfirmReload_ja: 'このページを離れようとしています。',
         ConfirmReset: 'Are you sure you want to reset ?',
         ConfirmReset_ja: '本当にリセットしてもよろしいですか？',
         ConfirmRestore: 'Are you sure you want to restore ?',
@@ -1342,6 +1393,8 @@ $p.display = function (defaultId) {
         ConfirmSwitchUser_ja: '本当にユーザを切り替えますか？',
         ConfirmSynchronize: 'Are you sure you want to synchronize the data ?',
         ConfirmSynchronize_ja: 'データを同期してもよろしいですか？',
+        ConfirmUnload: 'Are you sure you want to unload this page?',
+        ConfirmUnload_ja: 'このページを離れますか? 行った変更が保存されない可能性があります。',
         DirectUrlCopied: 'Copied to Clipboard',
         DirectUrlCopied_ja: 'クリップボードにコピーしました',
         Manager: 'Manager',
@@ -1409,7 +1462,6 @@ $p.openDropDownSearchDialog = function ($control) {
     $('#DropDownSearchResults').empty();
     $target.val(id);
     $text.val('');
-    $('#DropDownSearchOnEditor').val($control.closest('#FieldSetGeneral').length === 1);
     $('#DropDownSearchMultiple').val($control.attr('multiple') === 'multiple');
     $($('#DropDownSearchDialog')).dialog({
         title: $('label[for="' + id + '"]').text(),
@@ -1445,8 +1497,12 @@ $p.openExportSelectorDialog = function ($control) {
 }
 
 $p.export = function () {
-    location.href = $('.main-form').attr('action').replace('_action_', 'export') + '?id=' +
-        $('#ExportId').val();
+    var data = $p.getData($('.main-form'));
+    location.href = $('.main-form').attr('action').replace('_action_', 'export')
+        + '?id=' + $('#ExportId').val()
+        + '&GridCheckAll=' + data.GridCheckAll
+        + '&GridUnCheckedItems=' + data.GridUnCheckedItems
+        + '&GridCheckedItems=' + data.GridCheckedItems;
     $p.closeDialog($('#ExportSelectorDialog'));
 }
 
@@ -1749,6 +1805,30 @@ $p.openEditorDialog = function (id) {
     });
 }
 
+$p.editOnGrid = function ($control, val) {
+    if (val === 0) {
+        if (!$p.confirmReload()) return false;
+    }
+    $('#EditOnGrid').val(val);
+    $p.send($control);
+}
+
+$p.newOnGrid = function ($control) {
+    $p.send($control, 'MainForm');
+    $(window).scrollTop(0);
+}
+
+$p.copyRow = function ($control) {
+    $p.getData($control).OriginalId = $control.closest('.grid-row').attr('data-id');
+    $p.send($control);
+    $(window).scrollTop(0);
+}
+
+$p.cancelNewRow = function ($control) {
+    $p.getData($control).CancelRowId = $control.closest('.grid-row').attr('data-id');
+    $p.send($control);
+}
+
 $(function () {
     if ($("#Grid").length == 0) return;
     var TBLHD = TBLHD || {};
@@ -1854,10 +1934,13 @@ $(function () {
         TBLHD.cssCopy(TBLHD.$clone, TBLHD.$thead);
     }
     TBLHD.observer = new MutationObserver(function (records) {
+        if (records.some(function (value) {
+            return value.target.className === 'menu-sort';
+        })) { return;}
         TBLHD.createClone();
     });
     TBLHD.observer.observe(
-        document.getElementById("Application"),
+        document.getElementById("ViewModeContainer"),
         {
             attributes: true,
             attributeOldValue: true,
@@ -1941,20 +2024,26 @@ $(function () {
                 } else {
                     var func = $grid.attr('data-func');
                     var dataId = $(this).closest('.grid-row').attr('data-id');
+                    var dataVer = $(this).closest('.grid-row').attr('data-ver');
+                    var dataHistory = $(this).closest('.grid-row').attr('data-history');
                     if (func) {
                         $p.getData($grid)[$grid.attr('data-name')] = dataId;
                         $p[func]($grid);
                     }
                     else {
+                        var paramVer = dataHistory ? '?ver=' + dataVer : '';
+                        var paramBack = paramVer ? '&back=1' : '?back=1';
                         if ($('#EditorDialog').length === 1) {
                             var data = {};
                             data.EditInDialog = true;
-                            url = $('#BaseUrl').val() + dataId;
+                            url = $('#BaseUrl').val() + dataId
+                                + paramVer;
                             $p.ajax(url, 'post', data);
                         } else {
-                            location.href = $('#BaseUrl').val() + dataId +
-                                ($grid.attr('data-value') === 'back'
-                                    ? '?back=1'
+                            location.href = $('#BaseUrl').val() + dataId
+                                + paramVer
+                                + ($grid.attr('data-value') === 'back'
+                                    ? paramBack
                                     : '');
                         }
                     }
@@ -1965,46 +2054,64 @@ $(function () {
         }
     });
 });
+
 $(function () {
     var timer;
-    $(document).on('mouseenter', 'th.sortable', function () {
+    $(document).on('mouseenter', 'table > thead > tr > th.sortable', function () {
+        clearTimeout(timer);
+        if ($(".menu-sort:visible").length) {
+            $(".menu-sort:visible").hide();
+        }
+        if ($('.ui-multiselect-close:visible').length) {
+            $('.ui-multiselect-close:visible').click();
+        }
         timer = setTimeout(function ($control) {
-            $control.append($('<ul/>')
-                .attr('data-target', '[data-id="' + $control.children('div').attr('data-id') + '"]')
-                .addClass('menu-sort')
-                    .addMenu('ui-icon-triangle-1-n', 'Asc')
-                    .addMenu('ui-icon-triangle-1-s', 'Desc')
-                    .addMenu('ui-icon-close', 'Release')
-                    .addMenuReset());
-            $('.menu-sort')
+            var dataName = $control.attr('data-name');
+            $menuSort = $(".menu-sort[id='GridHeaderMenu__" + dataName + "']");
+            $menuSort.css('width', '');
+            $menuSort
+                .css('position', 'absolute')
                 .css('top', $control.position().top + $control.outerHeight())
                 .css('left', $control.position().left)
-                .outerWidth($control.outerWidth());
+                .outerWidth($control.outerWidth() > $menuSort.outerWidth()
+                    ? $control.outerWidth()
+                    : $menuSort.outerWidth())
+                .show();
+        }, 700, $(this));
+    });
+    $(document).on('mouseenter', 'body > thead > tr > th.sortable', function () {
+        clearTimeout(timer);
+        if ($(".menu-sort:visible").length) {
+            $(".menu-sort:visible").hide();
+        }
+        if ($('.ui-multiselect-close:visible').length) {
+            $('.ui-multiselect-close:visible').click();
+        }
+        timer = setTimeout(function ($control) {   
+            var dataName = $control.attr('data-name');
+            $menuSort = $(".menu-sort[id='GridHeaderMenu__" + dataName+ "']");
+            $menuSort.css('width', '');
+            $menuSort
+                .css('position', 'fixed')
+                .css('top', $control.position().top + $control.outerHeight())
+                .css('left', $control.position().left + $control.offsetParent().offset().left - window.pageXOffset)
+                .outerWidth($control.outerWidth() > $menuSort.outerWidth()
+                    ? $control.outerWidth()
+                    : $menuSort.outerWidth())
+                .show();
         }, 700, $(this));
     });
     $(document).on('mouseleave', 'th.sortable', function () {
         clearTimeout(timer);
-        $('.menu-sort').remove();
     });
-    $.fn.extend({
-        addMenu: function (iconCss, orderType) {
-            $(this).append($('<li/>')
-                .addClass('sort')
-                .attr('data-order-type', orderType.toLowerCase())
-                .append($('<span/>').addClass('ui-icon ' + iconCss))
-                .append($('<span/>').text($p.display('Order' + orderType))));
-            return $(this);
-        },
-        addMenuReset: function () {
-            $(this).append($('<li/>')
-                .addClass('reset')
-                .append($('<span/>').addClass('ui-icon ui-icon-power'))
-                .append($('<span/>').text($p.display('ResetOrder'))));
-            return $(this);
+    $(document).on('mouseleave', '.menu-sort', function () {
+        if (!$('.ui-multiselect-menu:visible').length) {
+            $('.menu-sort:visible').hide();
         }
     });
     $(document).on('click', '.menu-sort > li.sort', function (e) {
         sort($($(this).parent().attr('data-target')), $(this).attr('data-order-type'));
+        e.stopPropagation();
     });
     $(document).on('click', '.menu-sort > li.reset', function (e) {
         var $control = $(this);
@@ -2013,15 +2120,16 @@ $(function () {
         data.Direction = $grid.attr('data-name');
         data.TableId = $grid.attr('id');
         data.TableSiteId = $grid.attr('data-id');
-        $grid.find('[data-id^="ViewSorters_"]').each(function () {
+        $('[data-id^="ViewSorters_"]').each(function () {
             delete data[$(this).attr('data-id')];
         });
         $p.send($('#ViewSorters_Reset'));
         e.stopPropagation();
     });
-    $(document).on('click', 'th.sortable', function () {
+    $(document).on('click', 'th.sortable', function (e) {
         var $control = $(this).find('div');
-        sort($control, $control.attr('data-order-type'))
+        sort($control, $control.attr('data-order-type'));
+        e.stopPropagation();
     });
 
     function sort($control, type) {
@@ -2033,9 +2141,9 @@ $(function () {
         data.TableSiteId = $grid.attr('data-id');
         $p.send($grid);
         delete data[$control.attr('id')];
-        e.stopPropagation();
     }
 });
+
 $(function () {
     var timer;
     $(document).on('mouseenter', '.grid-row .grid-title-body, .grid-row .comment', function () {
@@ -2156,10 +2264,6 @@ $p.search = function (searchWord, redirect, offset) {
         }
         $p.searchWord = searchWord + offset;
     }
-}
-
-$p.execOnEditorLoad = function () {
-    if ($p.events.on_editor_load !== undefined) $p.events.on_editor_load();
 }
 $(function () {
     $p.apply = function () {
@@ -2296,6 +2400,43 @@ $(function () {
                     $control.attr('src', $control.attr('src').replace('/binaries/', '/publishbinaries/'))
                 }
             });
+        }
+        replaceMenu();
+    };
+    function replaceMenu() {
+        var $header;
+        var $menu = $('[id^=GridHeaderMenu__]:visible');
+        if (!$menu.length) {
+            return;
+        }
+        var dataName = $menu.attr('id').replace('GridHeaderMenu__', '');
+        $header = $("body > thead:visible > tr > th.sortable[data-name='" + dataName + "']");
+        if ($header.length) {
+            if ($(".menu-sort:visible").length) {
+                $(".menu-sort:visible").hide();
+            }
+            if ($('.ui-multiselect-close:visible').length) {
+                $('.ui-multiselect-close:visible').click();
+            }
+        } else {
+            $header = $("table > thead > tr > th.sortable[data-name='" + dataName + "']");
+            if (!$header.length) {
+                return;
+            }
+            $menu.css('width', '');
+            $menu.css('position', 'absolute')
+                .css('top', $header.position().top + $header.outerHeight())
+                .css('left', $header.position().left)
+                .outerWidth($header.outerWidth() > $menuSort.outerWidth()
+                    ? $header.outerWidth()
+                    : $menuSort.outerWidth());
+        }
+        
+        var $multiSelect = $('.ui-multiselect-menu:visible');
+        var $control = $("[id='ViewFiltersOnGridHeader__" + dataName + "_ms']");
+        if ($multiSelect.length && $control.length) {
+            $multiSelect.css('top', $control.offset().top + $control.outerHeight())
+                .css('left', $control.offset().left);
         }
     }
     $p.apply();
@@ -2600,23 +2741,41 @@ $(function () {
     });
 });
 $p.setMessage = function (target, value) {
-    var $control = target !== undefined
-        ? $(target)
-        : $('.message-dialog:visible');
     var message = JSON.parse(value);
-    var $body = $('<div/>')
-        .append($('<span/>')
-            .addClass('body')
-            .addClass(message.Css)
-            .text(message.Text));
-    if ($control.length === 0) {
-        if ($('#Message').hasClass('message')) {
-            $body.append($('<span/>')
-                .addClass('ui-icon ui-icon-close close'));
+    var $control = target !== undefined
+        ? target.split('_')[0] === 'row'
+            ? $('[data-id="' + target.split('_')[1] + '"]')
+            : $(target)
+        : $('.message-dialog:visible');
+    if ($control.prop('tagName') === 'TR') {
+        var $body = $($('<tr/>')
+            .addClass("message-row")
+            .append($('<td/>')
+                .attr('colspan', $control.find('td').length)
+                .append($('<span/>')
+                    .addClass('body')
+                    .addClass(message.Css)
+                    .text(message.Text))));
+        $control.after($body);
+        $('html,body').animate({
+            scrollTop: $control.offset().top - 50
+        });
+    }
+    else {
+        var $body = $($('<div/>')
+            .append($('<span/>')
+                .addClass('body')
+                .addClass(message.Css)
+                .text(message.Text)));
+        if ($control.length === 0) {
+            if ($('#Message').hasClass('message')) {
+                $body.append($('<span/>')
+                    .addClass('ui-icon ui-icon-close close'));
+            }
+            $('#Message').append($body);
+        } else {
+            $control.append($body);
         }
-        $('#Message').append($body);
-    } else {
-        $control.append($body);
     }
 }
 
@@ -2703,7 +2862,9 @@ $p.back = function () {
 }
 $(function () {
     $(window).on('popstate', function (e) {
-        $p.ajax(e.originalEvent.currentTarget.location, 'post');
+        if (e.originalEvent.currentTarget.location.pathname !== $('#BaseUrl').val() + $('#Id').val()) {
+            $p.ajax(e.originalEvent.currentTarget.location, 'post');
+        }
     });
     $p.setSwitchTargets();
     var $control = $('#BackUrl');
@@ -2714,6 +2875,9 @@ $(function () {
 $p.openOutgoingMailDialog = function ($control) {
     var error = 0;
     if ($('#OutgoingMails_Title').length === 0) {
+        var data = $p.getData($('#OutgoingMailsForm'));
+        data.Controller = $('#Controller').val();
+        data.Id = $('#Id').val();
         error = $p.syncSend($control, 'OutgoingMailsForm');
     }
     if (error === 0) {
@@ -2740,7 +2904,10 @@ $p.openOutgoingMailReplyDialog = function ($control) {
 }
 
 $p.sendMail = function ($control) {
-    $p.getData($('#OutgoingMailForm')).Ver = $('._Ver')[0].innerHTML;
+    var data = $p.getData($('#OutgoingMailForm'));
+    data.Ver = $('._Ver')[0].innerHTML;
+    data.Controller = $('#Controller').val();
+    data.Id = $('#Id').val();
     $p.send($control);
 }
 
@@ -2897,7 +3064,7 @@ $p.paging = function (selector) {
         if ($(window).scrollTop() + $(window).height() >= $control.offset().top + $control.height()) {
             if ($offset.val() !== '-1') {
                 $p.setData($offset);
-                $offset.val(-1);
+                $offset.val('-1');
                 $p.send($control);
             }
         }
@@ -2924,6 +3091,9 @@ $(function () {
     });
 });
 $(function () {
+    $(document).on('mouseenter', '#Search', function () {
+        $(this).prop('disabled', false);
+    });
     $(document).on('change', '#Search', function () {
         $p.search($(this).val(), $(this).hasClass('redirect'));
     });
@@ -3131,6 +3301,18 @@ $p.openFilterColumnDialog = function ($control) {
     $p.openSiteSettingsDialog($control, '#FilterColumnDialog');
 }
 
+$p.openAggregationDetailsDialog = function ($control) {
+    $p.data.AggregationDetailsForm = {};
+    $p.openSiteSettingsDialog($control, '#AggregationDetailsDialog', '420px');
+}
+
+$p.setAggregationDetails = function ($control) {
+    $p.setData($('#AggregationType'));
+    $p.setData($('#AggregationTarget'));
+    $p.setData($('#SelectedAggregation'));
+    $p.send($control);
+}
+
 $p.openEditorColumnDialog = function ($control) {
     $p.data.EditorColumnForm = {};
     $p.openSiteSettingsDialog($control, '#EditorColumnDialog');
@@ -3221,15 +3403,6 @@ $p.openStyleDialog = function ($control) {
 
 $p.setStyle = function ($control) {
     $p.setData($('#EditStyle'), $p.getData($control));
-    $p.send($control);
-}
-
-$p.setAggregationDetails = function ($control) {
-    var data = $p.getData($control);
-    data.AggregationType = $('#AggregationType').val();
-    data.AggregationTarget = $('#AggregationTarget').val();
-    $p.clearMessage();
-    $('.ui-dialog-content').dialog('close');
     $p.send($control);
 }
 
@@ -3333,6 +3506,13 @@ $(function () {
                 .find('input');
         }
     });
+    $(document).on('change', '#DateFilterSetMode', function () {
+        if ($('#DateFilterSetMode').val() === '1') {
+            $('#FilterColumnSettingField').removeClass('hidden');
+        } else {
+            $('#FilterColumnSettingField').addClass('hidden');
+        }
+    });
 });
 $(function () {
     $(document).on('change', '.control-dropdown', function () {
@@ -3351,7 +3531,7 @@ $(function () {
     });
 })
 $p.templates = function ($control) {
-    $p.send($control, 'SitesForm');
+    $p.send($control, 'MainForm');
 }
 
 $p.setTemplate = function () {
