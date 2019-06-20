@@ -96,7 +96,7 @@ dotnet Implem.CodeDefiner.NetCore.dll _rds
 ## 実行
 次のコマンドでプリザンターを実行します。
 ```
-dotnet Implem.Pleasanter.dll
+dotnet Implem.Pleasanter.NetCore.dll
 ```
 
 #### ブラウザでアクセス
