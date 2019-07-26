@@ -103,7 +103,8 @@ namespace Implem.Pleasanter.Models
                                         controlCss: " auto-postback",
                                         method: "post",
                                         _checked: view.ShowHistory == true,
-                                        labelText: Displays.ShowHistory(context:context)))
+                                        labelText: Displays.ShowHistory(context:context),
+                                        _using: ss.HistoryOnGrid == true))
                             .ViewFilters(
                                 context: context,
                                 ss: ss,
@@ -140,6 +141,10 @@ namespace Implem.Pleasanter.Models
                     .MoveDialog(context: context, bulk: true)
                     .ImportSettingsDialog(context: context)
                     .Div(attributes: new HtmlAttributes()
+                        .Id("SetNumericRangeDialog")
+                        .Class("dialog")
+                        .Title(Displays.NumericRange(context)))
+                    .Div(attributes: new HtmlAttributes()
                         .Id("ExportSelectorDialog")
                         .Class("dialog")
                         .Title(Displays.Export(context: context))))
@@ -163,6 +168,7 @@ namespace Implem.Pleasanter.Models
                             ss: ss,
                             gridData: gridData,
                             view: view))
+                .Events("on_grid_load")
                 .ToJson();
         }
 
@@ -419,8 +425,8 @@ namespace Implem.Pleasanter.Models
                         newRowId: newRowId);
                 }
                 formDataSet
-                    .Where(o => o.Id < 0)
-                    .OrderBy(o => o.Id)
+                    .Where(formData => formData.Id < 0)
+                    .OrderBy(formData => formData.Id)
                     .ForEach(formData =>
                     {
                         issueModel = new IssueModel(
@@ -496,6 +502,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 view: view,
+                tableType: Sqls.TableTypes.Normal,
                 where: Rds.IssuesWhere().IssueId(issueId))
                     .DataRows
                     .FirstOrDefault();
@@ -1192,6 +1199,7 @@ namespace Implem.Pleasanter.Models
                     title: issueModel.MethodType == BaseModel.MethodTypes.New
                         ? Displays.New(context: context)
                         : issueModel.Title.DisplayValue,
+                    body: issueModel.Body,
                     useTitle: ss.TitleColumns?.Any(o => ss.EditorColumns.Contains(o)) == true,
                     userScript: ss.EditorScripts(
                         context: context, methodType: issueModel.MethodType),
@@ -1202,9 +1210,6 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: ss,
                             issueModel: issueModel)
-                        .Hidden(controlId: "TableName", value: "Issues")
-                        .Hidden(controlId: "Controller", value: context.Controller)
-                        .Hidden(controlId: "Id", value: issueModel.IssueId.ToString())
                         .Hidden(controlId: "TriggerRelatingColumns", value: Jsons.ToJson(ss.RelatingColumns))
                         .Hidden(controlId: "DropDownSearchPageSize", value: Parameters.General.DropDownSearchPageSize.ToString()))
                             .ToString();
@@ -1677,6 +1682,7 @@ namespace Implem.Pleasanter.Models
                     .Response("id", issueModel.IssueId.ToString())
                     .Invoke("clearDialogs")
                     .ReplaceAll("#MainContainer", Editor(context, ss, issueModel))
+                    .Val("#Id", issueModel.IssueId.ToString())
                     .Val("#SwitchTargets", switchTargets, _using: switchTargets != null)
                     .SetMemory("formChanged", false)
                     .Invoke("setCurrentIndex")
@@ -1936,12 +1942,12 @@ namespace Implem.Pleasanter.Models
             return res.ToJson();
         }
 
-        public static System.Web.Mvc.ContentResult GetByApi(Context context, SiteSettings ss)
+        public static System.Web.Mvc.ContentResult GetByApi(Context context, SiteSettings ss, bool internalRequest)
         {
             var invalid = IssueValidators.OnEntry(
                 context: context,
                 ss: ss,
-                api: true);
+                api: !internalRequest);
             switch (invalid.Type)
             {
                 case Error.Types.None: break;
@@ -1987,7 +1993,7 @@ namespace Implem.Pleasanter.Models
         }
 
         public static System.Web.Mvc.ContentResult GetByApi(
-            Context context, SiteSettings ss, long issueId)
+            Context context, SiteSettings ss, long issueId, bool internalRequest)
         {
             var issueModel = new IssueModel(
                 context: context,
@@ -2002,7 +2008,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 issueModel: issueModel,
-                api: true);
+                api: !internalRequest);
             switch (invalid.Type)
             {
                 case Error.Types.None: break;
@@ -2481,7 +2487,7 @@ namespace Implem.Pleasanter.Models
                 checkPermission: true);
             gridData.DataRows.ForEach(dataRow =>
                 res.ReplaceAll(
-                    $"[data-id=\"{dataRow.Long("IssueId")}\"][data-latest]",
+                    $"[data-id=\"{responses.FirstOrDefault(o => o.Id == dataRow.Long("IssueId"))?.DataTableName}\"][data-latest]",
                     new HtmlBuilder().Tr(
                         context: context,
                         ss: ss,
@@ -2498,7 +2504,7 @@ namespace Implem.Pleasanter.Models
                 .SetMemory("formChanged", false)
                 .Message(Messages.BulkUpdated(
                     context: context,
-                    data: gridData.TotalCount.ToString()))
+                    data: responses.Count().ToString()))
                 .ToJson();
         }
 
@@ -2856,22 +2862,44 @@ namespace Implem.Pleasanter.Models
                     sub: Rds.SelectIssues(
                         tableType: Sqls.TableTypes.Deleted,
                         column: Rds.IssuesColumn().IssueId(),
-                        where: Views.GetBySession(context: context, ss: ss).Where(context: context, ss: ss)));
+                        where: Views.GetBySession(
+                            context: context,
+                            ss: ss)
+                                .Where(
+                                    context: context,
+                                    ss: ss,
+                                    itemJoin: false)));
+            var sub = Rds.SelectIssues(
+                tableType: Sqls.TableTypes.Deleted,
+                _as: "Issues_Deleted",
+                column: Rds.IssuesColumn()
+                    .IssueId(tableName: "Issues_Deleted"),
+                where: where);
+            var guid = Strings.NewGuid();
             return Rds.ExecuteScalar_response(
                 context: context,
                 connectionString: Parameters.Rds.OwnerConnectionString,
                 transactional: true,
                 statements: new SqlStatement[]
                 {
-                    Rds.RestoreItems(where: Rds.ItemsWhere().ReferenceId_In(sub:
-                        Rds.SelectIssues(
-                            tableType: Sqls.TableTypes.Deleted,
-                            _as: "Issues_Deleted",
-                            column: Rds.IssuesColumn()
-                                .IssueId(tableName: "Issues_Deleted"),
-                            where: where))),
+                    Rds.UpdateItems(
+                        tableType: Sqls.TableTypes.Deleted,
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceId_In(sub: sub),
+                        param: Rds.ItemsParam()
+                            .ReferenceType(guid)),
                     Rds.RestoreIssues(where: where),
-                    Rds.RowCount()
+                    Rds.RowCount(),
+                    Rds.RestoreItems(where: Rds.ItemsWhere()
+                        .SiteId(ss.SiteId)
+                        .ReferenceType(guid)),
+                    Rds.UpdateItems(
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceType(guid),
+                        param: Rds.ItemsParam()
+                            .ReferenceType(ss.ReferenceType))
                 }).Count.ToInt();
         }
 
@@ -3038,7 +3066,18 @@ namespace Implem.Pleasanter.Models
             issueModel.VerType = context.Forms.Bool("Latest")
                 ? Versions.VerTypes.Latest
                 : Versions.VerTypes.History;
-            return EditorResponse(context, ss, issueModel).ToJson();
+            return EditorResponse(context, ss, issueModel)
+                .PushState("History", Locations.Get(
+                    context: context,
+                    parts: new string[]
+                    {
+                        "Items",
+                        issueId.ToString() 
+                            + (issueModel.VerType == Versions.VerTypes.History
+                                ? "?ver=" + context.Forms.Int("Ver") 
+                                : string.Empty)
+                    }))
+                .ToJson();
         }
 
         public static string EditSeparateSettings(
@@ -3214,7 +3253,8 @@ namespace Implem.Pleasanter.Models
                             .Where(
                                 context: context,
                                 ss: ss,
-                                where: where));
+                                where: where,
+                                itemJoin: false));
                 Summaries.Synchronize(context: context, ss: ss);
                 return GridRows(
                     context: context,
@@ -3252,6 +3292,10 @@ namespace Implem.Pleasanter.Models
             long siteId,
             SqlWhereCollection where)
         {
+            var sub = Rds.SelectIssues(
+                column: Rds.IssuesColumn().IssueId(),
+                where: where);
+            var guid = Strings.NewGuid();
             return Rds.ExecuteScalar_response(
                 context: context,
                 transactional: true,
@@ -3259,16 +3303,22 @@ namespace Implem.Pleasanter.Models
                 {
                     Rds.UpdateItems(
                         where: Rds.ItemsWhere()
-                            .ReferenceId_In(
-                                sub: Rds.SelectIssues(
-                                    column: Rds.IssuesColumn().IssueId(),
-                                    where: Rds.IssuesWhere().SiteId(siteId)))
-                            .SiteId(siteId, _operator: "<>"),
-                        param: Rds.ItemsParam().SiteId(siteId)),
+                            .SiteId(ss.SiteId)
+                            .ReferenceId_In(sub: sub),
+                        param: Rds.ItemsParam()
+                            .ReferenceType(guid)),
                     Rds.UpdateIssues(
                         where: where,
-                        param: Rds.IssuesParam().SiteId(siteId)),
-                    Rds.RowCount()
+                        param: Rds.IssuesParam()
+                            .SiteId(siteId)),
+                    Rds.RowCount(),
+                    Rds.UpdateItems(
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceType(guid),
+                        param: Rds.ItemsParam()
+                            .SiteId(siteId)
+                            .ReferenceType(ss.ReferenceType))
                 }).Count.ToInt();
         }
 
@@ -3292,7 +3342,8 @@ namespace Implem.Pleasanter.Models
                             .Where(
                                 context: context,
                                 ss: ss,
-                                where: where));
+                                where: where,
+                                itemJoin: false));
                 Summaries.Synchronize(context: context, ss: ss);
                 return GridRows(
                     context: context,
@@ -3320,16 +3371,31 @@ namespace Implem.Pleasanter.Models
                     join: where),
                 where: where);
             var statements = new List<SqlStatement>();
+            var guid = Strings.NewGuid();
             statements.OnBulkDeletingExtendedSqls(ss.SiteId);
-            statements.Add(Rds.DeleteItems(
+            statements.Add(Rds.UpdateItems(
                 where: Rds.ItemsWhere()
-                    .ReferenceId_In(sub: sub)));
+                    .SiteId(ss.SiteId)
+                    .ReferenceId_In(sub: sub),
+                param: Rds.ItemsParam()
+                    .ReferenceType(guid)));
             statements.Add(Rds.DeleteBinaries(
                 where: Rds.BinariesWhere()
                     .TenantId(context.TenantId)
                     .ReferenceId_In(sub: sub)));
             statements.Add(Rds.DeleteIssues(where: where));
             statements.Add(Rds.RowCount());
+            statements.Add(Rds.DeleteItems(
+                where: Rds.ItemsWhere()
+                    .SiteId(ss.SiteId)
+                    .ReferenceType(guid)));
+            statements.Add(Rds.UpdateItems(
+                tableType: Sqls.TableTypes.Deleted,
+                where: Rds.ItemsWhere()
+                    .SiteId(ss.SiteId)
+                    .ReferenceType(guid),
+                param: Rds.ItemsParam()
+                    .ReferenceType(ss.ReferenceType)));
             statements.OnBulkDeletedExtendedSqls(ss.SiteId);
             return Rds.ExecuteScalar_response(
                 context: context,
@@ -3496,29 +3562,44 @@ namespace Implem.Pleasanter.Models
                     sub: Rds.SelectIssues(
                         tableType: Sqls.TableTypes.Deleted,
                         column: Rds.IssuesColumn().IssueId(),
-                        where: Views.GetBySession(context: context, ss: ss).Where(
-                            context: context, ss: ss)));
+                        where: Views.GetBySession(
+                            context: context,
+                            ss: ss)
+                                .Where(
+                                    context: context,
+                                    ss: ss,
+                                    itemJoin: false)));
             var sub = Rds.SelectIssues(
                 tableType: Sqls.TableTypes.Deleted,
                 _as: "Issues_Deleted",
                 column: Rds.IssuesColumn()
                     .IssueId(tableName: "Issues_Deleted"),
                 where: where);
+            var guid = Strings.NewGuid();
             return Rds.ExecuteScalar_response(
                 context: context,
                 transactional: true,
                 statements: new SqlStatement[]
                 {
-                    Rds.PhysicalDeleteItems(
+                    Rds.UpdateItems(
                         tableType: Sqls.TableTypes.Deleted,
-                        where: Rds.ItemsWhere().ReferenceId_In(sub: sub)),
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceId_In(sub: sub),
+                        param: Rds.ItemsParam()
+                            .ReferenceType(guid)),
                     Rds.PhysicalDeleteBinaries(
                         tableType: Sqls.TableTypes.Deleted,
                         where: Rds.ItemsWhere().ReferenceId_In(sub: sub)),
                     Rds.PhysicalDeleteIssues(
                         tableType: Sqls.TableTypes.Deleted,
                         where: where),
-                    Rds.RowCount()
+                    Rds.RowCount(),
+                    Rds.PhysicalDeleteItems(
+                        tableType: Sqls.TableTypes.Deleted,
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceType(guid)),
                 }).Count.ToInt();
         }
 
@@ -3807,15 +3888,75 @@ namespace Implem.Pleasanter.Models
                 case Error.Types.None: break;
                 default: return null;
             }
-            return ExportUtilities.Export(
+            var export = ss.GetExport(
+                    context: context,
+                    id: context.QueryStrings.Int("id"));
+            var content = ExportUtilities.Export(
                 context: context,
                 ss: ss,
-                export: ss.GetExport(
-                    context: context,
-                    id: context.QueryStrings.Int("id")),
+                export: export,
                 where: SelectedWhere(
                     context: context,
+                    ss: ss),
+                view: Views.GetBySession(
+                    context: context,
                     ss: ss));
+            return new ResponseFile(
+                fileContent: content,
+                fileDownloadName: ExportUtilities.FileName(
+                    context: context,
+                    ss: ss,
+                    name: export.Name,
+                    extension: export.Type.ToString()));
+        }
+
+        public static System.Web.Mvc.ContentResult ExportByApi(
+            Context context, SiteSettings ss, SiteModel siteModel)
+        {
+            if (context.ContractSettings.Export == false)
+            {
+                return null;
+            }
+            var invalid = IssueValidators.OnExporting(
+                context: context,
+                ss: ss);
+            switch (invalid.Type)
+            {
+                case Error.Types.None: break;
+                default: return ApiResults.Error(
+                    context: context,
+                    errorData: invalid);
+            }
+            var api = context.RequestDataString.Deserialize<ExportApi>();
+            if (api == null)
+            {
+                return ApiResults.Get(ApiResponses.BadRequest(context: context));
+            }
+            var export = api.Export ?? ss.GetExport(
+                context: context,
+                id: api.ExportId);
+            var content = ExportUtilities.Export(
+                context: context,
+                ss: ss,
+                export: export,
+                where: SelectedWhere(
+                    context: context,
+                    ss: ss),
+                view: api.View ?? new View());
+            return ApiResults.Get(
+                new
+                {
+                    StatusCode = 200,
+                    Response = new
+                    {
+                        Name = ExportUtilities.FileName(
+                            context: context,
+                            ss: ss,
+                            name: export.Name,
+                            extension: export.Type.ToString()),
+                        Content = content
+                    }
+                }.ToJson());
         }
 
         public static ResponseFile ExportCrosstab(
@@ -4400,8 +4541,7 @@ namespace Implem.Pleasanter.Models
             if (groupByX?.TypeName != "datetime")
             {
                 var column = Rds.IssuesColumn()
-                    .Add(
-                        context: context,
+                    .WithItemTitle(
                         ss: ss,
                         column: groupByX)
                     .CrosstabColumns(
@@ -4416,8 +4556,12 @@ namespace Implem.Pleasanter.Models
                     context: context,
                     ss: ss);
                 var groupBy = Rds.IssuesGroupBy()
-                    .Add(ss, groupByX)
-                    .Add(ss, groupByY);
+                    .WithItemTitle(
+                        ss: ss,
+                        column: groupByX)
+                    .WithItemTitle(
+                        ss: ss,
+                        column: groupByY);
                 dataRows = Rds.ExecuteTable(
                     context: context,
                     statements: Rds.SelectIssues(
@@ -4462,7 +4606,9 @@ namespace Implem.Pleasanter.Models
                         month: month));
                 var groupBy = Rds.IssuesGroupBy()
                     .Add(dateGroup)
-                    .Add(ss, groupByY);
+                    .WithItemTitle(
+                        ss: ss,
+                        column: groupByY);
                 dataRows = Rds.ExecuteTable(
                     context: context,
                     statements: Rds.SelectIssues(
@@ -4496,13 +4642,10 @@ namespace Implem.Pleasanter.Models
             if (view.CrosstabGroupByY != "Columns")
             {
                 return self
-                    .Add(
-                        context: context,
+                    .WithItemTitle(
                         ss: ss,
                         column: groupByY)
                     .Add(
-                        context: context,
-                        ss: ss,
                         column: value,
                         _as: "Value",
                         function: Sqls.Function(aggregateType));
@@ -4511,8 +4654,6 @@ namespace Implem.Pleasanter.Models
             {
                 columns.ForEach(column =>
                     self.Add(
-                        context: context,
-                        ss: ss,
                         column: column,
                         _as: column.ColumnName,
                         function: Sqls.Function(aggregateType)));
@@ -4719,13 +4860,9 @@ namespace Implem.Pleasanter.Models
                         .UpdatedTime()
                         .ItemTitle(ss.ReferenceType)
                         .Add(
-                            context: context,
-                            ss: ss,
                             column: groupBy,
                             function: Sqls.Functions.SingleColumn)
                         .Add(
-                            context: context,
-                            ss: ss,
                             column: sortBy,
                             function: Sqls.Functions.SingleColumn),
                     join: ss.Join(
@@ -5049,14 +5186,8 @@ namespace Implem.Pleasanter.Models
                     .IssueId(_as: "Id")
                     .Ver()
                     .UpdatedTime()
-                    .Add(
-                        context: context,
-                        ss: ss,
-                        column: groupBy)
-                    .Add(
-                        context: context,
-                        ss: ss,
-                        column: value);
+                    .Add(column: groupBy)
+                    .Add(column: value);
                 var where = view.Where(context: context, ss: ss);
                 var dataRows = Rds.ExecuteTable(
                     context: context,
@@ -5247,18 +5378,9 @@ namespace Implem.Pleasanter.Models
             var column = Rds.IssuesColumn()
                 .IssueId()
                 .ItemTitle(ss.ReferenceType)
-                .Add(
-                    context: context,
-                    ss: ss,
-                    column: groupByX)
-                .Add(
-                    context: context,
-                    ss: ss,
-                    column: groupByY)
-                .Add(
-                    context: context,
-                    ss: ss,
-                    column: value);
+                .Add(column: groupByX)
+                .Add(column: groupByY)
+                .Add(column: value);
             var where = view.Where(context: context, ss: ss);
             return Rds.ExecuteTable(
                 context: context,

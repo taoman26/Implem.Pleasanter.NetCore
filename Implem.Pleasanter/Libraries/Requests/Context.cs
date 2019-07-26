@@ -130,5 +130,19 @@ namespace Implem.Pleasanter.Libraries.Requests
                 ? QueryStrings.Data(name)
                 : Forms.Data(name);
         }
+
+        public bool TrashboxActions()
+        {
+            switch (Action)
+            {
+                case "trashbox":
+                case "trashboxgridrows":
+                case "restore":
+                case "physicaldelete":
+                    return true;
+                default:
+                    return false;
+            }
+        }
     }
 }

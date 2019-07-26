@@ -202,6 +202,7 @@ namespace Implem.Pleasanter.Models
                             ss: ss,
                             gridData: gridData,
                             view: view))
+                .Events("on_grid_load")
                 .ToJson();
         }
 
@@ -394,6 +395,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 view: view,
+                tableType: Sqls.TableTypes.Normal,
                 where: Rds.DeptsWhere().DeptId(deptId))
                     .DataRows
                     .FirstOrDefault();
@@ -833,17 +835,11 @@ namespace Implem.Pleasanter.Models
                 title: deptModel.MethodType == BaseModel.MethodTypes.New
                     ? Displays.Depts(context: context) + " - " + Displays.New(context: context)
                     : deptModel.Title.Value,
-                action: () =>
-                {
-                    hb
-                        .Editor(
-                            context: context,
-                            ss: ss,
-                            deptModel: deptModel)
-                        .Hidden(controlId: "TableName", value: "Depts")
-                        .Hidden(controlId: "Controller", value: context.Controller)
-                        .Hidden(controlId: "Id", value: deptModel.DeptId.ToString());
-                }).ToString();
+                action: () => hb
+                    .Editor(
+                        context: context,
+                        ss: ss,
+                        deptModel: deptModel)).ToString();
         }
 
         private static HtmlBuilder Editor(
@@ -1576,7 +1572,18 @@ namespace Implem.Pleasanter.Models
             deptModel.VerType = context.Forms.Bool("Latest")
                 ? Versions.VerTypes.Latest
                 : Versions.VerTypes.History;
-            return EditorResponse(context, ss, deptModel).ToJson();
+            return EditorResponse(context, ss, deptModel)
+                .PushState("History", Locations.Get(
+                    context: context,
+                    parts: new string[]
+                    {
+                        "Items",
+                        deptId.ToString() 
+                            + (deptModel.VerType == Versions.VerTypes.History
+                                ? "?ver=" + context.Forms.Int("Ver") 
+                                : string.Empty)
+                    }))
+                .ToJson();
         }
 
         /// <summary>
@@ -1642,9 +1649,9 @@ namespace Implem.Pleasanter.Models
                     tableName: "Depts",
                     name: "SearchText",
                     searchText: view.ColumnFilterHash
-                    ?.Where(f => f.Key == "SearchText")
-                    ?.Select(f => f.Value)
-                    ?.FirstOrDefault(),
+                        ?.Where(f => f.Key == "SearchText")
+                        ?.Select(f => f.Value)
+                        ?.FirstOrDefault(),
                     clauseCollection: new List<string>()
                     {
                         Rds.Depts_DeptId_WhereLike(),

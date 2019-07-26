@@ -410,6 +410,7 @@
     <Compile Include="Controllers\Api_UsersController.cs" />
     <Compile Include="Controllers\PublishBinariesController.cs" />
     <Compile Include="Controllers\PublishesController.cs" />
+    <Compile Include="Controllers\RegistrationsController.cs" />
     <Compile Include="Controllers\ReminderSchedulesController.cs" />
     <Compile Include="Controllers\BackgroundTasksController.cs" />
     <Compile Include="Controllers\BinariesController.cs" />

@@ -96,7 +96,8 @@ namespace Implem.Pleasanter.App_Start
                 "~/scripts/relatingcolumns.js",
                 "~/scripts/fieldselectable.js",
                 "~/scripts/tenants.js",
-                "~/scripts/setdaterangedialog.js"
+                "~/Scripts/setDateRangeDialog.js",
+                "~/Scripts/setNumericRangeDialog.js"
             };
         }
     }

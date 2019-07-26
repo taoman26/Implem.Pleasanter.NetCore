@@ -356,6 +356,7 @@ $p.setByJsonElement = function (jsonElement, data, $control) {
             $p.setMessage(target, value);
             break;
         case 'Href':
+            $control.addClass('no-send');
             location.href = value;
             break;
         case 'PushState':
@@ -456,6 +457,54 @@ $p.setByJsonElement = function (jsonElement, data, $control) {
             break;
     }
 }
+$p.id = function () {
+    return parseInt($('#Id').val());
+}
+
+$p.siteId = function (title) {
+    if (title === undefined) {
+        return parseInt($('#SiteId').val());
+    } else {
+        var sites = JSON.parse($('#JoinedSites').val()).filter(function (data) {
+            return data.Title === title;
+        });
+        return sites.length > 0
+            ? sites[0].SiteId
+            : undefined
+    }
+}
+
+$p.getColumnName = function (name) {
+    var data = JSON.parse($('#Columns').val()).filter(function (column) {
+        return column.LabelText === name || column.ColumnName === name
+    });
+    return data.length > 0
+        ? data[0].ColumnName
+        : undefined;
+}
+
+$p.getControl = function (name) {
+    var columnName = $p.getColumnName(name);
+    return columnName !== undefined
+        ? $('#' + $('#ReferenceType').val() + '_' + columnName)
+        : undefined;
+}
+
+$p.getGridRow = function (id) {
+    return $('#Grid > tbody > tr[data-id="' + id + '"]');
+}
+
+$p.getGridCell = function (id, name, excludeHistory) {
+    return $('#Grid > tbody > tr[data-id="' + id + '"]' + (excludeHistory? ':not([data-history])' : '') + ' td:nth-child(' + ($p.getGridColumnIndex(name) + 1) + ')');
+}
+
+$p.getGridColumnIndex = function (name) {
+    return $('#Grid > thead > tr > th').index($('#Grid > thead > tr > th[data-name="' + $p.getColumnName(name) + '"]'));
+}
+
+$p.on = function (events, name, func) {
+    $(document).on(events, '#' + $p.getControl(name).attr('id'), func);
+}
 $p.eventArgs = function (url, methodType, data, $control, async, ret, json) {
     var args = {};
     args.url = url;
@@ -555,6 +604,7 @@ $p.syncSend = function ($control, formId) {
 
 $p.send = function ($control, formId, async) {
     if ($p.outsideDialog($control)) return false;
+    if ($control.hasClass('no-send')) return false;
     $form = formId !== undefined
         ? $('#' + formId)
         : $control.closest('form');
@@ -674,7 +724,6 @@ $(function () {
             } else if (parseInt($control.val()) > parseInt($control.attr('data-max'))) {
                 $control.val($control.attr('data-max'));
             }
-            $p.setFormChanged($control);
         }
         $p.setData($control);
         e.preventDefault();
@@ -684,7 +733,6 @@ $(function () {
         var data = $p.getData($control);
         data[this.id] = ui.value;
         $p.setGridTimestamp($control, data);
-        $p.setFormChanged($control);
     });
     $(document).on('change', '.control-checkbox.visible', function () {
         show(this.id.substring(7, this.id.length), $(this).prop('checked'));
@@ -1316,10 +1364,16 @@ $p.confirmReload = function confirmReload() {
 $(function () {
     $(document).on(
         'change',
-        '.confirm-unload input, .confirm-unload select, .confirm-unload textarea',
+        '.confirm-unload input, .confirm-unload select, .confirm-unload textarea,  .confirm-unload .control-spinner',
         function () {
             $p.setFormChanged($(this));
         });
+    $(document).on(
+        'spin',
+        '.confirm-unload .control-spinner',
+        function () {
+            $p.setFormChanged($(this));
+    });
     $(window).bind("beforeunload", function () {
         if ($p.formChanged) {
             return $p.display('ConfirmUnload');
@@ -1801,6 +1855,7 @@ $p.openEditorDialog = function (id) {
         width: '90%',
         open: function () {
             $('#EditorLoading').val(0);
+            $p.initRelatingColumn();
         }
     });
 }
@@ -2194,7 +2249,6 @@ $(function () {
     });
 });
 $p.openImportSettingsDialog = function ($control) {
-    $p.syncSend($control);
     $('#ImportSettingsDialog').dialog({
         modal: true,
         width: '520px'
@@ -2312,7 +2366,11 @@ $(function () {
                 scrollInput: false
             }).addClass('applied');
         });
-        $.datetimepicker.setLocale('ja');
+        switch ($('#Language').val()) {
+            case 'ja':
+                $.datetimepicker.setLocale('ja');
+                break;
+        }
         $('.radio:not(.applied)').buttonset().addClass('applied');
         $('.control-selectable:not(.applied)').selectable({
             selected: function (event, ui) {
@@ -2581,7 +2639,6 @@ $p.showMarkDownViewer = function ($control) {
         $viewer.html($p.markup($control.val()));
         $p.resizeEditor($control, $viewer);
         $p.toggleEditor($viewer, false);
-        $p.setFormChanged($control);
     }
 }
 
@@ -2862,7 +2919,8 @@ $p.back = function () {
 }
 $(function () {
     $(window).on('popstate', function (e) {
-        if (e.originalEvent.currentTarget.location.pathname !== $('#BaseUrl').val() + $('#Id').val()) {
+        if (e.originalEvent.currentTarget.location.pathname !== $('#BaseUrl').val() + $('#Id').val()
+            || e.originalEvent.state === "History" || urlParams()["ver"]) {
             $p.ajax(e.originalEvent.currentTarget.location, 'post');
         }
     });
@@ -2870,6 +2928,19 @@ $(function () {
     var $control = $('#BackUrl');
     if ($control.length === 1) {
         $control.appendTo('body');
+    }
+
+    function urlParams() {
+        var urlParam = location.search.substring(1);
+        var paramArray = [];
+        if (urlParam) {
+            var param = urlParam.split('&');
+            for (i = 0; i < param.length; i++) {
+                var paramItem = param[i].split('=');
+                paramArray[paramItem[0]] = paramItem[1];
+            }
+        }
+        return paramArray;
     }
 });
 $p.openOutgoingMailDialog = function ($control) {
@@ -3320,7 +3391,7 @@ $p.openEditorColumnDialog = function ($control) {
 
 $p.resetEditorColumn = function ($control) {
     $p.syncSend($control);
-    var data = $p.getData($control);
+    var data = $p.getData($('#EditorColumnForm'));
     $('#EditorColumnForm [class^="control-"]').each(function (index, control) {
         $p.setData($(control), data);
     });
@@ -3809,6 +3880,10 @@ $(function () {
     $('body').css({ visibility: 'visible' });
 });
 $(document).ready(function () {
+    $p.initRelatingColumn();
+});
+
+$p.initRelatingColumn = function () {
     var param = $('#TriggerRelatingColumns').val();
     if (param === undefined) return;
     var rcols = JSON.parse(param);
@@ -3821,8 +3896,7 @@ $(document).ready(function () {
             prekey = rcols[k].Columns[k2];
         }
     }
-});
-
+};
 $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
     $(document).ready(function () {
         var tablename = $('#TableName').val();
@@ -3835,9 +3909,10 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
         });
     });
 
-    var c_change = function (tablename, siteid, linkedClass) {
+    var c_change = function (tablename, siteid) {
         var parentId = $('#' + tablename + '_' + prnt + ' option:selected').val();
         var childId = $('#' + tablename + '_' + chld + ' option:selected').val();
+        var childDisabled = $('#' + tablename + '_' + chld).prop('disabled');
         $('#' + tablename + '_' + chld).prop('disabled', true);
         $('#' + tablename + '_' + chld).empty();
         $('#' + tablename + '_' + chld)
@@ -3846,10 +3921,10 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
                 .prop('id', 'Temporary_' + chld)
                 .prop('selected', true));
         $('#' + tablename + '_' + chld).append($('<option>').val(''));
-        refreshCombo(tablename, siteid, null, parentId, childId, false);
+        refreshCombo(tablename, siteid, null, parentId, childId, false, childDisabled);
     };
 
-    var refreshCombo = function (tablename, siteid, json, parentSelectedId, childSelectedId, childSelected) {
+    var refreshCombo = function (tablename, siteid, json, parentSelectedId, childSelectedId, childSelected, childDisabled) {
         $('#' + tablename + '_' + chld).attr('parent-data-class', linkedClass);
         $('#' + tablename + '_' + chld).attr('parent-data-id', parentSelectedId === '' ? '-1' : parentSelectedId);
         var offset = 0;
@@ -3863,10 +3938,10 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
                 pagesize : (totalcount - offset);
             for (var i = 0; i < loopmax; i++) {
                 var id = json.Response.Data[i].ResultId;
-                if (id == undefined) id = json.Response.Data[i].IssueId;
+                if (id === undefined) id = json.Response.Data[i].IssueId;
                 var title = json.Response.Data[i].ItemTitle;
                 var isSelected = false;
-                if (id == childSelectedId) {
+                if (id === Number(childSelectedId)) {
                     childSelected = true;
                     isSelected = true;
                 }
@@ -3883,7 +3958,7 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
             param.View.ColumnSorterHash = new Object();
             param.View.ColumnSorterHash['ItemTitle'] = 0;
             var urlpath = $('#ApplicationPath').val() +
-                'api/items/' + escape((siteid - 0)) + '/get';
+                'items/' + escape((siteid - 0)) + '/get';
             $.ajax({
                 type: 'POST',
                 url: urlpath,
@@ -3893,14 +3968,14 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
                 scriptCharset: 'utf-8',
                 async: false
             }).done(function (json) {
-                if (json.StatusCode == 200) {
-                    refreshCombo(tablename, siteid, json, parentSelectedId, childSelectedId, childSelected);
+                if (json.StatusCode === 200) {
+                    refreshCombo(tablename, siteid, json, parentSelectedId, childSelectedId, childSelected, childDisabled);
                 } else {
                     alert('Error\r\nStatusCode:' + json.StatusCode);
                 }
             }).fail(function (XMLHttpRequest, textStatus, errorThrown) {
                 alert(textStatus + '\r\n' + errorThrown);
-                $('#' + tablename + '_' + chld).prop('disabled', false);
+                $('#' + tablename + '_' + chld).prop('disabled', childDisabled);
             });
         } else {
             if (childSelectedId > 0
@@ -3910,7 +3985,7 @@ $p.applyRelatingColumn = function (prnt, chld, linkedClass) {
                 $('#' + tablename + '_' + chld).trigger('change');
             }
             $('#Temporary_' + chld).remove();
-            $('#' + tablename + '_' + chld).prop('disabled', false);
+            $('#' + tablename + '_' + chld).prop('disabled', childDisabled);
         }
     };
 }
@@ -4075,3 +4150,334 @@ $p.uploadTenantImage = function ($control) {
         data,
         $control);
 }
+
+$p.setDateRangeDialog = function ($control, title, startLabel, endLabel, okLabel, cancelLabel, clearLabel, timepicker) {
+    $control.blur();
+    $target = $('#' + $control.attr('id').replace("_Display_", ""));
+
+    var initValue = JSON.parse($target.val() || "null");
+    var startValue = "";
+    var endValue = "";
+    if (Array.isArray(initValue) && initValue.length > 0) {
+        var values = initValue[0].split(',');
+        if (values.length > 0) {
+            startValue = timepicker ? values[0] : values[0].split(' ')[0];
+        }
+        if (values.length > 1) {
+            endValue = timepicker ? values[1] : values[1].split(' ')[0];
+        }
+    }
+    $dlg = $('<div>')
+        .attr({
+            id: 'SetDateRangeDialog',
+            class: 'dialog ui-dialog-content ui-widget-content',
+            style: 'display:block;'
+        });
+
+    $startDate = $('<input>')
+        .attr({
+            id: 'dateRangeStart',
+            class: 'control-textbox datepicker applied valid',
+            type: 'text',
+            placeholder: startLabel,
+            autocomplete: 'off',
+            value: startValue
+        })
+        .datetimepicker({
+            timepicker: timepicker,
+            format: timepicker ? 'Y/m/d H:i' : 'Y/m/d'
+        });
+
+    $endDate = $('<input>')
+        .attr({
+            id: 'dateRangeEnd',
+            class: 'control-textbox datepicker applied valid',
+            type: 'text',
+            placeholder: endLabel,
+            autocomplete: 'off',
+            value: endValue
+        })
+        .datetimepicker({
+            timepicker: timepicker,
+            format: timepicker ? 'Y/m/d H:i' : 'Y/m/d'
+        });
+
+    $okButton = $('<button>')
+        .attr({
+            class: 'button button-icon validate ui-button ui-corner-all ui-widget applied',
+            type: 'button'
+        })
+        .on('click', function () {
+            var sdval = $startDate.val();
+            var edval = $endDate.val();
+            var setval = "";
+            var dispval = "";
+            if (sdval || edval) {
+                dispval = sdval + "-" + edval;
+                if (!timepicker && sdval) { sdval += " 00:00:00.000"; }
+                if (!timepicker && edval) { edval += " 23:59:59.997"; }
+                setval = '["'+ sdval + ',' + edval + '"]';
+            }
+            $control.val(dispval);
+            $p.set($target, setval);
+            $dlg.dialog("close");
+            $p.send($target);
+        })
+        .append($('<span>')
+            .addClass("ui-button-icon ui-icon ui-icon-check"))
+        .append($('<span>')
+            .addClass("ui-button-icon-space"))
+        .append(okLabel);
+
+    $cancelButton = $('<button>')
+        .attr({
+            class: 'button button-icon validate ui-button ui-corner-all ui-widget applied',
+            type: 'button'
+        })
+        .on('click', function () { $dlg.dialog("close"); })
+        .append($('<span>')
+            .addClass("ui-button-icon ui-icon ui-icon-cancel"))
+        .append($('<span>')
+            .addClass("ui-button-icon-space"))
+        .append(cancelLabel);
+
+    $clearButton = $('<button>')
+        .attr({
+            class: 'button button-icon validate ui-button ui-corner-all ui-widget applied',
+            type: 'button'
+        })
+        .on('click', function () { $startDate.val(""); $endDate.val(""); })
+        .append($('<span class="ui-button-icon ui-icon ui-icon-arrowrefresh-1-e">'))
+        .append($('<span class="ui-button-icon-space">'))
+        .append(clearLabel);
+
+    $dlg
+        .append($('<input>').css({ opacity: 0, position: 'absolute', top: 0, left: 0 }))
+        .append($('<fieldset>')
+            .addClass("fieldset cf")
+            .append($('<div>')
+                .addClass("field-normal")
+                .append($('<label>')
+                    .attr({ class: "field-label", for: "dateRangeStart" })
+                    .text(startLabel))
+                .append($('<div>')
+                    .addClass("field-control")
+                    .append($('<div>')
+                        .addClass("container-normal")
+                        .append($startDate))))
+            .append($('<div>')
+                .addClass("field-normal")
+                .append($('<label>')
+                    .attr({ class: "field-label", for: "dateRangeStart" })
+                    .text(endLabel))
+                .append($('<div>')
+                    .addClass("field-control")
+                    .append($('<div>')
+                        .addClass("container-normal")
+                        .append($endDate))))
+            .append($('<div>')
+                .addClass("command-center")
+                .append($okButton)
+                .append($cancelButton)
+                .append($clearButton)));
+
+    $dlg.dialog({
+        autoOpen: false,
+        modal: true,
+        title: title,
+        height: 'auto',
+        width: 'auto',
+        position: { my: 'center top', at: 'center bottom', of: $control }
+    });
+    $dlg.dialog("open");
+};
+$p.openSetNumericRangeDialog = function ($control) {
+    $control.blur();
+    $p.set($control, $control.val());
+    error = $p.send($control);
+    if (error === 0) {
+        $('#SetNumericRangeDialog').dialog({
+            modal: true,
+            width: '420px'
+        });
+    }
+}
+$p.openSetNumericRangeOK = function ($controlID) {
+    $start = $('#numericRangeStart');
+    $end = $('#numericRangeEnd');
+    $start.validate();
+    $end.validate();
+    if (!$start.valid() || !$end.valid()) {
+        $p.setErrorMessage('ValidationError');
+        return false;
+    }
+    $control = $('#' + $controlID);
+    $target = $('#' + $controlID.replace("_Display_", ""));
+    var sdval = $("#numericRangeStart").val();
+    var edval = $("#numericRangeEnd").val();
+    var setval = "";
+    var dispval = "";
+    if (sdval || edval) {
+        dispval = sdval + "-" + edval;
+        setval = '["'+ sdval + ',' + edval + '"]';
+    }
+    $control.val(dispval);
+    $p.set($target, setval);
+    $('#SetNumericRangeDialog').dialog("close");
+    $p.send($target);
+}
+$p.openSetNumericRangeClear = function ($control) {
+    $("#numericRangeStart").val("");
+    $("#numericRangeEnd").val("");
+    $p.clearMessage();
+}
+$p.setNumericRangeDialog = function ($control, title, startLabel, endLabel, okLabel, cancelLabel, clearLabel, minNumber, maxNumber) {
+    $control.blur();
+    $target = $('#' + $control.attr('id').replace("_Display_", ""));
+    var initValue = JSON.parse($target.val() || "null");
+    var startValue = "";
+    var endValue = "";
+    if (Array.isArray(initValue) && initValue.length > 0) {
+        var values = initValue[0].split(',');
+        if (values.length > 0) {
+            startValue = values[0].split(' ')[0];
+        }
+        if (values.length > 1) {
+            endValue = values[1].split(' ')[0];
+        }
+    }
+    $dlg = $('<div>')
+        .attr({
+            id: 'SetNumericRangeDialog',
+            class: 'dialog ui-dialog-content ui-widget-content',
+            style: 'display:block;'
+        })
+        .append($('<form>')
+            .attr({
+                id: 'numericRangeForm',
+                class: 'NumericRangeDialogForm',
+                novalidate: 'novalidate',
+            }));
+    $startNumeric = $('<input>')
+        .attr({
+            id: 'numericRangeStart',
+            class: 'control-textbox with-unit',
+            type: 'text',
+            placeholder: startLabel,
+            value: startValue,
+            "data-validate-required": "0",
+            "data-validate-number": "1",
+            "data-validate-min-number": minNumber,
+            "data-validate-max-number": maxNumber
+        });
+    $endNumeric = $('<input>')
+        .attr({
+            id: 'numericRangeEnd',
+            class: 'control-textbox applied valid',
+            type: 'text',
+            placeholder: endLabel,
+            autocomplete: 'off',
+            value: endValue,
+            "data-validate-required": "0",
+            "data-validate-number": "1",
+            "data-validate-min-number": minNumber,
+            "data-validate-max-number": maxNumber
+        });
+    $okButton = $('<button>')
+        .attr({
+            class: 'button button-icon validate ui-button ui-corner-all ui-widget applied',
+            type: 'button'
+        })
+        .on('click', function () {
+
+            $start = $('#numericRangeStart');
+            $end = $('#numericRangeEnd');
+            $start.validate();
+            $end.validate();
+            if (!$start.valid() || !$end.valid()) {
+                $p.setErrorMessage('ValidationError', '#NumericRangeDialogFormMessage');
+                return false;
+            }
+            var sdval = $startNumeric.val();
+            var edval = $endNumeric.val();
+            var setval = "";
+            var dispval = "";
+            if (sdval || edval) {
+                dispval = sdval + "-" + edval;
+                setval = '["'+ sdval + ',' + edval + '"]';
+            }
+            $control.val(dispval);
+            $p.set($target, setval);
+            $dlg.dialog("close");
+        })
+        .append($('<span>')
+            .addClass("ui-button-icon ui-icon ui-icon-check"))
+        .append($('<span>')
+            .addClass("ui-button-icon-space"))
+        .append(okLabel);
+    $cancelButton = $('<button>')
+        .attr({
+            class: 'button button-icon validate ui-button ui-corner-all ui-widget applied',
+            type: 'button'
+        })
+        .on('click', function () { $dlg.dialog("close"); })
+        .append($('<span>')
+            .addClass("ui-button-icon ui-icon ui-icon-cancel"))
+        .append($('<span>')
+            .addClass("ui-button-icon-space"))
+        .append(cancelLabel);
+    $clearButton = $('<button>')
+        .attr({
+            class: 'button button-icon validate ui-button ui-corner-all ui-widget applied',
+            type: 'button'
+        })
+        .on('click', function () { $startNumeric.val(""); $endNumeric.val(""); $p.clearMessage();})
+        .append($('<span class="ui-button-icon ui-icon ui-icon-arrowrefresh-1-e">'))
+        .append($('<span class="ui-button-icon-space">'))
+        .append(clearLabel);
+    $dlg
+        .children('.NumericRangeDialogForm')
+        .append($('<input/>').css({ opacity: 0, position: 'absolute', top: 0, left: 0 }))
+        .append($('<fieldset>')
+            .addClass("fieldset cf")
+            .append($('<div>')
+                .addClass("field-normal")
+                .append($('<label>')
+                    .attr({ class: "field-label", for: "numericRangeStart" })
+                    .text(startLabel))
+                .append($('<div>')
+                    .addClass("field-control")
+                    .append($('<div>')
+                        .addClass("container-normal")
+                        .append($startNumeric))))
+            .append($('<div>')
+                .addClass("field-normal")
+                .append($('<label>')
+                    .attr({ class: "field-label", for: "numericRangeEnd" })
+                    .text(endLabel))
+                .append($('<div>')
+                    .addClass("field-control")
+                    .append($('<div>')
+                        .addClass("container-normal")
+                        .append($endNumeric))))
+            .append($('<p>')
+                .attr({
+                    id: 'NumericRangeDialogFormMessage',
+                    class: 'message-dialog'
+                }))
+            .append($('<div>')
+                .addClass("command-center")
+                .append($okButton)
+                .append($cancelButton)
+                .append($clearButton)));
+    $dlg.dialog({
+        autoOpen: false,
+        modal: true,
+        title: title,
+        height: 'auto',
+        width: 'auto',
+        position: { my: 'center top', at: 'center bottom', of: $control }
+    });
+    $dlg.dialog("open");
+    $p.applyValidator();
+};

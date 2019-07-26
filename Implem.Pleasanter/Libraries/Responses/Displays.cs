@@ -188,6 +188,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string AGPL(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "AGPL",
+                data: data);
+        }
+
         public static string All(
             Context context,
             params string[] data)
@@ -258,6 +268,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string AlwaysRequestSearchCondition(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "AlwaysRequestSearchCondition",
+                data: data);
+        }
+
         public static string And(
             Context context,
             params string[] data)
@@ -315,6 +335,116 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(
                 context: context,
                 id: "ApplicationError",
+                data: data);
+        }
+
+        public static string Approval(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Approval",
+                data: data);
+        }
+
+        public static string ApprovalMailBody(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalMailBody",
+                data: data);
+        }
+
+        public static string ApprovalMailTitle(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalMailTitle",
+                data: data);
+        }
+
+        public static string ApprovalMessage(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalMessage",
+                data: data);
+        }
+
+        public static string ApprovalMessageInvited(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalMessageInvited",
+                data: data);
+        }
+
+        public static string ApprovalMessageInviting(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalMessageInviting",
+                data: data);
+        }
+
+        public static string ApprovalRequest(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalRequest",
+                data: data);
+        }
+
+        public static string ApprovalRequestMailBody(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalRequestMailBody",
+                data: data);
+        }
+
+        public static string ApprovalRequestMailTitle(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalRequestMailTitle",
+                data: data);
+        }
+
+        public static string ApprovalRequestMessage(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalRequestMessage",
+                data: data);
+        }
+
+        public static string ApprovalRequestMessageRequesting(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "ApprovalRequestMessageRequesting",
                 data: data);
         }
 
@@ -788,6 +918,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string CodeDefinerErrorCount(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "CodeDefinerErrorCount",
+                data: data);
+        }
+
         public static string CodeDefinerInsertTestDataCompleted(
             Context context,
             params string[] data)
@@ -875,6 +1015,16 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(
                 context: context,
                 id: "CommentUpdated",
+                data: data);
+        }
+
+        public static string CommercialLicense(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "CommercialLicense",
                 data: data);
         }
 
@@ -2338,6 +2488,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string HistoryOnGrid(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "HistoryOnGrid",
+                data: data);
+        }
+
         public static string HourAgo(
             Context context,
             params string[] data)
@@ -2618,6 +2778,66 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string InvitationMailBody(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "InvitationMailBody",
+                data: data);
+        }
+
+        public static string InvitationMailTitle(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "InvitationMailTitle",
+                data: data);
+        }
+
+        public static string Invite(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Invite",
+                data: data);
+        }
+
+        public static string Invited(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Invited",
+                data: data);
+        }
+
+        public static string InviteMessage(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "InviteMessage",
+                data: data);
+        }
+
+        public static string Inviting(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Inviting",
+                data: data);
+        }
+
         public static string ItemsLimit(
             Context context,
             params string[] data)
@@ -2695,6 +2915,36 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(
                 context: context,
                 id: "LessThan",
+                data: data);
+        }
+
+        public static string License(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "License",
+                data: data);
+        }
+
+        public static string LicenseDeadline(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "LicenseDeadline",
+                data: data);
+        }
+
+        public static string Licensee(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Licensee",
                 data: data);
         }
 
@@ -3648,6 +3898,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string NoDataSearchCondition(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "NoDataSearchCondition",
+                data: data);
+        }
+
         public static string NoDuplication(
             Context context,
             params string[] data)
@@ -3825,6 +4085,16 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(
                 context: context,
                 id: "NumericColumn",
+                data: data);
+        }
+
+        public static string NumericRange(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "NumericRange",
                 data: data);
         }
 
@@ -4538,6 +4808,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string RequestingApproval(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "RequestingApproval",
+                data: data);
+        }
+
         public static string Required(
             Context context,
             params string[] data)
@@ -4565,6 +4845,16 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(
                 context: context,
                 id: "RequireMailAddresses",
+                data: data);
+        }
+
+        public static string RequireManagePermission(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "RequireManagePermission",
                 data: data);
         }
 
@@ -7068,6 +7358,156 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string Registrations_TenantId(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_TenantId",
+                data: data);
+        }
+
+        public static string Registrations_RegistrationId(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_RegistrationId",
+                data: data);
+        }
+
+        public static string Registrations_MailAddress(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_MailAddress",
+                data: data);
+        }
+
+        public static string Registrations_Invitee(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Invitee",
+                data: data);
+        }
+
+        public static string Registrations_InviteeName(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_InviteeName",
+                data: data);
+        }
+
+        public static string Registrations_LoginId(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_LoginId",
+                data: data);
+        }
+
+        public static string Registrations_Name(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Name",
+                data: data);
+        }
+
+        public static string Registrations_Password(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Password",
+                data: data);
+        }
+
+        public static string Registrations_PasswordValidate(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_PasswordValidate",
+                data: data);
+        }
+
+        public static string Registrations_Language(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Language",
+                data: data);
+        }
+
+        public static string Registrations_Passphrase(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Passphrase",
+                data: data);
+        }
+
+        public static string Registrations_Invitingflg(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Invitingflg",
+                data: data);
+        }
+
+        public static string Registrations_UserId(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_UserId",
+                data: data);
+        }
+
+        public static string Registrations_DeptId(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_DeptId",
+                data: data);
+        }
+
+        public static string Registrations_GroupId(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_GroupId",
+                data: data);
+        }
+
         public static string Users_TenantId(
             Context context,
             params string[] data)
@@ -9378,6 +9818,86 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string Registrations_Ver(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Ver",
+                data: data);
+        }
+
+        public static string Registrations_Comments(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Comments",
+                data: data);
+        }
+
+        public static string Registrations_Creator(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Creator",
+                data: data);
+        }
+
+        public static string Registrations_Updator(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Updator",
+                data: data);
+        }
+
+        public static string Registrations_CreatedTime(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_CreatedTime",
+                data: data);
+        }
+
+        public static string Registrations_UpdatedTime(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_UpdatedTime",
+                data: data);
+        }
+
+        public static string Registrations_VerUp(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_VerUp",
+                data: data);
+        }
+
+        public static string Registrations_Timestamp(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations_Timestamp",
+                data: data);
+        }
+
         public static string Users_Ver(
             Context context,
             params string[] data)
@@ -10785,6 +11305,16 @@ namespace Implem.Pleasanter.Libraries.Responses
             return Get(
                 context: context,
                 id: "GroupMembers",
+                data: data);
+        }
+
+        public static string Registrations(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Registrations",
                 data: data);
         }
 

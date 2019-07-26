@@ -1,10 +1,11 @@
 ﻿using Implem.ParameterAccessor.Parts;
+using System;
 using System.Collections.Generic;
 namespace Implem.DefinitionAccessor
 {
     public static class Parameters
     {
-        public static bool Enterprise = false;
+        public static License.License License = new License.License();
         public static List<string> SyntaxErrors = new List<string>();
         public static Api Api;
         public static Authentication Authentication;
@@ -19,15 +20,32 @@ namespace Implem.DefinitionAccessor
         public static List<string> ExtendedScripts;
         public static General General;
         public static History History;
+        public static ParameterAccessor.Parts.Version Version;
         public static Mail Mail;
         public static Notification Notification;
         public static Permissions Permissions;
         public static Rds Rds;
+        public static Registration Registration;
         public static Reminder Reminder;
         public static Search Search;
         public static Security Security;
         public static Service Service;
         public static Session Session;
         public static SysLog SysLog;
+
+        public static bool CommercialLicense()
+        {
+            return License.Check();
+        }
+
+        public static DateTime LicenseDeadline()
+        {
+            return License.Deadline;
+        }
+
+        public static string Licensee()
+        {
+            return License.Licensee;
+        }
     }
 }

@@ -377,17 +377,11 @@ namespace Implem.Pleasanter.Models
                 title: tenantModel.MethodType == BaseModel.MethodTypes.New
                     ? Displays.Tenants(context: context) + " - " + Displays.New(context: context)
                     : tenantModel.Title.Value,
-                action: () =>
-                {
-                    hb
-                        .Editor(
-                            context: context,
-                            ss: ss,
-                            tenantModel: tenantModel)
-                        .Hidden(controlId: "TableName", value: "Tenants")
-                        .Hidden(controlId: "Controller", value: context.Controller)
-                        .Hidden(controlId: "Id", value: tenantModel.TenantId.ToString());
-                }).ToString();
+                action: () => hb
+                    .Editor(
+                        context: context,
+                        ss: ss,
+                        tenantModel: tenantModel)).ToString();
         }
 
         /// <summary>
@@ -1165,7 +1159,18 @@ namespace Implem.Pleasanter.Models
             tenantModel.VerType = context.Forms.Bool("Latest")
                 ? Versions.VerTypes.Latest
                 : Versions.VerTypes.History;
-            return EditorResponse(context, ss, tenantModel).ToJson();
+            return EditorResponse(context, ss, tenantModel)
+                .PushState("History", Locations.Get(
+                    context: context,
+                    parts: new string[]
+                    {
+                        "Items",
+                        tenantId.ToString() 
+                            + (tenantModel.VerType == Versions.VerTypes.History
+                                ? "?ver=" + context.Forms.Int("Ver") 
+                                : string.Empty)
+                    }))
+                .ToJson();
         }
 
         /// <summary>

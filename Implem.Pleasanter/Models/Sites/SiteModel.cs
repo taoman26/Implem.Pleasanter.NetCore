@@ -924,11 +924,43 @@ namespace Implem.Pleasanter.Models
                         }
                         else
                         {
-                            Value(
+                            var column = ss.GetColumn(
                                 context: context,
-                                columnName: key.Split_2nd('_'),
-                                value: value,
-                                toUniversal: true);
+                                columnName: key.Split_2nd('_'));
+                            switch (Def.ExtendedColumnTypes.Get(column?.ColumnName))
+                            {
+                                case "Class":
+                                    Class(
+                                        columnName: column.ColumnName,
+                                        value: value);
+                                    break;
+                                case "Num":
+                                    Num(
+                                        columnName: column.ColumnName,
+                                        value: column.Round(value.ToDecimal(
+                                            cultureInfo: context.CultureInfo())));
+                                    break;
+                                case "Date":
+                                    Date(
+                                        columnName: column.ColumnName,
+                                        value: value.ToDateTime().ToUniversal(context: context));
+                                    break;
+                                case "Description":
+                                    Description(
+                                        columnName: column.ColumnName,
+                                        value: value);
+                                    break;
+                                case "Check":
+                                    Check(
+                                        columnName: column.ColumnName,
+                                        value: value.ToBool());
+                                    break;
+                                case "Attachments":
+                                    Attachments(
+                                        columnName: column.ColumnName,
+                                        value: value.Deserialize<Attachments>());
+                                    break;
+                            }
                         }
                         break;
                 }
@@ -998,12 +1030,24 @@ namespace Implem.Pleasanter.Models
             if (data.Publish != null) Publish = data.Publish.ToBool().ToBool();
             if (data.Comments != null) Comments.Prepend(context: context, ss: ss, body: data.Comments);
             if (data.VerUp != null) VerUp = data.VerUp.ToBool();
-            ClassHash = data.ClassHash;
-            NumHash = data.NumHash;
-            DateHash = data.DateHash;
-            DescriptionHash = data.DescriptionHash;
-            CheckHash = data.CheckHash;
-            AttachmentsHash = data.AttachmentsHash;
+            data.ClassHash.ForEach(o => Class(
+                columnName: o.Key,
+                value: o.Value));
+            data.NumHash.ForEach(o => Num(
+                columnName: o.Key,
+                value: o.Value));
+            data.DateHash.ForEach(o => Date(
+                columnName: o.Key,
+                value: o.Value.ToUniversal(context: context)));
+            data.DescriptionHash.ForEach(o => Description(
+                columnName: o.Key,
+                value: o.Value));
+            data.CheckHash.ForEach(o => Check(
+                columnName: o.Key,
+                value: o.Value));
+            data.AttachmentsHash.ForEach(o => Attachments(
+                columnName: o.Key,
+                value: o.Value));
             SetSiteSettings(context: context);
         }
 
@@ -2708,15 +2752,16 @@ namespace Implem.Pleasanter.Models
             else
             {
                 SiteSettings.Notifications.Add(new Notification(
-                    SiteSettings.Notifications.MaxOrDefault(o => o.Id) + 1,
-                    (Notification.Types)context.Forms.Int("NotificationType"),
-                    context.Forms.Data("NotificationPrefix"),
-                    context.Forms.Data("NotificationAddress"),
-                    context.Forms.Data("NotificationToken"),
-                    context.Forms.List("MonitorChangesColumnsAll"),
-                    context.Forms.Int("BeforeCondition"),
-                    context.Forms.Int("AfterCondition"),
-                    (Notification.Expressions)context.Forms.Int("Expression")));
+                    id: SiteSettings.Notifications.MaxOrDefault(o => o.Id) + 1,
+                    type: (Notification.Types)context.Forms.Int("NotificationType"),
+                    prefix: context.Forms.Data("NotificationPrefix"),
+                    address: context.Forms.Data("NotificationAddress"),
+                    token: context.Forms.Data("NotificationToken"),
+                    monitorChangesColumns: context.Forms.List("MonitorChangesColumnsAll"),
+                    beforeCondition: context.Forms.Int("BeforeCondition"),
+                    afterCondition: context.Forms.Int("AfterCondition"),
+                    expression: (Notification.Expressions)context.Forms.Int("Expression"),
+                    disabled: context.Forms.Bool("NotificationDisabled")));
                 SetNotificationsResponseCollection(context: context, res: res);
             }
         }
@@ -2740,14 +2785,15 @@ namespace Implem.Pleasanter.Models
                 else
                 {
                     notification.Update(
-                        (Notification.Types)context.Forms.Int("NotificationType"),
-                        context.Forms.Data("NotificationPrefix"),
-                        context.Forms.Data("NotificationAddress"),
-                        context.Forms.Data("NotificationToken"),
-                        context.Forms.List("MonitorChangesColumnsAll"),
-                        context.Forms.Int("BeforeCondition"),
-                        context.Forms.Int("AfterCondition"),
-                        (Notification.Expressions)context.Forms.Int("Expression"));
+                        type: (Notification.Types)context.Forms.Int("NotificationType"),
+                        prefix: context.Forms.Data("NotificationPrefix"),
+                        address: context.Forms.Data("NotificationAddress"),
+                        token: context.Forms.Data("NotificationToken"),
+                        monitorChangesColumns: context.Forms.List("MonitorChangesColumnsAll"),
+                        beforeCondition: context.Forms.Int("BeforeCondition"),
+                        afterCondition: context.Forms.Int("AfterCondition"),
+                        expression: (Notification.Expressions)context.Forms.Int("Expression"),
+                        disabled: context.Forms.Bool("NotificationDisabled"));
                     SetNotificationsResponseCollection(context: context, res: res);
                 }
             }
@@ -2906,7 +2952,8 @@ namespace Implem.Pleasanter.Models
                             range: context.Forms.Int("ReminderRange"),
                             sendCompletedInPast: context.Forms.Bool("ReminderSendCompletedInPast"),
                             notSendIfNotApplicable: context.Forms.Bool("NotSendIfNotApplicable"),
-                            condition: context.Forms.Int("ReminderCondition")));
+                            condition: context.Forms.Int("ReminderCondition"),
+                            disabled: context.Forms.Bool("ReminderDisabled")));
                         SetRemindersResponseCollection(context: context, res: res);
                         break;
                     case Error.Types.BadMailAddress:
@@ -2960,7 +3007,8 @@ namespace Implem.Pleasanter.Models
                                 range: context.Forms.Int("ReminderRange"),
                                 sendCompletedInPast: context.Forms.Bool("ReminderSendCompletedInPast"),
                                 notSendIfNotApplicable: context.Forms.Bool("NotSendIfNotApplicable"),
-                                condition: context.Forms.Int("ReminderCondition"));
+                                condition: context.Forms.Int("ReminderCondition"),
+                                disabled: context.Forms.Bool("ReminderDisabled"));
                             SetRemindersResponseCollection(context: context, res: res);
                             break;
                         case Error.Types.BadMailAddress:

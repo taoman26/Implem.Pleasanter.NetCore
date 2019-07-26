@@ -243,6 +243,15 @@ namespace Implem.Pleasanter.NetCore.Controllers
             return json;
         }
 
+        [HttpPost]
+        public string OpenSetNumericRangeDialog(long id)
+        {
+            var context = new ContextImplement();
+            var controler = new Implem.Pleasanter.Controllers.ItemsController();
+            var json = controler.OpenSetNumericRangeDialog(context: context, id: id);
+            return json;
+        }
+
         [HttpGet]
         public ActionResult Export(long id)
         {
@@ -784,6 +793,15 @@ namespace Implem.Pleasanter.NetCore.Controllers
             var controller = new Implem.Pleasanter.Controllers.ItemsController();
             var json = controller.ForceUnlockTable(context: context, id: id);
             return json;
+        }
+
+        [HttpPost]
+        public ContentResult Get(long id)
+        {
+            var context = new ContextImplement();
+            var controller = new Implem.Pleasanter.Controllers.ItemsController();
+            var result = controller.Get(context: context, id: id);
+            return result.ToHttpResponse(request: Request);
         }
     }
 }

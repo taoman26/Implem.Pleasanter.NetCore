@@ -1,18 +1,15 @@
 ![image](https://user-images.githubusercontent.com/12204265/48656589-f785b200-ea69-11e8-8278-3cf084ccbd27.png)
 
-## プリザンター クロスプラットフォーム beta 版
-
-プリザンター クロスプラットフォーム beta 版のデバッグへのご協力まことにありがとうございます。  
-本プロダクトは開発途中のものであり、まだ多くの不具合が含まれております。不具合を発見された場合は issue にてお知らせください。  
+## プリザンター クロスプラットフォーム
 
 技術概要資料(PDF)は[こちら](docs/20190308.pdf)です。
 
-## 製品版の README
-製品版（Windows 版）の README は[こちら](https://github.com/Implem/Implem.Pleasanter/blob/master/README.md)です。  
-製品版（Windows 版）のリポジトリは[こちら](https://github.com/Implem/Implem.Pleasanter)です。
+## 従来版の README
+従来版（Windows 版）の README は[こちら](https://github.com/Implem/Implem.Pleasanter/blob/master/README.md)です。  
+従来版（Windows 版）のリポジトリは[こちら](https://github.com/Implem/Implem.Pleasanter)です。
 
 ## ダウンロード
-クロスプラットフォーム beta 版のセットアップモジュールはまだありません。  
+プリザンター クロスプラットフォームのセットアップモジュールはありません。  
 ソースコードからビルドしてください。  
 開発/ビルドは Windows で行います。  
 Linux でビルド/実行する場合は、下記「Linux だけでビルド/実行する」を参照してください。
@@ -150,8 +147,8 @@ python3 /opt/pleasanter-tools/Reminder.py
 
 ## issue を立てる
 
-プリザンター クロスプラットフォーム beta 版のデバッグへのご協力まことにありがとうございます。  
-本プロダクトは開発途中のものであり、まだ多くの不具合が含まれております。不具合を発見された場合は issue にてお知らせください。
+プリザンター クロスプラットフォームのデバッグへのご協力まことにありがとうございます。  
+本プロダクトの不具合を発見された場合は issue にてお知らせください。
 
 ## キャラクター
 HAYATO  

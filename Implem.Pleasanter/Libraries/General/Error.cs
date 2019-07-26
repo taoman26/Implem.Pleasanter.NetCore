@@ -11,6 +11,8 @@ namespace Implem.Pleasanter.Libraries.General
             AlreadyAdded,
             AlreadyLinked,
             ApplicationError,
+            ApprovalMessageInvited,
+            ApprovalMessageInviting,
             Authentication,
             BadFormat,
             BadMailAddress,
@@ -57,6 +59,7 @@ namespace Implem.Pleasanter.Libraries.General
             PasswordPolicyViolation,
             PermissionNotSelfChange,
             RequireMailAddresses,
+            RequireManagePermission,
             RequireTo,
             Restricted,
             SamlLoginFailed,
@@ -94,6 +97,14 @@ namespace Implem.Pleasanter.Libraries.General
                         data: data);
                 case Types.ApplicationError:
                     return Messages.ApplicationError(
+                        context: context,
+                        data: data);
+                case Types.ApprovalMessageInvited:
+                    return Messages.ApprovalMessageInvited(
+                        context: context,
+                        data: data);
+                case Types.ApprovalMessageInviting:
+                    return Messages.ApprovalMessageInviting(
                         context: context,
                         data: data);
                 case Types.Authentication:
@@ -278,6 +289,10 @@ namespace Implem.Pleasanter.Libraries.General
                         data: data);
                 case Types.RequireMailAddresses:
                     return Messages.RequireMailAddresses(
+                        context: context,
+                        data: data);
+                case Types.RequireManagePermission:
+                    return Messages.RequireManagePermission(
                         context: context,
                         data: data);
                 case Types.RequireTo:

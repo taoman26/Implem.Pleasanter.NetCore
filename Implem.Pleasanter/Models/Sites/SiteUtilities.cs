@@ -154,6 +154,7 @@ namespace Implem.Pleasanter.Models
                             ss: ss,
                             gridData: gridData,
                             view: view))
+                .Events("on_grid_load")
                 .ToJson();
         }
 
@@ -347,6 +348,7 @@ namespace Implem.Pleasanter.Models
                 context: context,
                 ss: ss,
                 view: view,
+                tableType: Sqls.TableTypes.Normal,
                 where: Rds.SitesWhere().SiteId(siteId))
                     .DataRows
                     .FirstOrDefault();
@@ -946,6 +948,20 @@ namespace Implem.Pleasanter.Models
                 siteModel.InheritPermission = context.Forms.Long("InheritPermission");
                 ss.InheritPermission = siteModel.InheritPermission;
             }
+            if (context.Forms.Exists("CurrentPermissionsAll"))
+            {
+                if (!new PermissionCollection(
+                    context: context,
+                    referenceId: siteModel.SiteId,
+                    permissions: context.Forms.List("CurrentPermissionsAll"))
+                        .Any(permission =>
+                            permission.PermissionType.HasFlag(
+                                Permissions.Types.ManagePermission
+                                | Permissions.Types.ManageSite)))
+                {
+                    return Messages.ResponseRequireManagePermission(context: context).ToJson();
+                }
+            }
             var errorData = siteModel.Update(
                 context: context,
                 ss: ss,
@@ -1056,6 +1072,8 @@ namespace Implem.Pleasanter.Models
             {
                 siteModel.Comments.Clear();
             }
+            var beforeSiteId = siteModel.SiteId;
+            var beforeInheritPermission = siteModel.InheritPermission;
             var errorData = siteModel.Create(context: context, otherInitValue: true);
             if (siteModel.SiteSettings.Exports?.Any() == true)
             {
@@ -1068,6 +1086,42 @@ namespace Implem.Pleasanter.Models
                         param: Rds.SitesParam()
                             .SiteSettings(siteModel.SiteSettings.RecordingJson(
                                 context: context))));
+            }
+            if (beforeSiteId == beforeInheritPermission)
+            {
+                var dataTable = Rds.ExecuteTable(
+                    context: context,
+                    statements: Rds.SelectPermissions(
+                        column: Rds.PermissionsColumn()
+                            .ReferenceId()
+                            .DeptId()
+                            .GroupId()
+                            .UserId()
+                            .PermissionType(),
+                        where: Rds.PermissionsWhere()
+                            .ReferenceId(beforeSiteId)));
+                var statements = new List<SqlStatement>();
+                dataTable
+                    .AsEnumerable()
+                    .ForEach(dataRow =>
+                        statements.Add(Rds.InsertPermissions(
+                            param: Rds.PermissionsParam()
+                                .ReferenceId(siteModel.SiteId)
+                                .DeptId(dataRow.Long("DeptId"))
+                                .GroupId(dataRow.Long("GroupId"))
+                                .UserId(dataRow.Long("UserId"))
+                                .PermissionType(dataRow.Long("PermissionType")))));
+                statements.Add(
+                    Rds.UpdateSites(
+                        where: Rds.SitesWhere()
+                            .TenantId(context.TenantId)
+                            .SiteId(siteModel.SiteId),
+                        param: Rds.SitesParam()
+                            .InheritPermission(siteModel.SiteId)));
+                Rds.ExecuteNonQuery(
+                    context: context,
+                    transactional: true,
+                    statements: statements.ToArray());
             }
             return errorData.Type.Has()
                 ? errorData.Type.MessageJson(context: context)
@@ -1159,6 +1213,12 @@ namespace Implem.Pleasanter.Models
         public static int Restore(Context context, SiteSettings ss, List<long> selected, bool negative = false)
         {
             var where = Rds.SitesWhere()
+                .TenantId(
+                    value: context.TenantId,
+                    tableName: "Sites_Deleted")
+                .ParentId(
+                    value: ss.SiteId,
+                    tableName: "Sites_Deleted")
                 .SiteId_In(
                     value: selected,
                     tableName: "Sites_Deleted",
@@ -3690,7 +3750,17 @@ namespace Implem.Pleasanter.Models
                         },
                     },
                     selectedValue: ss.GridEditorType.ToInt().ToString(),
-                    insertBlank: true));
+                    insertBlank: true)
+                .FieldCheckBox(
+                    controlId: "HistoryOnGrid",
+                    fieldCss: "field-auto-thin",
+                    labelText: Displays.HistoryOnGrid(context: context),
+                    _checked: ss.HistoryOnGrid == true)
+                .FieldCheckBox(
+                    controlId: "AlwaysRequestSearchCondition",
+                    fieldCss: "field-auto-thin",
+                    labelText: Displays.AlwaysRequestSearchCondition(context: context),
+                    _checked: ss.AlwaysRequestSearchCondition == true));
         }
 
         /// <summary>
@@ -3998,7 +4068,7 @@ namespace Implem.Pleasanter.Models
                          selectedValue: (column.DateFilterSetMode == ColumnUtilities.DateFilterSetMode.Range)
                              ? ColumnUtilities.DateFilterSetMode.Range.ToInt().ToString()
                              : ColumnUtilities.DateFilterSetMode.Default.ToInt().ToString()),
-                    _using: column.TypeName.CsTypeSummary() == Types.CsDateTime)
+                    _using: column.TypeName.CsTypeSummary() == Types.CsDateTime || column.TypeName.CsTypeSummary() == Types.CsNumeric)
                 .FieldSet(
                     id: "FilterColumnSettingField",
                     css: column.DateFilterSetMode == ColumnUtilities.DateFilterSetMode.Default 
@@ -4138,7 +4208,7 @@ namespace Implem.Pleasanter.Models
                                         controlCss: "button-icon",
                                         text: Displays.MoveDown(context: context),
                                         onClick: "$p.moveColumnsById($(this),'AggregationDestination','',false,true);",
-                                        icon: "ui-icon-circle-triangle-n")
+                                        icon: "ui-icon-circle-triangle-s")
                                     .Button(
                                         controlId: "OpenAggregationDetailsDialog",
                                         controlCss: "button-icon open-dialog",
@@ -6012,7 +6082,8 @@ namespace Implem.Pleasanter.Models
                         fieldCss: "field-auto-thin",
                         labelText: Displays.ShowHistory(context: context),
                         _checked: view.ShowHistory == true,
-                        labelPositionIsRight: true)
+                        labelPositionIsRight: true,
+                        _using: ss.HistoryOnGrid == true)
                 .Div(css: "both", action: () => hb
                     .FieldDropDown(
                         context: context,
@@ -6117,19 +6188,34 @@ namespace Implem.Pleasanter.Models
                                 .Id("ViewFilters__" + column.ColumnName)
                                 .Value(value));
                 case Types.CsNumeric:
-                    return hb.FieldDropDown(
-                        context: context,
-                        controlId: controlId,
-                        fieldCss: "field-auto-thin",
-                        controlCss: " auto-postback",
-                        labelText: column.LabelText,
-                        labelTitle: labelTitle,
-                        optionCollection: column.HasChoices()
-                            ? column.EditChoices(context: context)
-                            : column.NumFilterOptions(context: context),
-                        selectedValue: value,
-                        multiple: true,
-                        addSelectedValue: false);
+                    return column.DateFilterSetMode == ColumnUtilities.DateFilterSetMode.Default
+                        ? hb.FieldDropDown(
+                            context: context,
+                            controlId: controlId,
+                            fieldCss: "field-auto-thin",
+                            controlCss: " auto-postback",
+                            labelText: column.LabelText,
+                            labelTitle: labelTitle,
+                            optionCollection: column.HasChoices()
+                                ? column.EditChoices(context: context)
+                                : column.NumFilterOptions(context: context),
+                            selectedValue: value,
+                            multiple: true,
+                            addSelectedValue: false)
+                        : hb.FieldTextBox(
+                            controlId: controlId + "_Display_",
+                            fieldCss: "field-auto-thin",
+                            labelText: column.LabelText,
+                            labelTitle: labelTitle,
+                            text: HtmlViewFilters.GetNumericFilterRange(value),
+                            attributes: new Dictionary<string, string>
+                            {
+                                ["onfocus"] = $"$p.setNumericRangeDialog($(this),'{Displays.NumericRange(context)}','{Displays.Start(context)}'," +
+                                    $"'{Displays.End(context)}','{Displays.OK(context)}','{Displays.Cancel(context)}','{Displays.Clear(context)}','{column.MinNumber()}','{column.MaxNumber()}')"
+                            })
+                            .Hidden(attributes: new HtmlAttributes()
+                                .Id("ViewFilters__" + column.ColumnName)
+                                .Value(value));
                 case Types.CsString:
                     return column.HasChoices()
                         ? hb.FieldDropDown(
@@ -6519,7 +6605,9 @@ namespace Implem.Pleasanter.Models
                     .Th(action: () => hb
                         .Text(text: Displays.Expression(context: context)))
                     .Th(action: () => hb
-                        .Text(text: Displays.AfterCondition(context: context)))));
+                        .Text(text: Displays.AfterCondition(context: context)))
+                    .Th(action: () => hb
+                        .Text(text: Displays.Disabled(context: context)))));
         }
 
         /// <summary>
@@ -6567,7 +6655,11 @@ namespace Implem.Pleasanter.Models
                                     id: notification.Expression.ToString())
                                 : null))
                         .Td(action: () => hb
-                            .Text(text: afterCondition?.Name)));
+                            .Text(text: afterCondition?.Name))
+                        .Td(action: () => hb
+                            .Span(
+                                css: "ui-icon ui-icon-circle-check",
+                                _using: notification.Disabled == true)));
             }));
         }
 
@@ -6656,6 +6748,11 @@ namespace Implem.Pleasanter.Models
                             optionCollection: ss.ViewSelectableOptions(),
                             selectedValue: notification.AfterCondition.ToString(),
                             insertBlank: true))
+                    .FieldCheckBox(
+                        controlId: "NotificationDisabled",
+                        controlCss: " always-send",
+                        labelText: Displays.Disabled(context: context),
+                        _checked: notification.Disabled == true)
                     .FieldSet(
                         css: " enclosed",
                         legendText: Displays.MonitorChangesColumns(context: context),
@@ -6860,7 +6957,9 @@ namespace Implem.Pleasanter.Models
                     .Th(action: () => hb
                         .Text(text: Displays.NotSendIfNotApplicable(context: context)))
                     .Th(action: () => hb
-                        .Text(text: Displays.Condition(context: context)))));
+                        .Text(text: Displays.Condition(context: context)))
+                    .Th(action: () => hb
+                        .Text(text: Displays.Disabled(context: context)))));
         }
 
         /// <summary>
@@ -6917,7 +7016,11 @@ namespace Implem.Pleasanter.Models
                                     css: "ui-icon ui-icon-circle-check",
                                     _using: reminder.NotSendIfNotApplicable == true))
                             .Td(action: () => hb
-                                .Text(text: condition?.Name)));
+                                .Text(text: condition?.Name))
+                            .Td(action: () => hb
+                                .Span(
+                                    css: "ui-icon ui-icon-circle-check",
+                                    _using: reminder.Disabled == true)));
                 }));
         }
 
@@ -7060,6 +7163,11 @@ namespace Implem.Pleasanter.Models
                         selectedValue: reminder.Condition.ToString(),
                         insertBlank: true,
                         _using: conditions?.Any() == true)
+                    .FieldCheckBox(
+                        controlId: "ReminderDisabled",
+                        controlCss: " always-send",
+                        labelText: Displays.Disabled(context: context),
+                        _checked: reminder.Disabled == true)
                     .P(css: "message-dialog")
                     .Div(css: "command-center", action: () => hb
                         .Button(

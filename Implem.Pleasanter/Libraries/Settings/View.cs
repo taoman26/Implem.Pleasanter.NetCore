@@ -343,6 +343,16 @@ namespace Implem.Pleasanter.Libraries.Settings
                                 ShowHistory = Bool(
                                     context: context,
                                     controlId: controlId);
+                                ColumnSorterHash = new Dictionary<string, SqlOrderBy.Types>();
+                                if (ShowHistory == true)
+                                {
+                                    ColumnSorterHash.Add(
+                                        Rds.IdColumn(ss.ReferenceType),
+                                        SqlOrderBy.Types.desc);
+                                    ColumnSorterHash.Add(
+                                        "Ver",
+                                        SqlOrderBy.Types.desc);
+                                }
                                 break;
                             case "ViewFilters_Search":
                                 Search = String(
@@ -781,7 +791,8 @@ namespace Implem.Pleasanter.Libraries.Settings
             Context context,
             SiteSettings ss,
             SqlWhereCollection where = null,
-            bool checkPermission = true)
+            bool checkPermission = true,
+            bool itemJoin = true)
         {
             if (where == null) where = new SqlWhereCollection();
             SetGeneralsWhere(
@@ -795,12 +806,18 @@ namespace Implem.Pleasanter.Libraries.Settings
             SetSearchWhere(
                 context: context,
                 ss: ss,
-                where: where);
+                where: where,
+                itemJoin: itemJoin);
             Permissions.SetCanReadWhere(
                 context: context,
                 ss: ss,
                 where: where,
                 checkPermission: checkPermission);
+            where.OnSelectingWhereExtendedSqls(ss: ss);
+            if (RequestSearchCondition(ss: ss))
+            {
+                where.Add(raw: "(0=1)");
+            }
             return where;
         }
 
@@ -1080,7 +1097,7 @@ namespace Implem.Pleasanter.Libraries.Settings
                     parts.Add(new SqlWhere(
                         tableName: column.TableName(),
                         columnBrackets: ("[" + column.Name + "]").ToSingleArray(),
-                        _operator: "<{0}".Params(to.ToDecimal())));
+                        _operator: "<={0}".Params(to.ToDecimal())));
                 }
                 else if (to == string.Empty)
                 {
@@ -1203,13 +1220,14 @@ namespace Implem.Pleasanter.Libraries.Settings
             {
                 if (!value.IsNullOrEmpty())
                 {
+                    var tableName = column.TableName();
                     var name = Strings.NewGuid();
                     where.SqlWhereLike(
-                        tableName: column.TableName(),
+                        tableName: tableName,
                         name: name,
                         searchText: value,
                         clauseCollection: "([{0}].[{1}] like '%' + @{2}#ParamCount#_#CommandCount# + '%')"
-                            .Params(column.TableName(), column.Name, name)
+                            .Params(tableName, column.Name, name)
                             .ToSingleList());
                 }
             }
@@ -1276,13 +1294,29 @@ namespace Implem.Pleasanter.Libraries.Settings
                 : orderBy;
         }
 
-        private void SetSearchWhere(Context context, SiteSettings ss, SqlWhereCollection where)
+        private void SetSearchWhere(
+            Context context,
+            SiteSettings ss,
+            SqlWhereCollection where,
+            bool itemJoin)
         {
             if (Search.IsNullOrEmpty()) return;
             where.FullTextWhere(
                 ss: ss,
-                tableName: ss.ReferenceType,
-                searchText: Search);
+                searchText: Search,
+                itemJoin: itemJoin);
+        }
+
+        public bool RequestSearchCondition(SiteSettings ss)
+        {
+            return (ss.AlwaysRequestSearchCondition == true)
+                && (Incomplete != true
+                    && Own != true
+                    && NearCompletionTime != true
+                    && Delay != true
+                    && Overdue != true
+                    && ColumnFilterHash?.Any() != true
+                    && Search.IsNullOrEmpty());
         }
     }
 }

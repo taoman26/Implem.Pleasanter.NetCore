@@ -478,6 +478,7 @@ namespace Implem.Pleasanter.Models
                     title: wikiModel.MethodType == BaseModel.MethodTypes.New
                         ? Displays.New(context: context)
                         : wikiModel.Title.DisplayValue,
+                    body: wikiModel.Body,
                     useTitle: ss.TitleColumns?.Any(o => ss.EditorColumns.Contains(o)) == true,
                     userScript: ss.EditorScripts(
                         context: context, methodType: wikiModel.MethodType),
@@ -488,9 +489,6 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: ss,
                             wikiModel: wikiModel)
-                        .Hidden(controlId: "TableName", value: "Wikis")
-                        .Hidden(controlId: "Controller", value: context.Controller)
-                        .Hidden(controlId: "Id", value: wikiModel.WikiId.ToString())
                         .Hidden(controlId: "TriggerRelatingColumns", value: Jsons.ToJson(ss.RelatingColumns))
                         .Hidden(controlId: "DropDownSearchPageSize", value: Parameters.General.DropDownSearchPageSize.ToString()))
                             .ToString();
@@ -1124,22 +1122,44 @@ namespace Implem.Pleasanter.Models
                     sub: Rds.SelectWikis(
                         tableType: Sqls.TableTypes.Deleted,
                         column: Rds.WikisColumn().WikiId(),
-                        where: Views.GetBySession(context: context, ss: ss).Where(context: context, ss: ss)));
+                        where: Views.GetBySession(
+                            context: context,
+                            ss: ss)
+                                .Where(
+                                    context: context,
+                                    ss: ss,
+                                    itemJoin: false)));
+            var sub = Rds.SelectWikis(
+                tableType: Sqls.TableTypes.Deleted,
+                _as: "Wikis_Deleted",
+                column: Rds.WikisColumn()
+                    .WikiId(tableName: "Wikis_Deleted"),
+                where: where);
+            var guid = Strings.NewGuid();
             return Rds.ExecuteScalar_response(
                 context: context,
                 connectionString: Parameters.Rds.OwnerConnectionString,
                 transactional: true,
                 statements: new SqlStatement[]
                 {
-                    Rds.RestoreItems(where: Rds.ItemsWhere().ReferenceId_In(sub:
-                        Rds.SelectWikis(
-                            tableType: Sqls.TableTypes.Deleted,
-                            _as: "Wikis_Deleted",
-                            column: Rds.WikisColumn()
-                                .WikiId(tableName: "Wikis_Deleted"),
-                            where: where))),
+                    Rds.UpdateItems(
+                        tableType: Sqls.TableTypes.Deleted,
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceId_In(sub: sub),
+                        param: Rds.ItemsParam()
+                            .ReferenceType(guid)),
                     Rds.RestoreWikis(where: where),
-                    Rds.RowCount()
+                    Rds.RowCount(),
+                    Rds.RestoreItems(where: Rds.ItemsWhere()
+                        .SiteId(ss.SiteId)
+                        .ReferenceType(guid)),
+                    Rds.UpdateItems(
+                        where: Rds.ItemsWhere()
+                            .SiteId(ss.SiteId)
+                            .ReferenceType(guid),
+                        param: Rds.ItemsParam()
+                            .ReferenceType(ss.ReferenceType))
                 }).Count.ToInt();
         }
 
@@ -1306,7 +1326,18 @@ namespace Implem.Pleasanter.Models
             wikiModel.VerType = context.Forms.Bool("Latest")
                 ? Versions.VerTypes.Latest
                 : Versions.VerTypes.History;
-            return EditorResponse(context, ss, wikiModel).ToJson();
+            return EditorResponse(context, ss, wikiModel)
+                .PushState("History", Locations.Get(
+                    context: context,
+                    parts: new string[]
+                    {
+                        "Items",
+                        wikiId.ToString() 
+                            + (wikiModel.VerType == Versions.VerTypes.History
+                                ? "?ver=" + context.Forms.Int("Ver") 
+                                : string.Empty)
+                    }))
+                .ToJson();
         }
 
         public static string DeleteHistory(Context context, SiteSettings ss, long wikiId)

@@ -57,5 +57,16 @@ namespace Implem.Pleasanter.NetCore.Controllers.Api
             var result = controller.Delete(context: context, id: id);
             return result.ToHttpResponse(request: Request);
         }
+
+        [HttpPost("{id}/Export")]
+        public ContentResult Export(long id)
+        {
+            var body = default(string);
+            using (var reader = new StreamReader(Request.Body)) body = reader.ReadToEnd();
+            var context = new ContextImplement(sessionStatus: false, sessionData: false, apiRequestBody: body);
+            var controller = new Implem.Pleasanter.Controllers.Api.ItemsController();
+            var result = controller.Export(context: context, id: id);
+            return result.ToHttpResponse(request: Request);
+        }
     }
 }

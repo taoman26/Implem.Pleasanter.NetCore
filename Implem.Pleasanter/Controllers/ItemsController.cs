@@ -255,6 +255,14 @@ namespace Implem.Pleasanter.Controllers
             return json;
         }
 
+        public string OpenSetNumericRangeDialog(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var json = new ItemModel(context: context, referenceId: id).OpenSetNumericRangeDialog(context: context);
+            log.Finish(context: context, responseSize: json.Length);
+            return json;
+        }
+
         public FileContentResult Export(Context context, long id)
         {
             var log = new SysLogModel(context: context);
@@ -802,6 +810,17 @@ namespace Implem.Pleasanter.Controllers
                 context: context,
                 responseSize: json.Length);
             return json;
+        }
+
+        public ContentResult Get(Context context, long id)
+        {
+            var log = new SysLogModel(context: context);
+            var result = new ItemModel(context: context, referenceId: id)
+                .GetByApi(
+                    context: context,
+                    internalRequest: true);
+            log.Finish(context: context, responseSize: result.Content.Length);
+            return result;
         }
     }
 }

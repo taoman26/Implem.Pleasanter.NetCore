@@ -140,6 +140,39 @@ namespace Implem.Pleasanter.Models
             return this;
         }
 
+        public System.Web.Mvc.ContentResult ExportByApi(Context context)
+        {
+            SetSite(context: context);
+            switch (Site.ReferenceType)
+            {
+                case "Issues":
+                    if (SiteId == ReferenceId)
+                    {
+                        return IssueUtilities.ExportByApi(
+                            context: context,
+                            ss: Site.IssuesSiteSettings(
+                                context: context,
+                                referenceId: ReferenceId),
+                            siteModel: Site);
+                    }
+                    break;
+                case "Results":
+                    if (SiteId == ReferenceId)
+                    {
+                        return ResultUtilities.ExportByApi(
+                            context: context,
+                            ss: Site.ResultsSiteSettings(
+                                context: context,
+                                referenceId: ReferenceId),
+                            siteModel: Site);
+                    }
+                    break;
+                default:
+                    return ApiResults.Get(ApiResponses.BadRequest(context: context));
+            }
+            return ApiResults.Get(ApiResponses.BadRequest(context: context));
+        }
+
         public string Index(Context context)
         {
             if (ReferenceId == 0)
@@ -808,6 +841,34 @@ namespace Implem.Pleasanter.Models
             }
         }
 
+        public string OpenSetNumericRangeDialog(Context context)
+        {
+            SetSite(
+                context: context,
+                initSiteSettings: true);
+            if (context.CanRead(Site.SiteSettings))
+            {
+                var columnName = context.Forms.ControlId()
+                    .Replace("ViewFilters__", string.Empty)
+                    .Replace("_Display_", string.Empty);
+                var column = Site.SiteSettings.GetColumn(
+                    context: context,
+                    columnName: columnName);
+                return new ResponseCollection()
+                    .Html(
+                        "#SetNumericRangeDialog",
+                        new HtmlBuilder().SetNumericRangeDialog(
+                            context: context,
+                            ss: Site.SiteSettings,
+                            column: column))
+                    .ToJson();
+            }
+            else
+            {
+                return Messages.ResponseNotFound(context: context).ToJson();
+            }
+        }
+
         public ResponseFile Export(Context context)
         {
             SetSite(context: context);
@@ -820,7 +881,7 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             referenceId: ReferenceId,
                             setSiteIntegration: true,
-                            setAllChoices: true),
+                            setAllChoices: false),
                         siteModel: Site);
                 case "Results":
                     return ResultUtilities.Export(
@@ -829,7 +890,7 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             referenceId: ReferenceId,
                             setSiteIntegration: true,
-                            setAllChoices: true),
+                            setAllChoices: false),
                         siteModel: Site);
                 default:
                     return null;
@@ -919,7 +980,7 @@ namespace Implem.Pleasanter.Models
                     .SelectableItems(
                         listItemCollection: column?.EditChoices(
                             context: context,
-                            addNotSet: nextOffset == -1)))
+                            addNotSet: offset == 0)))
                 .Val("#DropDownSearchResultsOffset", nextOffset)
                 .ToJson();
         }
@@ -1033,7 +1094,8 @@ namespace Implem.Pleasanter.Models
                         searchIndexes: searchIndexes,
                         offset: offset,
                         parentClass: parentClass,
-                        parentId: parentId),
+                        parentId: parentId,
+                        setTotalCount: true),
                     searchIndexes: searchIndexes);
             }
             else
@@ -1041,7 +1103,8 @@ namespace Implem.Pleasanter.Models
                 ss.SetChoiceHash(
                     context: context,
                     columnName: column?.ColumnName,
-                    searchIndexes: searchIndexes);
+                    searchIndexes: searchIndexes,
+                    setTotalCount: true);
             }
             return column;
         }
@@ -1241,7 +1304,7 @@ namespace Implem.Pleasanter.Models
             }
         }
 
-        public System.Web.Mvc.ContentResult GetByApi(Context context)
+        public System.Web.Mvc.ContentResult GetByApi(Context context, bool internalRequest = false)
         {
             SetSite(context: context);
             switch (Site.ReferenceType)
@@ -1253,7 +1316,8 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: Site.IssuesSiteSettings(
                                 context: context,
-                                referenceId: ReferenceId));
+                                referenceId: ReferenceId),
+                            internalRequest: internalRequest);
                     }
                     else
                     {
@@ -1262,7 +1326,8 @@ namespace Implem.Pleasanter.Models
                             ss: Site.IssuesSiteSettings(
                                 context: context,
                                 referenceId: ReferenceId),
-                            issueId: ReferenceId);
+                            issueId: ReferenceId,
+                            internalRequest: internalRequest);
                     }
                 case "Results":
                     if (SiteId == ReferenceId)
@@ -1271,7 +1336,8 @@ namespace Implem.Pleasanter.Models
                             context: context,
                             ss: Site.ResultsSiteSettings(
                                 context: context,
-                                referenceId: ReferenceId));
+                                referenceId: ReferenceId),
+                            internalRequest: internalRequest);
                     }
                     else
                     {
@@ -1280,7 +1346,8 @@ namespace Implem.Pleasanter.Models
                             ss: Site.ResultsSiteSettings(
                                 context: context,
                                 referenceId: ReferenceId),
-                            resultId: ReferenceId);
+                            resultId: ReferenceId,
+                            internalRequest: internalRequest);
                     }
                 default:
                     return ApiResults.Get(ApiResponses.BadRequest(context: context));

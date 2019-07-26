@@ -420,7 +420,7 @@ namespace Implem.Pleasanter.Models
                             .TenantId(context.TenantId)
                             .UserId(_operator: ">0")
                             .SqlWhereLike(
-                                tableName: null,
+                                tableName: "Users",
                                 name: "SearchText",
                                 searchText: searchText,
                                 clauseCollection: new List<string>()
