@@ -5638,6 +5638,16 @@ namespace Implem.Pleasanter.Libraries.Responses
                 data: data);
         }
 
+        public static string Mediline(
+            Context context,
+            params string[] data)
+        {
+            return Get(
+                context: context,
+                id: "Mediline",
+                data: data);
+        }
+
         public static string Target(
             Context context,
             params string[] data)

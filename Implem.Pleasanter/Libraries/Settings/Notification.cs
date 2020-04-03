@@ -37,7 +37,8 @@ namespace Implem.Pleasanter.Libraries.Settings
             ChatWork = 3,
             Line = 4,
             LineGroup = 5,
-            Teams = 6
+            Teams = 6,
+	        Mediline = 7
         }
 
         public enum Expressions : int
@@ -114,6 +115,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public void Send(Context context, SiteSettings ss, string title, string url, string body)
         {
+            url = url.Replace("http://192.168.0.103","https://taoman.mydns.jp");
             if (Disabled == true)
             {
                 return;
@@ -179,6 +181,14 @@ namespace Implem.Pleasanter.Libraries.Settings
                     if (Parameters.Notification.Teams)
                     {
                         new Teams(context,
+                            "*{0}{1}*\n{2}\n{3}".Params(Prefix, title, url, body))
+                                .Send(Address);
+                    }
+                    break;
+		        case Types.Mediline:
+                    if (Parameters.Notification.Mediline)
+                    {
+                        new Mediline(context,
                             "*{0}{1}*\n{2}\n{3}".Params(Prefix, title, url, body))
                                 .Send(Address);
                     }

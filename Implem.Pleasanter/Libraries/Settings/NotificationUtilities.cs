@@ -45,6 +45,12 @@ namespace Implem.Pleasanter.Libraries.Settings
                     Notification.Types.Teams.ToInt().ToString(),
                     Displays.Teams(context: context));
             }
+	        if (Parameters.Notification.Mediline)
+            {
+                notificationType.Add(
+                    Notification.Types.Mediline.ToInt().ToString(),
+                    Displays.Mediline(context: context));
+            }
 
             return notificationType;
         }
