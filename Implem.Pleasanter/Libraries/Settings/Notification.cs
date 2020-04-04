@@ -115,7 +115,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public void Send(Context context, SiteSettings ss, string title, string url, string body)
         {
-            url = url.Replace("http://192.168.0.103","https://taoman.mydns.jp");
+            url = url.Replace("http","https");
             if (Disabled == true)
             {
                 return;
