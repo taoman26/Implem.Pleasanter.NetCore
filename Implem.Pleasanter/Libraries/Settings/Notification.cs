@@ -38,7 +38,7 @@ namespace Implem.Pleasanter.Libraries.Settings
             Line = 4,
             LineGroup = 5,
             Teams = 6,
-	        Mediline = 7
+            Mediline = 7
         }
 
         public enum Expressions : int
@@ -115,7 +115,7 @@ namespace Implem.Pleasanter.Libraries.Settings
 
         public void Send(Context context, SiteSettings ss, string title, string url, string body)
         {
-            url = url.Replace("http","https");
+            // url = url.Replace("http","https");
             if (Disabled == true)
             {
                 return;
