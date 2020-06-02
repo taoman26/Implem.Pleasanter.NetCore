@@ -3,6 +3,7 @@ using Implem.Pleasanter.Models;
 using System;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Text;
 using System.Threading.Tasks;
 namespace Implem.Pleasanter.Libraries.DataSources
@@ -26,9 +27,11 @@ namespace Implem.Pleasanter.Libraries.DataSources
                 {
                     try
                     {
+                        /// Sort out the SSL/TLS error.
+                        ServicePointManager.ServerCertificateValidationCallback += (Send, ValidateRemoteCertificate, chain, sslPolicyErrors) => { return true; };
+
                         using (var client = new WebClient())
                         {
-
                             string json = Newtonsoft.Json.JsonConvert.SerializeObject(new { message });
                             client.Headers[HttpRequestHeader.ContentType] = "application/json;charset=UTF-8";
                             client.Headers[HttpRequestHeader.Accept] = "application/json";
